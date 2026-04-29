@@ -17,7 +17,7 @@ use crate::{
 /// Action returned by the calendar picker after handling a key event.
 pub enum CalendarAction {
     /// User confirmed; carries the selected date (None = clear date).
-    Confirm { date: Option<Date> },
+    Confirm(Option<Date>),
     /// User cancelled without confirming.
     Cancel,
     /// No state change occurred.
@@ -59,7 +59,7 @@ impl CalendarState {
     /// Handles a key event and returns the resulting calendar action.
     pub fn handle(&mut self, key: KeyEvent) -> CalendarAction {
         match key.code {
-            KeyCode::Char('x') => return CalendarAction::Confirm { date: None },
+            KeyCode::Char('x') => return CalendarAction::Confirm(None),
             KeyCode::Char('t') => self.navigate(Some(today())),
             KeyCode::Char('y') => self.navigate(today().previous_day()),
             KeyCode::Char('n') => self.navigate(today().next_day()),
@@ -69,11 +69,7 @@ impl CalendarState {
             KeyCode::Char('j') | KeyCode::Down => self.navigate(self.props.date.checked_add(Duration::weeks(1))),
             KeyCode::Char('H') => self.navigate(Some(shift_month(self.props.date, -1))),
             KeyCode::Char('L') => self.navigate(Some(shift_month(self.props.date, 1))),
-            KeyCode::Enter => {
-                return CalendarAction::Confirm {
-                    date: Some(self.props.date),
-                };
-            }
+            KeyCode::Enter => return CalendarAction::Confirm(Some(self.props.date)),
             KeyCode::Esc => return CalendarAction::Cancel,
             _ => {}
         }

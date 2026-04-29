@@ -87,7 +87,7 @@ impl InputState {
     pub fn handle(&mut self, key: KeyEvent) -> InputAction {
         if let Some(cal) = &mut self.calendar_state {
             match cal.handle(key) {
-                CalendarAction::Confirm { date } => {
+                CalendarAction::Confirm(date) => {
                     self.props.date = date.map(|d| now().replace_date(d));
                     self.calendar_state = None;
                 }
