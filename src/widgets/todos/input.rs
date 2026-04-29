@@ -222,6 +222,9 @@ impl Widget for &InputWidget<'_> {
             .border_style(Style::default().fg(COLOR));
         let repeat_inner = repeat_block.inner(repeat_area);
         repeat_block.render(repeat_area, buf);
-        Paragraph::new(repeat_str).fg(COLOR).centered().render(repeat_inner, buf);
+        Paragraph::new(repeat_str)
+            .fg(COLOR)
+            .centered()
+            .render(repeat_inner, buf);
     }
 }

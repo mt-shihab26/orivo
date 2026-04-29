@@ -69,7 +69,11 @@ impl CalendarState {
             KeyCode::Char('j') | KeyCode::Down => self.navigate(self.props.date.checked_add(Duration::weeks(1))),
             KeyCode::Char('H') => self.navigate(Some(shift_month(self.props.date, -1))),
             KeyCode::Char('L') => self.navigate(Some(shift_month(self.props.date, 1))),
-            KeyCode::Enter => return CalendarAction::Confirm { date: Some(self.props.date) },
+            KeyCode::Enter => {
+                return CalendarAction::Confirm {
+                    date: Some(self.props.date),
+                };
+            }
             KeyCode::Esc => return CalendarAction::Cancel,
             _ => {}
         }
@@ -114,12 +118,8 @@ impl Widget for &CalendarWidget<'_> {
         let mut events = CalendarEventStore::today(Style::default().fg(Color::Yellow).bold());
         events.add(self.props.date, Style::default().bg(COLOR).fg(Color::Black));
 
-        let [action_hint, cal_area, nav_hint] = Layout::vertical([
-            Constraint::Length(5),
-            Constraint::Length(10),
-            Constraint::Length(5),
-        ])
-        .areas(inner);
+        let [action_hint, cal_area, nav_hint] =
+            Layout::vertical([Constraint::Length(5), Constraint::Length(10), Constraint::Length(5)]).areas(inner);
 
         Paragraph::new(
             "[x]No Date\n\
