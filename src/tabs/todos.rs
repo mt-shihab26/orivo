@@ -260,6 +260,7 @@ impl Tab for TodosTab {
                     if let Some(input_state) = &self.input_state {
                         InputWidget::new(input_state.props()).render(bottom_rect, buf);
                         input_state.render_calendar(area, buf);
+                        input_state.render_repeat(area, buf);
                     }
                 }
                 TodosMode::Searching => {

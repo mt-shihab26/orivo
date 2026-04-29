@@ -77,7 +77,11 @@ impl Todo {
             return None;
         };
 
-        let next_date = repeat.next_date(due_date.date());
+        let mut next_date = repeat.next_date(due_date.date());
+        let today_date = today();
+        while next_date <= today_date {
+            next_date = repeat.next_date(next_date);
+        }
         let next_date_str = format_date(next_date);
         let parent_id = self.id;
 

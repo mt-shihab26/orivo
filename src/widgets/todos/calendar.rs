@@ -10,17 +10,14 @@ use ratatui::{
 use time::{Date, Duration};
 
 use crate::{
-    kinds::repeat::Repeat,
     tabs::todos::COLOR,
     utils::date::{shift_month, today},
 };
 
-use super::repeat::{RepeatAction, RepeatProps, RepeatState, RepeatWidget};
-
 /// Action returned by the calendar picker after handling a key event.
 pub enum CalendarAction {
-    /// User confirmed; carries the selected date and optional repeat rule.
-    Confirm { date: Option<Date>, repeat: Option<Repeat> },
+    /// User confirmed; carries the selected date (None = clear date).
+    Confirm(Option<Date>),
     /// User cancelled without confirming.
     Cancel,
     /// No state change occurred.
@@ -31,19 +28,13 @@ pub enum CalendarAction {
 pub struct CalendarProps {
     /// Currently highlighted date in the calendar.
     date: Date,
-    /// Optional repeat rule attached to the todo.
-    repeat: Option<Repeat>,
-    /// Active repeat-picker sub-state when the repeat overlay is open.
-    repeat_state: Option<RepeatState>,
 }
 
 impl CalendarProps {
-    /// Creates new calendar props from an optional existing date and repeat rule.
-    pub fn new(date: Option<Date>, repeat: Option<&Repeat>) -> Self {
+    /// Creates new calendar props from an optional existing date.
+    pub fn new(date: Option<Date>) -> Self {
         Self {
             date: date.unwrap_or_else(today),
-            repeat: repeat.map(Repeat::of),
-            repeat_state: None,
         }
     }
 }
@@ -67,26 +58,8 @@ impl CalendarState {
 
     /// Handles a key event and returns the resulting calendar action.
     pub fn handle(&mut self, key: KeyEvent) -> CalendarAction {
-        if let Some(ref mut repeat_picker) = self.props.repeat_state {
-            match repeat_picker.handle(key) {
-                RepeatAction::Confirm(repeat) => {
-                    self.props.repeat = repeat;
-                    self.props.repeat_state = None;
-                    return CalendarAction::Confirm {
-                        date: Some(self.props.date),
-                        repeat: self.props.repeat.as_ref().map(Repeat::of),
-                    };
-                }
-                RepeatAction::Cancel => {
-                    self.props.repeat_state = None;
-                }
-                RepeatAction::None => {}
-            }
-            return CalendarAction::None;
-        }
-
         match key.code {
-            KeyCode::Char('x') => self.navigate(None),
+            KeyCode::Char('x') => return CalendarAction::Confirm(None),
             KeyCode::Char('t') => self.navigate(Some(today())),
             KeyCode::Char('y') => self.navigate(today().previous_day()),
             KeyCode::Char('n') => self.navigate(today().next_day()),
@@ -96,18 +69,8 @@ impl CalendarState {
             KeyCode::Char('j') | KeyCode::Down => self.navigate(self.props.date.checked_add(Duration::weeks(1))),
             KeyCode::Char('H') => self.navigate(Some(shift_month(self.props.date, -1))),
             KeyCode::Char('L') => self.navigate(Some(shift_month(self.props.date, 1))),
-            KeyCode::Char('r') => {
-                self.props.repeat_state = Some(RepeatState::new(RepeatProps::new(self.props.repeat.as_ref())));
-            }
-            KeyCode::Enter => {
-                return CalendarAction::Confirm {
-                    date: Some(self.props.date),
-                    repeat: None,
-                };
-            }
-            KeyCode::Esc => {
-                return CalendarAction::Cancel;
-            }
+            KeyCode::Enter => return CalendarAction::Confirm(Some(self.props.date)),
+            KeyCode::Esc => return CalendarAction::Cancel,
             _ => {}
         }
         CalendarAction::None
@@ -135,9 +98,9 @@ impl<'a> CalendarWidget<'a> {
 }
 
 impl Widget for &CalendarWidget<'_> {
-    /// Renders the calendar popup (or repeat sub-picker) into the buffer.
+    /// Renders the calendar date-picker popup into the buffer.
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let popup = centered_rect(area, 24, 5 + 10 + 3 + 5);
+        let popup = centered_rect(area, 24, 5 + 10 + 5);
 
         Clear.render(popup, buf);
 
@@ -151,18 +114,8 @@ impl Widget for &CalendarWidget<'_> {
         let mut events = CalendarEventStore::today(Style::default().fg(Color::Yellow).bold());
         events.add(self.props.date, Style::default().bg(COLOR).fg(Color::Black));
 
-        if let Some(repeat_state) = &self.props.repeat_state {
-            RepeatWidget::new(repeat_state.props()).render(inner, buf);
-            return;
-        }
-
-        let [action_hint, cal_area, action_hint2, nav_hint] = Layout::vertical([
-            Constraint::Length(5),
-            Constraint::Length(10),
-            Constraint::Length(3),
-            Constraint::Length(5),
-        ])
-        .areas(inner);
+        let [action_hint, cal_area, nav_hint] =
+            Layout::vertical([Constraint::Length(5), Constraint::Length(10), Constraint::Length(5)]).areas(inner);
 
         Paragraph::new(
             "[x]No Date\n\
@@ -181,14 +134,6 @@ impl Widget for &CalendarWidget<'_> {
             .show_month_header(Style::default().bold())
             .show_weekdays_header(Style::default().fg(Color::DarkGray))
             .render(cal_area, buf);
-
-        Paragraph::new("[r]Repeat\n")
-            .block(
-                Block::default()
-                    .borders(Borders::TOP | Borders::BOTTOM)
-                    .border_style(Style::default().fg(COLOR)),
-            )
-            .render(action_hint2, buf);
 
         Paragraph::new(
             "[h/l]Day\n\
