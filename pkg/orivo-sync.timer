@@ -1,0 +1,11 @@
+[Unit]
+Description=Run orivo sync every hour
+Documentation=https://github.com/mt-shihab26/orivo
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

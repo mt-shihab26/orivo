@@ -1,0 +1,9 @@
+[Unit]
+Description=Sync orivo data with GitHub
+Documentation=https://github.com/mt-shihab26/orivo
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/orivo sync

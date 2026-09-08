@@ -120,6 +120,16 @@ The first run creates a private repo under your GitHub account (named `orivo-dat
 
 See [`docs/sync.md`](docs/sync.md) for the full mechanics (change detection, push/pull, conflict handling, error cases).
 
+### Automatic sync
+
+The Arch package installs a `orivo-sync.timer` user unit that runs `orivo sync` once an hour. Enable it with:
+
+```sh
+$ systemctl --user enable --now orivo-sync.timer
+```
+
+If both sides have changed since the last sync when the timer fires, `orivo sync` has no terminal to prompt on, so it just cancels that run instead of guessing — nothing is overwritten. Run `orivo sync` yourself to resolve it.
+
 ## Development
 
 ```sh

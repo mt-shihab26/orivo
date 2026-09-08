@@ -159,6 +159,37 @@ just pressing enter) cancels the sync with no changes made on either side. There
 automatic merge — the database is a single opaque binary blob, so "merging" isn't meaningful;
 one side has to be chosen to fully overwrite the other.
 
+When `orivo sync` runs with no terminal attached (e.g. from the systemd timer below),
+`io::stdin().read_line()` just reads EOF, `answer.trim()` comes back empty, and that falls
+into the same "anything else" branch — the sync is cancelled, nothing gets overwritten. A
+conflict is never resolved automatically in either direction; it always needs an interactive
+`orivo sync` run.
+
+## Running automatically: the systemd timer
+
+The Arch package (`pkg/PKGBUILD`) installs two **user** systemd units, vendored directly
+alongside `PKGBUILD` (not fetched from a GitHub release, since they're packaging metadata
+rather than build output):
+
+- `pkg/orivo-sync.service` → `/usr/lib/systemd/user/orivo-sync.service` — a oneshot unit that
+  runs `orivo sync`.
+- `pkg/orivo-sync.timer` → `/usr/lib/systemd/user/orivo-sync.timer` — fires it `OnCalendar=hourly`,
+  with `RandomizedDelaySec=5m` (spreads out load rather than every install syncing at exactly
+  `:00`) and `Persistent=true` (a run missed while the machine was off/asleep fires shortly
+  after boot instead of waiting for the next hour).
+
+These are **user** units (`/usr/lib/systemd/user/`, not `/usr/lib/systemd/system/`) because
+`orivo sync` depends on per-user state: the `gh` CLI's own credentials (from `gh auth login`)
+and orivo's database live under the invoking user's home directory, not anywhere a system
+service could reach without extra configuration. Enable per-user with:
+
+```sh
+$ systemctl --user enable --now orivo-sync.timer
+```
+
+Not enabled by default — installing the package only makes the unit available, exactly like
+any other systemd unit shipped by a package.
+
 ## Terminal output
 
 Every step prints as it happens (rather than staying silent until the end), so a slow network
