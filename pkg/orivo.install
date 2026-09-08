@@ -1,0 +1,15 @@
+post_install() {
+    # Enables the user unit for every user on the system (not just the one running the
+    # install), since pacman hooks run as root with no single "the user" to target — the
+    # systemd-native way to do that is `--global`, which just symlinks the unit under
+    # /etc/systemd/user/ rather than requiring a live user session.
+    systemctl --global enable orivo-sync.timer >/dev/null 2>&1 || true
+}
+
+post_upgrade() {
+    post_install
+}
+
+pre_remove() {
+    systemctl --global disable orivo-sync.timer >/dev/null 2>&1 || true
+}

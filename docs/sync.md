@@ -181,14 +181,29 @@ rather than build output):
 These are **user** units (`/usr/lib/systemd/user/`, not `/usr/lib/systemd/system/`) because
 `orivo sync` depends on per-user state: the `gh` CLI's own credentials (from `gh auth login`)
 and orivo's database live under the invoking user's home directory, not anywhere a system
-service could reach without extra configuration. Enable per-user with:
+service could reach without extra configuration.
+
+### Enabled automatically on install
+
+`pkg/orivo.install`'s `post_install`/`post_upgrade` hooks run:
 
 ```sh
-$ systemctl --user enable --now orivo-sync.timer
+systemctl --global enable orivo-sync.timer
 ```
 
-Not enabled by default — installing the package only makes the unit available, exactly like
-any other systemd unit shipped by a package.
+`--global` is what makes this work from a pacman hook at all: pacman hooks run as root during
+installation, with no single logged-in user to target, and there's no guarantee any user has
+an active systemd `--user` session at that point for a plain `systemctl --user enable` to
+reach. `--global` instead symlinks the unit under `/etc/systemd/user/timers.target.wants/`,
+which is a pure filesystem change — it enables the timer for every user on the system as soon
+as their session starts, without needing one running right now. `pre_remove` undoes it with
+`systemctl --global disable orivo-sync.timer` on package removal.
+
+To opt out, disable it per-user:
+
+```sh
+$ systemctl --user disable --now orivo-sync.timer
+```
 
 ## Terminal output
 

@@ -8,6 +8,7 @@ url="https://github.com/mt-shihab26/orivo"
 license=('MIT')
 depends=('sqlite' 'alsa-lib' 'gcc-libs')
 options=('!strip' '!debug')
+install=orivo.install
 
 _base="https://github.com/mt-shihab26/orivo/releases/download/v$pkgver"
 
@@ -19,8 +20,8 @@ source_aarch64=("orivo-v$pkgver-linux-aarch64::$_base/orivo-v$pkgver-linux-aarch
 sha256sums=('4a3d287c9308636fb243c9785a195a800c577b49f44ef658ff4c61143be313a1'
             'fc4896283c369009fa10a5d7d6f43e7bb406b7ec471db7cff509669ba61ff1d0'
             '27174eda039a68a18fa6e8df9981b44e381fbd85d88d2c6c62505766eff60671'
-            'SKIP'
-            'SKIP')
+            'fca39e51cd5100d657e5d157a075cf0d3bc0a8bdb76cde2994eb599a54fac4dd'
+            '21769b2ec4220550fa21b8c71f2584adf672dfba757d62823076f16e53714c2c')
 sha256sums_x86_64=('16d9836253e405cd177d161c91596054c501845ffb62a18bf6fb65f060509992')
 sha256sums_aarch64=('0b85bc4b31bee6c3baf509d788a2af3c2ff1678a26a85e442222191929bf8447')
 
