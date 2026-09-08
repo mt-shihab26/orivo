@@ -12,8 +12,8 @@ use crate::{
     config::Config,
     utils::{
         date::{format_datetime, now},
+        gh,
         path::{db_path, sync_dir, sync_state_path},
-        sync::{gh, repo},
     },
 };
 
@@ -52,22 +52,33 @@ impl SyncState {
 /// pushes if this machine has changes the repo doesn't have, does nothing if neither changed,
 /// or asks which side to keep if both did.
 pub fn run_sync() -> Result<()> {
+    println!("checking github CLI sign-in...");
     if !gh::is_authenticated() {
         return Err(io_err(
-            "not signed in to the GitHub CLI; run `gh auth login` first",
+            "not signed in to the github CLI; run `gh auth login` first",
         ));
     }
 
     let config = Config::load()?;
     let repo_name = gh::ensure_repo(config.sync.repo_name())?;
     let dir = sync_dir();
-    repo::ensure_clone(&dir, &repo_name)?;
-    let branch = repo::current_branch(&dir)?;
+    gh::ensure_clone(&dir, &repo_name)?;
+    let branch = gh::current_branch(&dir)?;
 
+    println!("comparing local database with github...");
     let local_gz = gzip(&fs::read(db_path())?)?;
     let local_hash = hash(&local_gz);
 
-    let remote_gz = repo::read_remote_file(&dir, &branch);
+    let remote_gz = gh::read_remote_file(&dir, &branch);
+
+    // Nothing has ever been pushed to this repo — there's no remote data to lose, so push
+    // unconditionally instead of falling through to the conflict check below (a stale local
+    // `SyncState` from an earlier failed sync would otherwise look like a real conflict here).
+    if remote_gz.is_none() {
+        println!("repo on github is empty — pushing");
+        return push(&dir, &branch, local_gz, local_hash);
+    }
+
     let remote_hash = remote_gz.as_deref().map(hash);
 
     let state = SyncState::load();
@@ -78,11 +89,17 @@ pub fn run_sync() -> Result<()> {
 
     match (local_changed, remote_changed) {
         (false, false) => {
-            println!("already up to date");
+            println!("nothing changed since the last sync, already up to date");
             Ok(())
         }
-        (true, false) => push(&dir, &branch, local_gz, local_hash),
-        (false, true) => pull(remote_gz, remote_hash),
+        (true, false) => {
+            println!("local database changed, github did not — pushing");
+            push(&dir, &branch, local_gz, local_hash)
+        }
+        (false, true) => {
+            println!("database on github changed, local did not — pulling");
+            pull(remote_gz, remote_hash)
+        }
         (true, true) => {
             resolve_conflict(&dir, &branch, local_gz, local_hash, remote_gz, remote_hash)
         }
@@ -99,8 +116,8 @@ fn resolve_conflict(
     remote_gz: Option<Vec<u8>>,
     remote_hash: Option<String>,
 ) -> Result<()> {
-    println!("both the local database and the GitHub repo have changed since the last sync.");
-    print!("Keep [l]ocal (push, overwriting the repo) or [r]emote (pull, overwriting local)? ");
+    println!("both the local database and the github repo have changed since the last sync.");
+    print!("keep [l]ocal (push, overwriting the repo) or [r]emote (pull, overwriting local)? ");
     io::stdout().flush()?;
 
     let mut answer = String::new();
@@ -120,18 +137,19 @@ fn resolve_conflict(
 /// snapshot in place, then records the new hash as synced.
 fn push(dir: &Path, branch: &str, gz: Vec<u8>, hash: String) -> Result<()> {
     let message = format!("sync: {}", format_datetime(now()));
-    repo::commit_and_push(dir, branch, &gz, &message)?;
+    gh::commit_and_push(dir, branch, &gz, &message)?;
 
     let mut state = SyncState::load();
     state.last_synced_hash = Some(hash);
     state.save();
 
-    println!("pushed local changes to GitHub");
+    println!("pushed local changes to github");
     Ok(())
 }
 
 /// Overwrites the local database with the sync repo's copy, then records its hash as synced.
 fn pull(gz: Option<Vec<u8>>, hash: Option<String>) -> Result<()> {
+    println!("restoring database from github...");
     let gz = gz.ok_or_else(|| io_err("the sync repo's database file is missing"))?;
     let raw = gunzip(&gz)?;
 
@@ -144,7 +162,7 @@ fn pull(gz: Option<Vec<u8>>, hash: Option<String>) -> Result<()> {
     state.last_synced_hash = hash;
     state.save();
 
-    println!("pulled latest data from GitHub");
+    println!("pulled latest data from github");
     Ok(())
 }
 

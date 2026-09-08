@@ -1,5 +1,5 @@
 <p>
-  <img src="orivo.svg" width="120" alt="orivo logo"/>
+  <img src="pkg/orivo.svg" width="120" alt="orivo logo"/>
 </p>
 
 # orivo
@@ -22,11 +22,11 @@ A terminal-based (TUI) Todos + Pomodoro timer written in [Rust](https://www.rust
 
 ```sh
 git clone --depth 1 https://github.com/mt-shihab26/orivo.git /tmp/orivo
-cd /tmp/orivo
+cd /tmp/orivo/pkg
 makepkg -si
 ```
 
-Installs the AUR package (see [`PKGBUILD`](PKGBUILD)), which places `orivo` on `/usr/bin` and registers a desktop entry that launches it via `omarchy-launch-terminal` — so it opens in whatever terminal you've configured as default.
+Installs the AUR package (see [`PKGBUILD`](pkg/PKGBUILD)), which places `orivo` on `/usr/bin` and registers a desktop entry that launches it via `omarchy-launch-terminal` — so it opens in whatever terminal you've configured as default.
 
 Usage (app launcher):
 
@@ -117,6 +117,18 @@ $ orivo sync
 ```
 
 The first run creates a private repo under your GitHub account (named `orivo-data` by default — see `[sync] repo_name` in Configuration) via `gh repo create`, and uploads the database to it. Later runs compare the local database and the repo against the last synced snapshot: pulls if only the repo changed (e.g. you synced from another machine), pushes if only the local database changed, does nothing if neither did, and asks which side to keep if both did.
+
+See [`docs/sync.md`](docs/sync.md) for the full mechanics (change detection, push/pull, conflict handling, error cases).
+
+### Automatic sync
+
+The Arch package installs a `orivo-sync.timer` user unit that runs `orivo sync` once an hour, and enables it automatically on install (no manual `systemctl` step needed) via a `systemctl --global enable` in the package's post-install hook. Disable it if you'd rather sync manually:
+
+```sh
+$ systemctl --user disable --now orivo-sync.timer
+```
+
+If both sides have changed since the last sync when the timer fires, `orivo sync` has no terminal to prompt on, so it just cancels that run instead of guessing — nothing is overwritten. Run `orivo sync` yourself to resolve it.
 
 ## Development
 

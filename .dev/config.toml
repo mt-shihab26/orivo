@@ -13,4 +13,4 @@ daily_session_goal  = 16      # target work sessions to complete today (min: 1, 
 
 # `orivo sync` settings — see the Sync section below.
 [sync]
-repo_name = "orivo-data" # name of the GitHub repo (under your account) synced with
+repo_name = "orivo-data-dev" # name of the GitHub repo (under your account) synced with
