@@ -201,6 +201,14 @@ jobs:
       - name: Update PKGBUILD checksums and .SRCINFO
         run: |
           chown -R builder:builder "$GITHUB_WORKSPACE"
+
+          # updpkgsums only recomputes checksums for whatever pkgver is already in PKGBUILD —
+          # it doesn't know about the tag that triggered this workflow, so pkgver has to be
+          # bumped to match first or it'd happily hash a stale, already-released version.
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -i "s/^pkgver=.*/pkgver=$VERSION/" "$GITHUB_WORKSPACE/pkg/PKGBUILD"
+          sed -i "s/^pkgrel=.*/pkgrel=1/" "$GITHUB_WORKSPACE/pkg/PKGBUILD"
+
           sudo -u builder bash -c "cd '$GITHUB_WORKSPACE/pkg' && updpkgsums && makepkg --printsrcinfo > .SRCINFO"
 
       - name: Commit and push
@@ -211,7 +219,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add pkg/PKGBUILD pkg/.SRCINFO
           if ! git diff --cached --quiet; then
-            git commit -m "chore: update AUR checksums for ${GITHUB_REF_NAME}"
+            git commit -m "chore: bump PKGBUILD to ${GITHUB_REF_NAME} and update checksums"
             git push origin HEAD:main
           fi
 
