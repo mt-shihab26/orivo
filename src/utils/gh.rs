@@ -5,9 +5,6 @@ use std::{
     process::Command,
 };
 
-/// Fixed name of the synced database blob inside the sync repo.
-const FILE_NAME: &str = "orivo.sqlite.gz";
-
 /// Returns whether the `gh` CLI is installed and signed in to a GitHub account.
 pub fn is_authenticated() -> bool {
     Command::new("gh")
@@ -90,43 +87,32 @@ pub fn current_branch(dir: &Path) -> Result<String> {
 
 /// Reads the sync file's bytes as committed on `origin/<branch>`, or `None` if it doesn't
 /// exist yet (e.g. nothing has been pushed to the repo before).
-pub fn read_remote_file(dir: &Path, branch: &str) -> Option<Vec<u8>> {
+pub fn read_remote_file(dir: &Path, branch: &str, file_name: &str) -> Option<Vec<u8>> {
     Command::new("git")
         .arg("-C")
         .arg(dir)
-        .args(["show", &format!("origin/{branch}:{FILE_NAME}")])
+        .args(["show", &format!("origin/{branch}:{file_name}")])
         .output()
         .ok()
         .filter(|output| output.status.success())
         .map(|output| output.stdout)
 }
 
-/// Writes `bytes` as the sync file and pushes it to `branch`, overwriting the repo's
-/// previous snapshot in place: subsequent syncs amend and force-push the same single commit
-/// rather than growing the repo's history forever.
-pub fn commit_and_push(dir: &Path, branch: &str, bytes: &[u8], message: &str) -> Result<()> {
-    fs::write(dir.join(FILE_NAME), bytes)?;
-    run_git(dir, &["add", FILE_NAME])?;
-
-    let has_commit = run_git(dir, &["rev-parse", "--verify", "-q", "HEAD"]).is_ok();
-    if has_commit {
-        run_git(dir, &["commit", "--amend", "-m", message])?;
-    } else {
-        run_git(dir, &["commit", "-m", message])?;
-    }
+/// Writes `bytes` as the sync file and pushes it to `branch`, adding a new commit each time
+/// so the repo keeps full sync history.
+pub fn commit_and_push(
+    dir: &Path,
+    branch: &str,
+    bytes: &[u8],
+    message: &str,
+    file_name: &str,
+) -> Result<()> {
+    fs::write(dir.join(file_name), bytes)?;
+    run_git(dir, &["add", file_name])?;
+    run_git(dir, &["commit", "-m", message])?;
 
     println!("pushing to github...");
-
-    // Plain `--force` rather than `--force-with-lease`: the lease compares against the local
-    // `refs/remotes/origin/<branch>` tracking ref, which is easy to end up stale (e.g. it
-    // doesn't exist at all before this branch has ever been fetched) and then rejects a push
-    // that's perfectly safe. The actual "is this safe to overwrite" check already happened one
-    // layer up, in `run_sync`'s content-hash comparison against `SyncState` — by the time this
-    // runs, we've already established the remote is safe to overwrite.
-    run_git(
-        dir,
-        &["push", "--force", "-u", "origin", &format!("HEAD:{branch}")],
-    )?;
+    run_git(dir, &["push", "-u", "origin", &format!("HEAD:{branch}")])?;
 
     Ok(())
 }

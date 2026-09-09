@@ -69,14 +69,15 @@ pub fn run_sync() -> Result<()> {
     let local_gz = gzip(&fs::read(db_path())?)?;
     let local_hash = hash(&local_gz);
 
-    let remote_gz = gh::read_remote_file(&dir, &branch);
+    let file_name = config.sync.file_name();
+    let remote_gz = gh::read_remote_file(&dir, &branch, file_name);
 
     // Nothing has ever been pushed to this repo — there's no remote data to lose, so push
     // unconditionally instead of falling through to the conflict check below (a stale local
     // `SyncState` from an earlier failed sync would otherwise look like a real conflict here).
     if remote_gz.is_none() {
         println!("repo on github is empty — pushing");
-        return push(&dir, &branch, local_gz, local_hash);
+        return push(&dir, &branch, local_gz, local_hash, file_name);
     }
 
     let remote_hash = remote_gz.as_deref().map(hash);
@@ -94,15 +95,21 @@ pub fn run_sync() -> Result<()> {
         }
         (true, false) => {
             println!("local database changed, github did not — pushing");
-            push(&dir, &branch, local_gz, local_hash)
+            push(&dir, &branch, local_gz, local_hash, file_name)
         }
         (false, true) => {
             println!("database on github changed, local did not — pulling");
             pull(remote_gz, remote_hash)
         }
-        (true, true) => {
-            resolve_conflict(&dir, &branch, local_gz, local_hash, remote_gz, remote_hash)
-        }
+        (true, true) => resolve_conflict(
+            &dir,
+            &branch,
+            local_gz,
+            local_hash,
+            remote_gz,
+            remote_hash,
+            file_name,
+        ),
     }
 }
 
@@ -115,6 +122,7 @@ fn resolve_conflict(
     local_hash: String,
     remote_gz: Option<Vec<u8>>,
     remote_hash: Option<String>,
+    file_name: &str,
 ) -> Result<()> {
     println!("both the local database and the github repo have changed since the last sync.");
     print!("keep [l]ocal (push, overwriting the repo) or [r]emote (pull, overwriting local)? ");
@@ -124,7 +132,7 @@ fn resolve_conflict(
     io::stdin().read_line(&mut answer)?;
 
     match answer.trim().to_lowercase().as_str() {
-        "l" | "local" => push(dir, branch, local_gz, local_hash),
+        "l" | "local" => push(dir, branch, local_gz, local_hash, file_name),
         "r" | "remote" => pull(remote_gz, remote_hash),
         _ => {
             println!("sync cancelled");
@@ -133,11 +141,11 @@ fn resolve_conflict(
     }
 }
 
-/// Commits and force-pushes the local database to the sync repo, overwriting its previous
-/// snapshot in place, then records the new hash as synced.
-fn push(dir: &Path, branch: &str, gz: Vec<u8>, hash: String) -> Result<()> {
+/// Commits and pushes the local database to the sync repo as a new commit, then records the
+/// new hash as synced.
+fn push(dir: &Path, branch: &str, gz: Vec<u8>, hash: String, file_name: &str) -> Result<()> {
     let message = format!("sync: {}", format_datetime(now()));
-    gh::commit_and_push(dir, branch, &gz, &message)?;
+    gh::commit_and_push(dir, branch, &gz, &message, file_name)?;
 
     let mut state = SyncState::load();
     state.last_synced_hash = Some(hash);
