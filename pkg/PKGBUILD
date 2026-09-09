@@ -1,6 +1,6 @@
 # Maintainer: Shihab Mahamud <mt.shihab26@gmail.com>
 pkgname=orivo
-pkgver=0.5.1
+pkgver=0.5.2
 pkgrel=1
 pkgdesc="A terminal-based (TUI) Todos + Pomodoro timer written in Rust"
 arch=('x86_64' 'aarch64')
@@ -22,8 +22,8 @@ sha256sums=('4a3d287c9308636fb243c9785a195a800c577b49f44ef658ff4c61143be313a1'
             '27174eda039a68a18fa6e8df9981b44e381fbd85d88d2c6c62505766eff60671'
             'fca39e51cd5100d657e5d157a075cf0d3bc0a8bdb76cde2994eb599a54fac4dd'
             '21769b2ec4220550fa21b8c71f2584adf672dfba757d62823076f16e53714c2c')
-sha256sums_x86_64=('516e34917de7cc17420a3d6a2d32145210cf8c17fe3aa1fdea9e3d06291e24b2')
-sha256sums_aarch64=('f7fa8c5ae7f7e517fd5b70d8e8b89cdc33fd9b7baf707d79bf44666f4b7b9c6c')
+sha256sums_x86_64=('7018b347171e3ad3b77f0720a2a15ff468cc1faff4c044641ca44b6a89b58d51')
+sha256sums_aarch64=('67ba86ccc387ab39d52c699d83986e25de9c6335d4899aca5df337e07211c2b2')
 
 # orivo-sync.{service,timer} are vendored alongside PKGBUILD (not fetched from the release)
 # since they're packaging metadata, not build artifacts.
