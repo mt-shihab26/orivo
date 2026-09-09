@@ -35,7 +35,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Cargo.toml Cargo.lock
           if ! git diff --cached --quiet; then
-            git commit -m "bump version to ${GITHUB_REF_NAME#v}"
+            git commit --author="${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>" -m "bump version to ${GITHUB_REF_NAME#v}"
             git push origin HEAD:main
           fi
 
@@ -104,18 +104,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: main
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-
-      - name: Set Cargo version to match tag
-        shell: bash
-        run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          sed -i "0,/^version = \".*\"\$/s//version = \"$TAG_VERSION\"/" Cargo.toml
-          cargo update -p orivo --precise "$TAG_VERSION"
 
       - name: Cache Cargo registry
         uses: actions/cache@v5
@@ -171,16 +166,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: main
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Set Cargo version to match tag
-        shell: bash
-        run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          sed -i "0,/^version = \".*\"\$/s//version = \"$TAG_VERSION\"/" Cargo.toml
-          cargo update -p orivo --precise "$TAG_VERSION"
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libasound2-dev
@@ -274,6 +264,6 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add pkg/PKGBUILD pkg/.SRCINFO
           if ! git diff --cached --quiet; then
-            git commit -m "chore: bump PKGBUILD to ${GITHUB_REF_NAME} and update checksums"
+            git commit --author="${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>" -m "chore: bump PKGBUILD to ${GITHUB_REF_NAME} and update checksums"
             git push origin HEAD:main
           fi
