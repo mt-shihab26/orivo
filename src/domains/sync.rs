@@ -181,10 +181,27 @@ fn gzip(data: &[u8]) -> Result<Vec<u8>> {
     encoder.finish()
 }
 
-/// Decompresses gzip-compressed `data`.
+/// Largest database `gunzip` will expand to. A gzip stream can expand by
+/// ~1000x, so decompressing the repo's blob unbounded lets a malformed or
+/// tampered-with file exhaust memory before anything checks it.
+const MAX_DB_BYTES: u64 = 512 * 1024 * 1024;
+
+/// Decompresses gzip-compressed `data`, refusing anything over `MAX_DB_BYTES`.
 fn gunzip(data: &[u8]) -> Result<Vec<u8>> {
     let mut out = Vec::new();
-    GzDecoder::new(data).read_to_end(&mut out)?;
+    // Read one byte past the cap so a file sitting exactly on it still fails
+    // rather than being silently truncated into a corrupt database.
+    GzDecoder::new(data)
+        .take(MAX_DB_BYTES + 1)
+        .read_to_end(&mut out)?;
+
+    if out.len() as u64 > MAX_DB_BYTES {
+        return Err(io_err(format!(
+            "the sync repo's database expands to more than {} MiB; refusing to unpack it",
+            MAX_DB_BYTES / 1024 / 1024
+        )));
+    }
+
     Ok(out)
 }
 

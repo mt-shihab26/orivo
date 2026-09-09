@@ -72,7 +72,10 @@ pub fn spawn(state: Arc<Mutex<TimerState>>) {
 
     // Belt and suspenders: also restrict the socket file itself.
     if let Err(e) = fs::set_permissions(&path, fs::Permissions::from_mode(0o600)) {
-        log_warn!("ipc worker: failed to restrict permissions on {}: {e}", path.display());
+        log_warn!(
+            "ipc worker: failed to restrict permissions on {}: {e}",
+            path.display()
+        );
     }
 
     thread::spawn(move || {
