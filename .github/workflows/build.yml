@@ -9,8 +9,39 @@ permissions:
   contents: write
 
 jobs:
+  bump-version:
+    name: Bump Version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set Cargo version to match tag
+        shell: bash
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          sed -i "0,/^version = \".*\"\$/s//version = \"$TAG_VERSION\"/" Cargo.toml
+          cargo update --offline -p orivo --precise "$TAG_VERSION"
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Cargo.toml Cargo.lock
+          if ! git diff --cached --quiet; then
+            git commit -m "bump version to ${GITHUB_REF_NAME#v}"
+            git push origin HEAD:main
+          fi
+
   build:
     name: Build ${{ matrix.target }}
+    needs: bump-version
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -133,9 +164,44 @@ jobs:
           name: orivo-${{ matrix.os_tag }}-${{ matrix.arch_tag }}
           path: ${{ env.BINARY_ASSET }}
 
+  publish:
+    name: Publish to crates.io
+    needs: bump-version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set Cargo version to match tag
+        shell: bash
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          sed -i "0,/^version = \".*\"\$/s//version = \"$TAG_VERSION\"/" Cargo.toml
+          cargo update --offline -p orivo --precise "$TAG_VERSION"
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libasound2-dev
+
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set +e
+          output=$(cargo publish 2>&1)
+          status=$?
+          echo "$output"
+          if [ $status -ne 0 ] && echo "$output" | grep -q "already exists on crates.io index"; then
+            echo "Version already published — treating as success."
+            exit 0
+          fi
+          exit $status
+
   release:
     name: Create or Update GitHub Release
-    needs: build
+    needs: [build, publish]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -173,40 +239,9 @@ jobs:
             dist/orivo.svg \
             --clobber
 
-  bump-version:
-    name: Bump Cargo version on main
-    needs: release
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Bump Cargo.toml and Cargo.lock to release version
-        shell: bash
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          sed -i "0,/^version = \".*\"\$/s//version = \"$VERSION\"/" Cargo.toml
-          cargo update --offline -p orivo --precise "$VERSION"
-
-      - name: Commit and push
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Cargo.toml Cargo.lock
-          if ! git diff --cached --quiet; then
-            git commit -m "bump version to ${GITHUB_REF_NAME#v}"
-            git push origin HEAD:main
-          fi
-
   aur:
     name: Update AUR checksums
-    needs: [release, bump-version]
+    needs: release
     runs-on: ubuntu-latest
     container: archlinux:latest
     steps:
@@ -246,37 +281,3 @@ jobs:
             git commit -m "chore: bump PKGBUILD to ${GITHUB_REF_NAME} and update checksums"
             git push origin HEAD:main
           fi
-
-  publish:
-    name: Publish to crates.io
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Set Cargo version to match tag
-        shell: bash
-        run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          sed -i "0,/^version = \".*\"\$/s//version = \"$TAG_VERSION\"/" Cargo.toml
-          cargo update --offline -p orivo --precise "$TAG_VERSION"
-
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libasound2-dev
-
-      - name: Publish to crates.io
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: |
-          set +e
-          output=$(cargo publish 2>&1)
-          status=$?
-          echo "$output"
-          if [ $status -ne 0 ] && echo "$output" | grep -q "already exists on crates.io index"; then
-            echo "Version already published — treating as success."
-            exit 0
-          fi
-          exit $status
