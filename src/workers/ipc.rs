@@ -1,7 +1,10 @@
 use std::{
     fs,
     io::Write,
-    os::unix::net::{UnixListener, UnixStream},
+    os::unix::{
+        fs::PermissionsExt,
+        net::{UnixListener, UnixStream},
+    },
     sync::{Arc, Mutex},
     thread,
 };
@@ -33,6 +36,12 @@ pub fn spawn(state: Arc<Mutex<TimerState>>) {
             return;
         }
     };
+
+    // Restrict the socket to the owning user — it's created with the
+    // process umask otherwise, which typically leaves it world-readable.
+    if let Err(e) = fs::set_permissions(&path, fs::Permissions::from_mode(0o600)) {
+        log_warn!("ipc worker: failed to restrict permissions on {}: {e}", path.display());
+    }
 
     thread::spawn(move || {
         for stream in listener.incoming() {
