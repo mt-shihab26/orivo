@@ -79,19 +79,12 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Verify Cargo version matches tag
+      - name: Set Cargo version to match tag
         shell: bash
         run: |
-          CARGO_VERSION=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
           TAG_VERSION="${GITHUB_REF_NAME#v}"
-          [ -n "$CARGO_VERSION" ] || {
-            echo "Failed to read version from Cargo.toml" >&2
-            exit 1
-          }
-          [ "$CARGO_VERSION" = "$TAG_VERSION" ] || {
-            echo "Tag ${GITHUB_REF_NAME} does not match Cargo.toml version ${CARGO_VERSION}" >&2
-            exit 1
-          }
+          sed -i "0,/^version = \".*\"\$/s//version = \"$TAG_VERSION\"/" Cargo.toml
+          cargo update --offline -p orivo --precise "$TAG_VERSION"
 
       - name: Cache Cargo registry
         uses: actions/cache@v5
@@ -180,9 +173,40 @@ jobs:
             dist/orivo.svg \
             --clobber
 
+  bump-version:
+    name: Bump Cargo version on main
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Bump Cargo.toml and Cargo.lock to release version
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -i "0,/^version = \".*\"\$/s//version = \"$VERSION\"/" Cargo.toml
+          cargo update --offline -p orivo --precise "$VERSION"
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Cargo.toml Cargo.lock
+          if ! git diff --cached --quiet; then
+            git commit -m "bump version to ${GITHUB_REF_NAME#v}"
+            git push origin HEAD:main
+          fi
+
   aur:
     name: Update AUR checksums
-    needs: release
+    needs: [release, bump-version]
     runs-on: ubuntu-latest
     container: archlinux:latest
     steps:
@@ -232,6 +256,13 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Set Cargo version to match tag
+        shell: bash
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          sed -i "0,/^version = \".*\"\$/s//version = \"$TAG_VERSION\"/" Cargo.toml
+          cargo update --offline -p orivo --precise "$TAG_VERSION"
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libasound2-dev
