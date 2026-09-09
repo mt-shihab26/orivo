@@ -27,7 +27,7 @@ jobs:
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           sed -i "0,/^version = \".*\"\$/s//version = \"$TAG_VERSION\"/" Cargo.toml
-          cargo update --offline -p orivo --precise "$TAG_VERSION"
+          cargo update -p orivo --precise "$TAG_VERSION"
 
       - name: Commit and push
         run: |
@@ -115,7 +115,7 @@ jobs:
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           sed -i "0,/^version = \".*\"\$/s//version = \"$TAG_VERSION\"/" Cargo.toml
-          cargo update --offline -p orivo --precise "$TAG_VERSION"
+          cargo update -p orivo --precise "$TAG_VERSION"
 
       - name: Cache Cargo registry
         uses: actions/cache@v5
@@ -180,7 +180,7 @@ jobs:
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           sed -i "0,/^version = \".*\"\$/s//version = \"$TAG_VERSION\"/" Cargo.toml
-          cargo update --offline -p orivo --precise "$TAG_VERSION"
+          cargo update -p orivo --precise "$TAG_VERSION"
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libasound2-dev
