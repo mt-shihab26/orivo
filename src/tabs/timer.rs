@@ -40,7 +40,7 @@ use crate::{
             todo_show::{TodoShowProps, TodoShowWidget},
         },
     },
-    workers::timer::spawn,
+    workers::{ipc, timer::spawn},
 };
 
 use super::Tab;
@@ -77,6 +77,8 @@ impl TimerTab {
             Arc::clone(&cache),
             store,
         );
+
+        ipc::spawn(Arc::clone(&state));
 
         Self {
             count,

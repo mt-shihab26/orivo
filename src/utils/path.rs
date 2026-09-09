@@ -20,6 +20,13 @@ pub fn store_path() -> PathBuf {
     state_base_path().join("store.json")
 }
 
+/// Returns the path to the Unix domain socket that exposes live timer state
+/// (including `is_running`, which is never persisted to `store.json`) to
+/// external tools such as bar widgets.
+pub fn ipc_socket_path() -> PathBuf {
+    state_base_path().join("orivo.sock")
+}
+
 /// Returns the path to the persisted sync state file (hash of the database as of the last
 /// successful `orivo sync`).
 pub fn sync_state_path() -> PathBuf {
