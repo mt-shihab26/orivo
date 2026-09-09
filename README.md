@@ -122,7 +122,7 @@ See [`docs/sync.md`](docs/sync.md) for the full mechanics (change detection, pus
 
 ### Automatic sync
 
-The Arch package installs a `orivo-sync.timer` user unit that runs `orivo sync` once an hour, and enables it automatically on install (no manual `systemctl` step needed) via a `systemctl --global enable` in the package's post-install hook. Disable it if you'd rather sync manually:
+The Arch package installs a `orivo-sync.timer` user unit that runs `orivo sync` once an hour, and enables and starts it automatically on install (no manual `systemctl` step needed) via the package's post-install hook. Disable it if you'd rather sync manually:
 
 ```sh
 $ systemctl --user disable --now orivo-sync.timer

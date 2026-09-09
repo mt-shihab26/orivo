@@ -4,6 +4,21 @@ post_install() {
     # systemd-native way to do that is `--global`, which just symlinks the unit under
     # /etc/systemd/user/ rather than requiring a live user session.
     systemctl --global enable orivo-sync.timer >/dev/null 2>&1 || true
+
+    # `--global` only manages that symlink and has no runtime component, so it never starts
+    # the timer — without this it would sit enabled-but-inactive until the user's next login.
+    # Best-effort start it now for whoever is actually running the install: makepkg/AUR helpers
+    # invoke pacman via sudo, so $SUDO_USER identifies them (falling back to `logname` for a
+    # direct root install). Only other logged-in users are left for their next login to pick up.
+    local user
+    user="${SUDO_USER:-$(logname 2>/dev/null || true)}"
+    if [ -n "$user" ]; then
+        local uid
+        uid=$(id -u "$user" 2>/dev/null) || uid=""
+        if [ -n "$uid" ] && [ -S "/run/user/$uid/bus" ]; then
+            sudo -u "$user" XDG_RUNTIME_DIR="/run/user/$uid" systemctl --user start orivo-sync.timer >/dev/null 2>&1 || true
+        fi
+    fi
 }
 
 post_upgrade() {

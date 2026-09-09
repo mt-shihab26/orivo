@@ -199,6 +199,15 @@ which is a pure filesystem change — it enables the timer for every user on the
 as their session starts, without needing one running right now. `pre_remove` undoes it with
 `systemctl --global disable orivo-sync.timer` on package removal.
 
+`--global` only manages that symlink, though — it has no runtime component and can't start the
+timer, so on its own the timer would sit enabled-but-inactive until the next login. `post_install`
+also best-effort starts it immediately for whoever is actually running the install:
+`makepkg -si` and AUR helpers invoke pacman via `sudo`, so `$SUDO_USER` identifies that user
+(falling back to `logname` for a direct root install); if their systemd `--user` session is
+already up (`/run/user/<uid>/bus` exists), `sudo -u "$user" systemctl --user start` starts the
+timer in it. Any other already-logged-in users still just get it on their next login, same as
+before.
+
 To opt out, disable it per-user:
 
 ```sh
