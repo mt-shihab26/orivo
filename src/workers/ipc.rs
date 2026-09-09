@@ -2,7 +2,7 @@ use std::{
     fs,
     io::Write,
     os::unix::{
-        fs::PermissionsExt,
+        fs::{FileTypeExt, PermissionsExt},
         net::{UnixListener, UnixStream},
     },
     sync::{Arc, Mutex},
@@ -25,9 +25,42 @@ pub fn spawn(state: Arc<Mutex<TimerState>>) {
 
     if let Some(parent) = path.parent() {
         let _ = fs::create_dir_all(parent);
+        // Restrict the whole state directory to the owning user. This is
+        // also what closes the socket's own creation race below: bind()
+        // creates the socket file at the umask-derived mode before we get
+        // a chance to chmod it, but a non-traversable parent means no
+        // other local account can reach it during that window anyway. It
+        // additionally locks down orivo.sqlite/store.json/orivo.log,
+        // which were already world-readable before the IPC worker existed.
+        let _ = fs::set_permissions(parent, fs::Permissions::from_mode(0o700));
     }
-    // Remove a stale socket left behind by a previous unclean shutdown.
-    let _ = fs::remove_file(&path);
+    // Never take the socket away from an instance that is still serving it:
+    // binding over a live socket leaves the first instance with a listener
+    // nobody can reach. Connecting is the only way to tell a live socket from
+    // one a crashed process left behind — they look identical on disk.
+    if UnixStream::connect(&path).is_ok() {
+        log_warn!(
+            "ipc worker: another orivo instance already serves {}; skipping IPC",
+            path.display()
+        );
+        return;
+    }
+
+    // Nothing is listening, so clear the stale entry — but only when it really
+    // is a socket, rather than deleting an unrelated file that sits there.
+    match fs::symlink_metadata(&path) {
+        Ok(meta) if meta.file_type().is_socket() => {
+            let _ = fs::remove_file(&path);
+        }
+        Ok(_) => {
+            log_error!(
+                "ipc worker: {} exists and is not a socket; refusing to replace it",
+                path.display()
+            );
+            return;
+        }
+        Err(_) => {}
+    }
 
     let listener = match UnixListener::bind(&path) {
         Ok(listener) => listener,
@@ -37,8 +70,7 @@ pub fn spawn(state: Arc<Mutex<TimerState>>) {
         }
     };
 
-    // Restrict the socket to the owning user — it's created with the
-    // process umask otherwise, which typically leaves it world-readable.
+    // Belt and suspenders: also restrict the socket file itself.
     if let Err(e) = fs::set_permissions(&path, fs::Permissions::from_mode(0o600)) {
         log_warn!("ipc worker: failed to restrict permissions on {}: {e}", path.display());
     }
@@ -72,6 +104,7 @@ fn handle_connection(mut stream: UnixStream, state: &Arc<Mutex<TimerState>>) {
             "is_running": state.is_running(),
             "remaining_millis": state.current_millis(),
             "todo_id": state.todo_id(),
+            "todo_text": state.todo_text(),
             "sessions_today": state.sessions_count(),
             "daily_session_goal": state.daily_session_goal(),
         })

@@ -130,18 +130,24 @@ impl TimerTab {
 
     /// Opens the todo picker, loading todos and stats from the cache.
     fn open_picker(&mut self) {
+        // Read everything that needs the state lock before taking the cache
+        // lock. Every other path (timer worker, IPC worker) locks state then
+        // cache, so acquiring them the other way round here is an ABBA
+        // deadlock that would freeze the whole TUI.
+        let selected_id = self.state.lock().ok().and_then(|s| s.todo_id());
+        let color = self.color();
+
         if let Ok(mut cache) = self.cache.lock() {
             let due_todos = cache.get_due_todos().to_vec();
             let due_stats = cache.get_due_stats().to_vec();
             let todos = cache.get_todos().to_vec();
             let stats = cache.get_stats().to_vec();
-            let selected_id = self.state.lock().ok().and_then(|s| s.todo_id());
             self.picker = Some(TodoPickerState::new(TodoPickerProps::new(
                 due_todos,
                 due_stats,
                 todos,
                 stats,
-                self.color(),
+                color,
                 selected_id,
             )));
         }
