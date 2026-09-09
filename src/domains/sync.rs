@@ -102,7 +102,13 @@ pub fn run_sync() -> Result<()> {
             pull(remote_gz, remote_hash)
         }
         (true, true) => resolve_conflict(
-            &dir, &branch, local_gz, local_hash, remote_gz, remote_hash, file_name,
+            &dir,
+            &branch,
+            local_gz,
+            local_hash,
+            remote_gz,
+            remote_hash,
+            file_name,
         ),
     }
 }
