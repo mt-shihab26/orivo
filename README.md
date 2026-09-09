@@ -26,7 +26,7 @@ cd /tmp/orivo/pkg
 makepkg -si
 ```
 
-Installs the AUR package (see [`PKGBUILD`](pkg/PKGBUILD)), which places `orivo` on `/usr/bin` and registers a desktop entry that launches it via `omarchy-launch-terminal` — so it opens in whatever terminal you've configured as default.
+Installs the AUR package (see [`PKGBUILD`](pkg/PKGBUILD)), which places `orivo` on `/usr/bin`, registers a desktop entry that launches it via `omarchy-launch-terminal` — so it opens in whatever terminal you've configured as default — and ships an `orivo-sync.timer` user unit that's enabled automatically on install to run `orivo sync` hourly (see [Automatic sync](#automatic-sync)).
 
 Usage (app launcher):
 
@@ -39,7 +39,7 @@ Usage (terminal):
 $ orivo
 ```
 
-Uninstall:
+Uninstall (also disables the `orivo-sync.timer` unit):
 
 ```sh
 omarchy pkg drop orivo
@@ -122,7 +122,7 @@ See [`docs/sync.md`](docs/sync.md) for the full mechanics (change detection, pus
 
 ### Automatic sync
 
-The Arch package installs a `orivo-sync.timer` user unit that runs `orivo sync` once an hour, and enables it automatically on install (no manual `systemctl` step needed) via a `systemctl --global enable` in the package's post-install hook. Disable it if you'd rather sync manually:
+The Arch package installs a `orivo-sync.timer` user unit that runs `orivo sync` once an hour, and enables and starts it automatically on install (no manual `systemctl` step needed) via the package's post-install hook. Disable it if you'd rather sync manually:
 
 ```sh
 $ systemctl --user disable --now orivo-sync.timer
