@@ -35,7 +35,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Cargo.toml Cargo.lock
           if ! git diff --cached --quiet; then
-            git commit -m "bump version to ${GITHUB_REF_NAME#v}"
+            git commit --author="${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>" -m "bump version to ${GITHUB_REF_NAME#v}"
             git push origin HEAD:main
           fi
 
@@ -264,6 +264,6 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add pkg/PKGBUILD pkg/.SRCINFO
           if ! git diff --cached --quiet; then
-            git commit -m "chore: bump PKGBUILD to ${GITHUB_REF_NAME} and update checksums"
+            git commit --author="${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>" -m "chore: bump PKGBUILD to ${GITHUB_REF_NAME} and update checksums"
             git push origin HEAD:main
           fi
