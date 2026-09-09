@@ -1,9 +1,9 @@
 # How `orivo sync` works
 
 `orivo sync` keeps the local SQLite database (todos + pomodoro sessions) in sync with a
-private GitHub repo, WhatsApp-style: a single gzip-compressed snapshot, overwritten in place
-each time. It shells out to the [GitHub CLI](https://cli.github.com) (`gh`) and `git` rather
-than talking to any API directly.
+private GitHub repo: a gzip-compressed snapshot, committed anew each sync so the repo keeps
+full history. It shells out to the [GitHub CLI](https://cli.github.com) (`gh`) and `git`
+rather than talking to any API directly.
 
 This doc describes the current implementation. Source: `src/domains/sync.rs` (orchestration),
 `src/utils/gh.rs` (`gh`/`git` process wrappers), `src/config/sync.rs` (config), `src/cmds/sync.rs`
@@ -25,13 +25,16 @@ Only the database file (`db_path()` — `orivo.sqlite`). Nothing else: `config.t
 
 ```toml
 [sync]
-repo_name = "orivo-data" # name of the GitHub repo (under your account) synced with
+repo_name = "orivo-data"      # name of the GitHub repo (under your account) synced with
+file_name = "orivo.sqlite.gz" # name of the synced database blob inside that repo
 ```
 
 `repo_name` (`src/config/sync.rs`) defaults to `"orivo-data"` in release builds and
 `"orivo-data-dev"` in debug builds, so a local `cargo run sync` during development can never
 touch the same repo a real install would use. It's always created/looked up under the
 signed-in `gh` user's own account — there's no way to point it at someone else's repo.
+
+`file_name` defaults to `"orivo.sqlite.gz"` and is the same in release and debug builds.
 
 ## Where things live on disk
 
@@ -50,13 +53,11 @@ repo/database again.
 - Named `owner/<repo_name>` — created via `gh repo create <name> --private` the first time
   `orivo sync` runs and the repo doesn't already exist (checked with `gh repo view`).
 - Always **private**.
-- Holds exactly one file: `orivo.sqlite.gz` (the database, gzip-compressed).
-- **No real commit history.** Every sync amends the previous commit and force-pushes over it
-  (`git commit --amend` + `git push --force`), rather than adding a new commit each time. The
-  repo is a single overwritten snapshot, not a version history — this mirrors WhatsApp/Drive
-  -style backups and keeps the repo from growing forever from repeated full-database uploads.
-  (See [Why a plain `--force` push](#why-a-plain---force-push) for why it's not
-  `--force-with-lease`.)
+- Holds exactly one file: `orivo.sqlite.gz` by default (configurable via `[sync] file_name`,
+  the database, gzip-compressed).
+- **Full commit history.** Every push is a new commit (`git commit` + `git push`), so the repo
+  builds up a real history of every synced snapshot over time rather than staying at a single
+  overwritten commit.
 
 ## The sync algorithm
 
@@ -81,7 +82,7 @@ Nothing is diffed file-by-file. Three SHA-256 hashes of the whole gzipped databa
 everything:
 
 1. **`local_hash`** — read the live `orivo.sqlite`, gzip it in memory, hash the gzipped bytes.
-2. **`remote_hash`** — `git show origin/<branch>:orivo.sqlite.gz` inside the local clone (reads
+2. **`remote_hash`** — `git show origin/<branch>:<file_name>` inside the local clone (reads
    the committed blob straight out of git's object store — no checkout needed), hash the
    result. `None` if the repo has never had anything pushed to it.
 3. **`last_synced_hash`** — loaded from `sync.json`: the hash recorded after the _last
@@ -118,23 +119,12 @@ about.
 
 `push()` in `src/domains/sync.rs` calls `gh::commit_and_push()`:
 
-1. Write the gzipped bytes to `<sync_dir>/orivo.sqlite.gz`.
-2. `git add orivo.sqlite.gz`.
-3. If the clone already has a commit (`git rev-parse --verify -q HEAD` succeeds),
-   `git commit --amend`; otherwise (first-ever push) a normal `git commit`.
-4. `git push --force -u origin HEAD:<branch>`.
+1. Write the gzipped bytes to `<sync_dir>/<file_name>`.
+2. `git add <file_name>`.
+3. `git commit` (always a new commit, keeping full history).
+4. `git push -u origin HEAD:<branch>` (a plain fast-forward push — no force needed, since each
+   push only ever adds a commit on top of what was last fetched).
 5. On success, record `local_hash` as the new `last_synced_hash` in `sync.json`.
-
-### Why a plain `--force` push
-
-The first implementation used `--force-with-lease`, which failed in practice with
-`! [rejected] HEAD -> main (stale info)` — `--force-with-lease` verifies the push against the
-local `refs/remotes/origin/<branch>` tracking ref, and that ref simply doesn't exist yet before
-a branch has ever been fetched (e.g. the very first push to a freshly created repo), so the
-lease check fails even though the push is completely safe. Since the actual "is this safe to
-overwrite" decision already happened one layer up — the content-hash comparison against
-`sync.json` — the git-level lease is redundant safety that was actively breaking normal
-operation. A plain `--force` is used instead.
 
 ## Pull
 
