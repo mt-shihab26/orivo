@@ -9,8 +9,8 @@ permissions:
   contents: write
 
 jobs:
-  bump-version:
-    name: Bump Version
+  bump-cargo-version:
+    name: Bump Cargo Version to Tag
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -39,9 +39,9 @@ jobs:
             git push origin HEAD:main
           fi
 
-  build:
+  build-binaries:
     name: Build ${{ matrix.target }}
-    needs: bump-version
+    needs: bump-cargo-version
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -164,9 +164,9 @@ jobs:
           name: orivo-${{ matrix.os_tag }}-${{ matrix.arch_tag }}
           path: ${{ env.BINARY_ASSET }}
 
-  publish:
+  publish-crate:
     name: Publish to crates.io
-    needs: bump-version
+    needs: bump-cargo-version
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -199,9 +199,9 @@ jobs:
           fi
           exit $status
 
-  release:
+  update-release:
     name: Update GitHub Release
-    needs: [build, publish]
+    needs: [build-binaries, publish-crate]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -235,9 +235,9 @@ jobs:
             dist/orivo.svg \
             --clobber
 
-  aur:
-    name: Update AUR checksums
-    needs: release
+  update-aur-package:
+    name: Update AUR Package (PKGBUILD)
+    needs: update-release
     runs-on: ubuntu-latest
     container: archlinux:latest
     steps:
