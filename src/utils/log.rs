@@ -61,12 +61,23 @@ fn is_leap(year: u64) -> bool {
     (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }
 
+/// Size at which the log is rotated. Every query is logged on every render
+/// tick, so without a bound this grows for as long as the app is installed.
+const MAX_LOG_BYTES: u64 = 5 * 1024 * 1024;
+
 /// Appends a timestamped log line with the given level and message to the log file.
 pub fn write(level: &str, msg: &str) {
     let path = log_path();
     if let Some(parent) = path.parent() {
         let _ = fs::create_dir_all(parent);
     }
+
+    // Keep one previous log around, so rotating never loses the most recent
+    // history outright — the older file is only dropped a rotation later.
+    if fs::metadata(&path).map(|m| m.len()).unwrap_or(0) >= MAX_LOG_BYTES {
+        let _ = fs::rename(&path, path.with_extension("log.1"));
+    }
+
     if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&path) {
         let _ = writeln!(file, "[{}] {}: {}", timestamp(), level, msg);
     }

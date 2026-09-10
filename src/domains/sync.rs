@@ -181,10 +181,27 @@ fn gzip(data: &[u8]) -> Result<Vec<u8>> {
     encoder.finish()
 }
 
-/// Decompresses gzip-compressed `data`.
+/// Largest database `gunzip` will expand to. A gzip stream can expand by
+/// ~1000x, so decompressing the repo's blob unbounded lets a malformed or
+/// tampered-with file exhaust memory before anything checks it.
+const MAX_DB_BYTES: u64 = 512 * 1024 * 1024;
+
+/// Decompresses gzip-compressed `data`, refusing anything over `MAX_DB_BYTES`.
 fn gunzip(data: &[u8]) -> Result<Vec<u8>> {
     let mut out = Vec::new();
-    GzDecoder::new(data).read_to_end(&mut out)?;
+    // Read one byte past the cap so a file sitting exactly on it still fails
+    // rather than being silently truncated into a corrupt database.
+    GzDecoder::new(data)
+        .take(MAX_DB_BYTES + 1)
+        .read_to_end(&mut out)?;
+
+    if out.len() as u64 > MAX_DB_BYTES {
+        return Err(io_err(format!(
+            "the sync repo's database expands to more than {} MiB; refusing to unpack it",
+            MAX_DB_BYTES / 1024 / 1024
+        )));
+    }
+
     Ok(out)
 }
 
@@ -201,4 +218,32 @@ fn hash(data: &[u8]) -> String {
 
 fn io_err(e: impl std::fmt::Display) -> Error {
     Error::new(ErrorKind::Other, e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn round_trips_normal_data() {
+        let data = b"a normal little database".repeat(100);
+        assert_eq!(gunzip(&gzip(&data).unwrap()).unwrap(), data);
+    }
+
+    #[test]
+    fn refuses_a_decompression_bomb() {
+        // Highly compressible zeroes: a few hundred KiB of gzip expands past
+        // the cap, which is the shape of the attack the limit exists for.
+        let bomb = gzip(&vec![0u8; (MAX_DB_BYTES + 1024) as usize]).unwrap();
+        assert!(
+            (bomb.len() as u64) < MAX_DB_BYTES,
+            "the compressed bomb should be far smaller than the cap it defeats"
+        );
+
+        let err = gunzip(&bomb).expect_err("expanding past the cap must fail");
+        assert!(
+            err.to_string().contains("refusing to unpack"),
+            "unexpected error: {err}"
+        );
+    }
 }

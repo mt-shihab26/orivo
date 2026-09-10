@@ -85,6 +85,13 @@ impl TimerState {
         &self.cycle_phase
     }
 
+    /// Returns the text of the currently associated todo, if any.
+    pub fn todo_text(&self) -> Option<String> {
+        let id = self.todo_id?;
+        let mut cache = self.cache.lock().ok()?;
+        cache.get_todo(id).map(|t| t.text.clone())
+    }
+
     /// Returns the number of completed work sessions today, loaded from the cache.
     pub fn sessions_count(&self) -> u32 {
         if let Ok(mut c) = self.cache.lock() {

@@ -45,6 +45,14 @@ Uninstall (also disables the `orivo-sync.timer` unit):
 omarchy pkg drop orivo
 ```
 
+#### Bar widget
+
+[omarchy-orivo-plugin](https://github.com/mt-shihab26/omarchy-orivo-plugin)
+adds an Omarchy bar widget showing the current session (Work/Break/Long
+Break) and countdown, e.g. `W 24:59`. It reads orivo's live IPC socket
+(`~/.local/state/orivo/orivo.sock`) when orivo is open, falling back to
+the last-saved state otherwise.
+
 ### Cargo (any OS, builds from source)
 
 **Requires sqlite3** — install it for your OS and ensure it's on your `PATH` before building.
