@@ -52,6 +52,51 @@ fn is_safe_segment(name: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepts_the_defaults() {
+        assert!(is_safe_segment("orivo-data"));
+        assert!(is_safe_segment("orivo.sqlite.gz"));
+    }
+
+    #[test]
+    fn rejects_path_traversal() {
+        assert!(!is_safe_segment("../../../.bashrc"));
+        assert!(!is_safe_segment(".."));
+        assert!(!is_safe_segment("."));
+        assert!(!is_safe_segment("a/b"));
+    }
+
+    #[test]
+    fn rejects_values_gh_and_git_would_read_as_flags() {
+        assert!(!is_safe_segment("--upload-pack=touch /tmp/pwn"));
+        assert!(!is_safe_segment("-c core.sshCommand=id"));
+        assert!(!is_safe_segment("-x"));
+    }
+
+    #[test]
+    fn rejects_empty_overlong_and_shell_metacharacters() {
+        assert!(!is_safe_segment(""));
+        assert!(!is_safe_segment(&"a".repeat(101)));
+        assert!(!is_safe_segment("x;id"));
+        assert!(!is_safe_segment("x$(id)"));
+        assert!(!is_safe_segment("x y"));
+    }
+
+    #[test]
+    fn unsafe_values_fall_back_to_the_defaults() {
+        let config = SyncConfig {
+            repo_name: "../../evil".to_string(),
+            file_name: "--upload-pack=id".to_string(),
+        };
+        assert_eq!(config.repo_name(), "orivo-data");
+        assert_eq!(config.file_name(), "orivo.sqlite.gz");
+    }
+}
+
 impl SyncConfig {
     /// Returns the configured sync repo name, falling back to the default if
     /// the configured value isn't a safe single segment.

@@ -219,3 +219,31 @@ fn hash(data: &[u8]) -> String {
 fn io_err(e: impl std::fmt::Display) -> Error {
     Error::new(ErrorKind::Other, e.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn round_trips_normal_data() {
+        let data = b"a normal little database".repeat(100);
+        assert_eq!(gunzip(&gzip(&data).unwrap()).unwrap(), data);
+    }
+
+    #[test]
+    fn refuses_a_decompression_bomb() {
+        // Highly compressible zeroes: a few hundred KiB of gzip expands past
+        // the cap, which is the shape of the attack the limit exists for.
+        let bomb = gzip(&vec![0u8; (MAX_DB_BYTES + 1024) as usize]).unwrap();
+        assert!(
+            (bomb.len() as u64) < MAX_DB_BYTES,
+            "the compressed bomb should be far smaller than the cap it defeats"
+        );
+
+        let err = gunzip(&bomb).expect_err("expanding past the cap must fail");
+        assert!(
+            err.to_string().contains("refusing to unpack"),
+            "unexpected error: {err}"
+        );
+    }
+}
