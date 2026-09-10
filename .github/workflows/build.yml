@@ -5,22 +5,27 @@ on:
     tags:
       - "v*.*.*"
 
+# Least privilege by default: only the jobs that actually push commits or
+# upload release assets opt into write access below. In particular it keeps
+# publish-crate, which holds CARGO_REGISTRY_TOKEN, on a read-only repo token.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   bump-cargo-version:
     name: Bump Cargo Version to Tag
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: main
           fetch-depth: 0
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
 
       - name: Set Cargo version to match tag
         shell: bash
@@ -29,13 +34,18 @@ jobs:
           sed -i "0,/^version = \".*\"\$/s//version = \"$TAG_VERSION\"/" Cargo.toml
           cargo update -p orivo --precise "$TAG_VERSION"
 
+      # ${{ }} values are substituted into the script before the shell sees
+      # them, so they go through env instead of being interpolated inline.
       - name: Commit and push
+        env:
+          ACTOR: ${{ github.actor }}
+          ACTOR_ID: ${{ github.actor_id }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Cargo.toml Cargo.lock
           if ! git diff --cached --quiet; then
-            git commit --author="${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>" -m "bump version to ${GITHUB_REF_NAME#v}"
+            git commit --author="$ACTOR <$ACTOR_ID+$ACTOR@users.noreply.github.com>" -m "bump version to ${GITHUB_REF_NAME#v}"
             git push origin HEAD:main
           fi
 
@@ -103,17 +113,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: main
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
           targets: ${{ matrix.target }}
 
       - name: Cache Cargo registry
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: |
             ~/.cargo/registry
@@ -130,7 +140,7 @@ jobs:
 
       - name: Install cross
         if: matrix.use_cross == true
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@c3ec0de9ae7f1019cea21aa96aa0a895b9552063 # v2
         with:
           tool: cross
 
@@ -154,7 +164,7 @@ jobs:
           echo "BINARY_ASSET=$BINARY_ASSET" >> "$GITHUB_ENV"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: orivo-${{ matrix.os_tag }}-${{ matrix.arch_tag }}
           path: ${{ env.BINARY_ASSET }}
@@ -165,12 +175,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: main
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libasound2-dev
@@ -193,12 +203,14 @@ jobs:
     name: Update GitHub Release
     needs: [build-binaries, publish-crate]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           path: dist
           merge-multiple: true
@@ -230,6 +242,8 @@ jobs:
     needs: update-release
     runs-on: ubuntu-latest
     container: archlinux:latest
+    permissions:
+      contents: write
     steps:
       - name: Install build tools
         run: |
@@ -238,7 +252,7 @@ jobs:
           echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: main
           fetch-depth: 0
@@ -257,6 +271,9 @@ jobs:
           sudo -u builder bash -c "cd '$GITHUB_WORKSPACE/pkg' && updpkgsums && makepkg --printsrcinfo > .SRCINFO"
 
       - name: Commit and push
+        env:
+          ACTOR: ${{ github.actor }}
+          ACTOR_ID: ${{ github.actor_id }}
         run: |
           cd "$GITHUB_WORKSPACE"
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -264,6 +281,6 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add pkg/PKGBUILD pkg/.SRCINFO
           if ! git diff --cached --quiet; then
-            git commit --author="${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>" -m "chore: bump PKGBUILD to ${GITHUB_REF_NAME} and update checksums"
+            git commit --author="$ACTOR <$ACTOR_ID+$ACTOR@users.noreply.github.com>" -m "chore: bump PKGBUILD to ${GITHUB_REF_NAME} and update checksums"
             git push origin HEAD:main
           fi
