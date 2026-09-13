@@ -13,18 +13,31 @@ fn escape_markup(text: &str) -> String {
         .replace('>', "&gt;")
 }
 
-/// Sends a desktop notification with the app name prepended to the summary.
+/// Sends a desktop notification with the app name prepended to the summary, playing the
+/// freedesktop notification sound plus a synthesized tone for `phase`.
 pub fn notify(summary: &str, body: &str, phase: &Phase) {
+    send(summary, body, Some("message-new-instant"));
+    sound(phase);
+}
+
+/// Sends a desktop notification with no sound at all — for background events (e.g. sync)
+/// where an alert tone would be unwarranted.
+pub fn notify_silent(summary: &str, body: &str) {
+    send(summary, body, None);
+}
+
+/// Shows the notification itself, with the app name prepended to the summary and an optional
+/// freedesktop sound name.
+fn send(summary: &str, body: &str, sound_name: Option<&str>) {
     let summary = format!("{} — {summary}", env!("CARGO_PKG_NAME"));
-    if let Err(e) = Notification::new()
-        .summary(&summary)
-        .body(&escape_markup(body))
-        .sound_name("message-new-instant")
-        .show()
-    {
+    let mut notification = Notification::new();
+    notification.summary(&summary).body(&escape_markup(body));
+    if let Some(name) = sound_name {
+        notification.sound_name(name);
+    }
+    if let Err(e) = notification.show() {
         log_error!("failed to send notification: {e}");
     }
-    sound(phase);
 }
 
 #[cfg(test)]

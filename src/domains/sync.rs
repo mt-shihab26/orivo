@@ -13,6 +13,7 @@ use crate::{
     utils::{
         date::{format_datetime, now},
         gh,
+        notify::notify_silent,
         path::{db_path, sync_dir, sync_state_path},
     },
 };
@@ -50,8 +51,19 @@ impl SyncState {
 /// Ensures a private `orivo-data` GitHub repo exists for the signed-in `gh` user, then syncs
 /// the local database with it: pulls if the repo has changes this machine doesn't have yet,
 /// pushes if this machine has changes the repo doesn't have, does nothing if neither changed,
-/// or asks which side to keep if both did.
+/// or asks which side to keep if both did. Notifies (silently — no sound) when the sync
+/// starts, what its outcome was, and when it finishes.
 pub fn run_sync() -> Result<()> {
+    notify_silent("Sync Started", "Syncing with GitHub...");
+    let result = sync();
+    match &result {
+        Ok(()) => notify_silent("Sync Finished", "Sync completed successfully"),
+        Err(e) => notify_silent("Sync Failed", &e.to_string()),
+    }
+    result
+}
+
+fn sync() -> Result<()> {
     println!("checking github CLI sign-in...");
     if !gh::is_authenticated() {
         return Err(io_err(
@@ -91,6 +103,7 @@ pub fn run_sync() -> Result<()> {
     match (local_changed, remote_changed) {
         (false, false) => {
             println!("nothing changed since the last sync, already up to date");
+            notify_silent("Already Up to Date", "Nothing changed since the last sync");
             Ok(())
         }
         (true, false) => {
@@ -136,6 +149,7 @@ fn resolve_conflict(
         "r" | "remote" => pull(remote_gz, remote_hash),
         _ => {
             println!("sync cancelled");
+            notify_silent("Sync Cancelled", "Conflict left unresolved — no changes made");
             Ok(())
         }
     }
@@ -152,6 +166,7 @@ fn push(dir: &Path, branch: &str, gz: Vec<u8>, hash: String, file_name: &str) ->
     state.save();
 
     println!("pushed local changes to github");
+    notify_silent("Pushed to GitHub", "Local changes pushed to the sync repo");
     Ok(())
 }
 
@@ -171,6 +186,7 @@ fn pull(gz: Option<Vec<u8>>, hash: Option<String>) -> Result<()> {
     state.save();
 
     println!("pulled latest data from github");
+    notify_silent("Pulled from GitHub", "Local database updated from the sync repo");
     Ok(())
 }
 

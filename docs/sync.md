@@ -204,6 +204,19 @@ To opt out, disable it per-user:
 $ systemctl --user disable --now orivo-sync.timer
 ```
 
+## Desktop notifications
+
+Alongside terminal output, `orivo sync` sends desktop notifications via `notify::notify_silent`
+(`src/utils/notify.rs`) — the same freedesktop mechanism as pomodoro phase alerts, but with no
+sound at all, since a sync (often triggered unattended by the systemd timer) shouldn't play an
+alert tone the way a finished pomodoro session does. Three moments are notified:
+
+- **Start** — "Sync Started" as soon as `run_sync()` is called, before the sign-in check.
+- **Outcome** — one notification once the compare step's result is known: "Pushed to GitHub",
+  "Pulled from GitHub", "Already Up to Date", or "Sync Cancelled" (an unresolved conflict).
+- **Finish** — "Sync Finished" on success, or "Sync Failed" with the error text, once
+  `run_sync()` returns.
+
 ## Terminal output
 
 Every step prints as it happens (rather than staying silent until the end), so a slow network
