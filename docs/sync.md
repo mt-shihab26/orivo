@@ -212,10 +212,11 @@ sound at all, since a sync (often triggered unattended by the systemd timer) sho
 alert tone the way a finished pomodoro session does. Three moments are notified:
 
 - **Start** — "Sync Started" as soon as `run_sync()` is called, before the sign-in check.
-- **Outcome** — one notification once the compare step's result is known: "Pushed to GitHub",
-  "Pulled from GitHub", "Already Up to Date", or "Sync Cancelled" (an unresolved conflict).
-- **Finish** — "Sync Finished" on success, or "Sync Failed" with the error text, once
-  `run_sync()` returns.
+- **Uploading** — "Uploading to GitHub" right before a push begins, whenever a local change is
+  what's driving it (the empty-repo case, the local-only-changed case, or choosing "local" at
+  the conflict prompt). Nothing is sent before a pull — only local → GitHub uploads notify here.
+- **Finish** — "Sync Finished" once `run_sync()` returns, with a body describing what happened:
+  pushed, pulled, already up to date, cancelled (unresolved conflict), or `Sync failed: <error>`.
 
 ## Terminal output
 

@@ -52,18 +52,18 @@ impl SyncState {
 /// the local database with it: pulls if the repo has changes this machine doesn't have yet,
 /// pushes if this machine has changes the repo doesn't have, does nothing if neither changed,
 /// or asks which side to keep if both did. Notifies (silently — no sound) when the sync
-/// starts, what its outcome was, and when it finishes.
+/// starts and when it finishes, plus once more while it's uploading local changes.
 pub fn run_sync() -> Result<()> {
     notify_silent("Sync Started", "Syncing with GitHub...");
     let result = sync();
     match &result {
-        Ok(()) => notify_silent("Sync Finished", "Sync completed successfully"),
-        Err(e) => notify_silent("Sync Failed", &e.to_string()),
+        Ok(message) => notify_silent("Sync Finished", message),
+        Err(e) => notify_silent("Sync Finished", &format!("Sync failed: {e}")),
     }
-    result
+    result.map(|_| ())
 }
 
-fn sync() -> Result<()> {
+fn sync() -> Result<String> {
     println!("checking github CLI sign-in...");
     if !gh::is_authenticated() {
         return Err(io_err(
@@ -89,7 +89,9 @@ fn sync() -> Result<()> {
     // `SyncState` from an earlier failed sync would otherwise look like a real conflict here).
     if remote_gz.is_none() {
         println!("repo on github is empty — pushing");
-        return push(&dir, &branch, local_gz, local_hash, file_name);
+        notify_silent("Uploading to GitHub", "New local changes are being uploaded...");
+        push(&dir, &branch, local_gz, local_hash, file_name)?;
+        return Ok("Pushed local changes to GitHub".to_string());
     }
 
     let remote_hash = remote_gz.as_deref().map(hash);
@@ -103,16 +105,18 @@ fn sync() -> Result<()> {
     match (local_changed, remote_changed) {
         (false, false) => {
             println!("nothing changed since the last sync, already up to date");
-            notify_silent("Already Up to Date", "Nothing changed since the last sync");
-            Ok(())
+            Ok("Already up to date".to_string())
         }
         (true, false) => {
             println!("local database changed, github did not — pushing");
-            push(&dir, &branch, local_gz, local_hash, file_name)
+            notify_silent("Uploading to GitHub", "Local changes are being uploaded...");
+            push(&dir, &branch, local_gz, local_hash, file_name)?;
+            Ok("Pushed local changes to GitHub".to_string())
         }
         (false, true) => {
             println!("database on github changed, local did not — pulling");
-            pull(remote_gz, remote_hash)
+            pull(remote_gz, remote_hash)?;
+            Ok("Pulled latest changes from GitHub".to_string())
         }
         (true, true) => resolve_conflict(
             &dir,
@@ -136,7 +140,7 @@ fn resolve_conflict(
     remote_gz: Option<Vec<u8>>,
     remote_hash: Option<String>,
     file_name: &str,
-) -> Result<()> {
+) -> Result<String> {
     println!("both the local database and the github repo have changed since the last sync.");
     print!("keep [l]ocal (push, overwriting the repo) or [r]emote (pull, overwriting local)? ");
     io::stdout().flush()?;
@@ -145,12 +149,18 @@ fn resolve_conflict(
     io::stdin().read_line(&mut answer)?;
 
     match answer.trim().to_lowercase().as_str() {
-        "l" | "local" => push(dir, branch, local_gz, local_hash, file_name),
-        "r" | "remote" => pull(remote_gz, remote_hash),
+        "l" | "local" => {
+            notify_silent("Uploading to GitHub", "Local changes are being uploaded...");
+            push(dir, branch, local_gz, local_hash, file_name)?;
+            Ok("Pushed local changes to GitHub".to_string())
+        }
+        "r" | "remote" => {
+            pull(remote_gz, remote_hash)?;
+            Ok("Pulled latest changes from GitHub".to_string())
+        }
         _ => {
             println!("sync cancelled");
-            notify_silent("Sync Cancelled", "Conflict left unresolved — no changes made");
-            Ok(())
+            Ok("Sync cancelled — conflict left unresolved".to_string())
         }
     }
 }
@@ -166,7 +176,6 @@ fn push(dir: &Path, branch: &str, gz: Vec<u8>, hash: String, file_name: &str) ->
     state.save();
 
     println!("pushed local changes to github");
-    notify_silent("Pushed to GitHub", "Local changes pushed to the sync repo");
     Ok(())
 }
 
@@ -186,7 +195,6 @@ fn pull(gz: Option<Vec<u8>>, hash: Option<String>) -> Result<()> {
     state.save();
 
     println!("pulled latest data from github");
-    notify_silent("Pulled from GitHub", "Local database updated from the sync repo");
     Ok(())
 }
 
