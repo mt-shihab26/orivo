@@ -1,6 +1,6 @@
 use std::{
     fs,
-    io::{self, Error, ErrorKind, Read, Result, Write},
+    io::{Error, ErrorKind, Read, Result, Write},
     path::Path,
 };
 
@@ -51,8 +51,10 @@ impl SyncState {
 /// Ensures a private `orivo-data` GitHub repo exists for the signed-in `gh` user, then syncs
 /// the local database with it: pulls if the repo has changes this machine doesn't have yet,
 /// pushes if this machine has changes the repo doesn't have, does nothing if neither changed,
-/// or asks which side to keep if both did. Notifies (silently — no sound) when the sync
-/// starts and when it finishes, plus once more while it's uploading local changes.
+/// or pulls (github wins, overwriting local) if both did — a binary sqlite file can't be
+/// merged automatically, and there's no one around to prompt for scheduled/background runs.
+/// Notifies (silently — no sound) when the sync starts and when it finishes, plus once more
+/// while it's uploading local changes.
 pub fn run_sync() -> Result<()> {
     notify_silent("Sync Started", "Syncing with GitHub...");
     let result = sync();
@@ -118,55 +120,12 @@ fn sync() -> Result<String> {
             pull(remote_gz, remote_hash)?;
             Ok("Pulled latest changes from GitHub".to_string())
         }
-        (true, true) => resolve_conflict(
-            &dir,
-            &branch,
-            local_gz,
-            local_hash,
-            remote_gz,
-            remote_hash,
-            file_name,
-        ),
-    }
-}
-
-/// Prompts the user to pick a side when both the local database and the repo changed since
-/// the last sync, since a binary sqlite file can't be merged automatically. Re-prompts on
-/// anything but `l`/`local` or `r`/`remote` — there's no side-effect-free way out of a real
-/// conflict, so the user must resolve it rather than cancel out of it.
-fn resolve_conflict(
-    dir: &Path,
-    branch: &str,
-    local_gz: Vec<u8>,
-    local_hash: String,
-    remote_gz: Option<Vec<u8>>,
-    remote_hash: Option<String>,
-    file_name: &str,
-) -> Result<String> {
-    println!("both the local database and the github repo have changed since the last sync.");
-
-    loop {
-        print!("keep [l]ocal (push, overwriting the repo) or [r]emote (pull, overwriting local)? ");
-        io::stdout().flush()?;
-
-        let mut answer = String::new();
-        if io::stdin().read_line(&mut answer)? == 0 {
-            return Err(io_err(
-                "stdin closed before the local/remote conflict was resolved",
-            ));
-        }
-
-        match answer.trim().to_lowercase().as_str() {
-            "l" | "local" => {
-                notify_silent("Uploading to GitHub", "Local changes are being uploaded...");
-                push(dir, branch, local_gz, local_hash, file_name)?;
-                return Ok("Pushed local changes to GitHub".to_string());
-            }
-            "r" | "remote" => {
-                pull(remote_gz, remote_hash)?;
-                return Ok("Pulled latest changes from GitHub".to_string());
-            }
-            _ => continue,
+        (true, true) => {
+            println!(
+                "both the local database and github changed since the last sync — github wins, pulling"
+            );
+            pull(remote_gz, remote_hash)?;
+            Ok("Pulled latest changes from GitHub (local changes overwritten)".to_string())
         }
     }
 }
