@@ -131,7 +131,9 @@ fn sync() -> Result<String> {
 }
 
 /// Prompts the user to pick a side when both the local database and the repo changed since
-/// the last sync, since a binary sqlite file can't be merged automatically.
+/// the last sync, since a binary sqlite file can't be merged automatically. Re-prompts on
+/// anything but `l`/`local` or `r`/`remote` — there's no side-effect-free way out of a real
+/// conflict, so the user must resolve it rather than cancel out of it.
 fn resolve_conflict(
     dir: &Path,
     branch: &str,
@@ -142,25 +144,29 @@ fn resolve_conflict(
     file_name: &str,
 ) -> Result<String> {
     println!("both the local database and the github repo have changed since the last sync.");
-    print!("keep [l]ocal (push, overwriting the repo) or [r]emote (pull, overwriting local)? ");
-    io::stdout().flush()?;
 
-    let mut answer = String::new();
-    io::stdin().read_line(&mut answer)?;
+    loop {
+        print!("keep [l]ocal (push, overwriting the repo) or [r]emote (pull, overwriting local)? ");
+        io::stdout().flush()?;
 
-    match answer.trim().to_lowercase().as_str() {
-        "l" | "local" => {
-            notify_silent("Uploading to GitHub", "Local changes are being uploaded...");
-            push(dir, branch, local_gz, local_hash, file_name)?;
-            Ok("Pushed local changes to GitHub".to_string())
+        let mut answer = String::new();
+        if io::stdin().read_line(&mut answer)? == 0 {
+            return Err(io_err(
+                "stdin closed before the local/remote conflict was resolved",
+            ));
         }
-        "r" | "remote" => {
-            pull(remote_gz, remote_hash)?;
-            Ok("Pulled latest changes from GitHub".to_string())
-        }
-        _ => {
-            println!("sync cancelled");
-            Ok("Sync cancelled — conflict left unresolved".to_string())
+
+        match answer.trim().to_lowercase().as_str() {
+            "l" | "local" => {
+                notify_silent("Uploading to GitHub", "Local changes are being uploaded...");
+                push(dir, branch, local_gz, local_hash, file_name)?;
+                return Ok("Pushed local changes to GitHub".to_string());
+            }
+            "r" | "remote" => {
+                pull(remote_gz, remote_hash)?;
+                return Ok("Pulled latest changes from GitHub".to_string());
+            }
+            _ => continue,
         }
     }
 }
