@@ -53,16 +53,18 @@ impl SyncState {
 /// pushes if this machine has changes the repo doesn't have, does nothing if neither changed,
 /// or pulls (github wins, overwriting local) if both did — a binary sqlite file can't be
 /// merged automatically, and there's no one around to prompt for scheduled/background runs.
-/// Notifies (silently — no sound) when the sync starts and when it finishes, plus once more
-/// while it's uploading local changes.
+/// Notifies (silently — no sound) only around an actual push: once when the upload starts,
+/// once when it's done. Pulls, an up-to-date check, and any other quiet outcome stay silent —
+/// this runs on a timer and there's nothing worth surfacing unless local changes are going
+/// out. A sync failure still notifies once, so a background run failing isn't invisible.
 pub fn run_sync() -> Result<()> {
-    notify_silent("Sync Started", "Syncing with GitHub...");
-    let result = sync();
-    match &result {
-        Ok(message) => notify_silent("Sync Finished", message),
-        Err(e) => notify_silent("Sync Finished", &format!("Sync failed: {e}")),
+    match sync() {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            notify_silent("Sync Finished", &format!("Sync failed: {e}"));
+            Err(e)
+        }
     }
-    result.map(|_| ())
 }
 
 fn sync() -> Result<String> {
@@ -93,7 +95,9 @@ fn sync() -> Result<String> {
         println!("repo on github is empty — pushing");
         notify_silent("Uploading to GitHub", "New local changes are being uploaded...");
         push(&dir, &branch, local_gz, local_hash, file_name)?;
-        return Ok("Pushed local changes to GitHub".to_string());
+        let message = "Pushed local changes to GitHub".to_string();
+        notify_silent("Sync Finished", &message);
+        return Ok(message);
     }
 
     let remote_hash = remote_gz.as_deref().map(hash);
@@ -104,16 +108,19 @@ fn sync() -> Result<String> {
     let local_changed = last_hash != Some(local_hash.as_str());
     let remote_changed = remote_hash.as_deref() != last_hash;
 
+    if !local_changed && !remote_changed {
+        println!("nothing changed since the last sync, already up to date");
+        return Ok("Already up to date".to_string());
+    }
+
     match (local_changed, remote_changed) {
-        (false, false) => {
-            println!("nothing changed since the last sync, already up to date");
-            Ok("Already up to date".to_string())
-        }
         (true, false) => {
             println!("local database changed, github did not — pushing");
             notify_silent("Uploading to GitHub", "Local changes are being uploaded...");
             push(&dir, &branch, local_gz, local_hash, file_name)?;
-            Ok("Pushed local changes to GitHub".to_string())
+            let message = "Pushed local changes to GitHub".to_string();
+            notify_silent("Sync Finished", &message);
+            Ok(message)
         }
         (false, true) => {
             println!("database on github changed, local did not — pulling");
@@ -127,6 +134,7 @@ fn sync() -> Result<String> {
             pull(remote_gz, remote_hash)?;
             Ok("Pulled latest changes from GitHub (local changes overwritten)".to_string())
         }
+        (false, false) => unreachable!("handled by the early return above"),
     }
 }
 
