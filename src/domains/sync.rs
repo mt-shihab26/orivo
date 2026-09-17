@@ -1,6 +1,6 @@
 use std::{
     fs,
-    io::{self, Error, ErrorKind, Read, Result, Write},
+    io::{Error, ErrorKind, Read, Result, Write},
     path::Path,
 };
 
@@ -13,6 +13,7 @@ use crate::{
     utils::{
         date::{format_datetime, now},
         gh,
+        notify::notify_silent,
         path::{db_path, sync_dir, sync_state_path},
     },
 };
@@ -50,8 +51,23 @@ impl SyncState {
 /// Ensures a private `orivo-data` GitHub repo exists for the signed-in `gh` user, then syncs
 /// the local database with it: pulls if the repo has changes this machine doesn't have yet,
 /// pushes if this machine has changes the repo doesn't have, does nothing if neither changed,
-/// or asks which side to keep if both did.
+/// or pulls (github wins, overwriting local) if both did — a binary sqlite file can't be
+/// merged automatically, and there's no one around to prompt for scheduled/background runs.
+/// Notifies (silently — no sound) only around an actual push: once when the upload starts,
+/// once when it's done. Pulls, an up-to-date check, and any other quiet outcome stay silent —
+/// this runs on a timer and there's nothing worth surfacing unless local changes are going
+/// out. A sync failure still notifies once, so a background run failing isn't invisible.
 pub fn run_sync() -> Result<()> {
+    match sync() {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            notify_silent("Sync Finished", &format!("Sync failed: {e}"));
+            Err(e)
+        }
+    }
+}
+
+fn sync() -> Result<String> {
     println!("checking github CLI sign-in...");
     if !gh::is_authenticated() {
         return Err(io_err(
@@ -77,7 +93,14 @@ pub fn run_sync() -> Result<()> {
     // `SyncState` from an earlier failed sync would otherwise look like a real conflict here).
     if remote_gz.is_none() {
         println!("repo on github is empty — pushing");
-        return push(&dir, &branch, local_gz, local_hash, file_name);
+        notify_silent(
+            "Uploading to GitHub",
+            "New local changes are being uploaded...",
+        );
+        push(&dir, &branch, local_gz, local_hash, file_name)?;
+        let message = "Pushed local changes to GitHub".to_string();
+        notify_silent("Sync Finished", &message);
+        return Ok(message);
     }
 
     let remote_hash = remote_gz.as_deref().map(hash);
@@ -88,56 +111,33 @@ pub fn run_sync() -> Result<()> {
     let local_changed = last_hash != Some(local_hash.as_str());
     let remote_changed = remote_hash.as_deref() != last_hash;
 
+    if !local_changed && !remote_changed {
+        println!("nothing changed since the last sync, already up to date");
+        return Ok("Already up to date".to_string());
+    }
+
     match (local_changed, remote_changed) {
-        (false, false) => {
-            println!("nothing changed since the last sync, already up to date");
-            Ok(())
-        }
         (true, false) => {
             println!("local database changed, github did not — pushing");
-            push(&dir, &branch, local_gz, local_hash, file_name)
+            notify_silent("Uploading to GitHub", "Local changes are being uploaded...");
+            push(&dir, &branch, local_gz, local_hash, file_name)?;
+            let message = "Pushed local changes to GitHub".to_string();
+            notify_silent("Sync Finished", &message);
+            Ok(message)
         }
         (false, true) => {
             println!("database on github changed, local did not — pulling");
-            pull(remote_gz, remote_hash)
+            pull(remote_gz, remote_hash)?;
+            Ok("Pulled latest changes from GitHub".to_string())
         }
-        (true, true) => resolve_conflict(
-            &dir,
-            &branch,
-            local_gz,
-            local_hash,
-            remote_gz,
-            remote_hash,
-            file_name,
-        ),
-    }
-}
-
-/// Prompts the user to pick a side when both the local database and the repo changed since
-/// the last sync, since a binary sqlite file can't be merged automatically.
-fn resolve_conflict(
-    dir: &Path,
-    branch: &str,
-    local_gz: Vec<u8>,
-    local_hash: String,
-    remote_gz: Option<Vec<u8>>,
-    remote_hash: Option<String>,
-    file_name: &str,
-) -> Result<()> {
-    println!("both the local database and the github repo have changed since the last sync.");
-    print!("keep [l]ocal (push, overwriting the repo) or [r]emote (pull, overwriting local)? ");
-    io::stdout().flush()?;
-
-    let mut answer = String::new();
-    io::stdin().read_line(&mut answer)?;
-
-    match answer.trim().to_lowercase().as_str() {
-        "l" | "local" => push(dir, branch, local_gz, local_hash, file_name),
-        "r" | "remote" => pull(remote_gz, remote_hash),
-        _ => {
-            println!("sync cancelled");
-            Ok(())
+        (true, true) => {
+            println!(
+                "both the local database and github changed since the last sync — github wins, pulling"
+            );
+            pull(remote_gz, remote_hash)?;
+            Ok("Pulled latest changes from GitHub (local changes overwritten)".to_string())
         }
+        (false, false) => unreachable!("handled by the early return above"),
     }
 }
 
