@@ -93,7 +93,10 @@ fn sync() -> Result<String> {
     // `SyncState` from an earlier failed sync would otherwise look like a real conflict here).
     if remote_gz.is_none() {
         println!("repo on github is empty — pushing");
-        notify_silent("Uploading to GitHub", "New local changes are being uploaded...");
+        notify_silent(
+            "Uploading to GitHub",
+            "New local changes are being uploaded...",
+        );
         push(&dir, &branch, local_gz, local_hash, file_name)?;
         let message = "Pushed local changes to GitHub".to_string();
         notify_silent("Sync Finished", &message);
