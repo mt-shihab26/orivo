@@ -311,7 +311,7 @@ impl TimerState {
             }
             (Phase::LongBreak, None) => ("Long Break Complete", "Ready to focus?".to_string()),
         };
-        notify(&summary, &body, &self.cycle_phase);
+        notify(&summary, &body);
     }
 
     /// Chooses whether the next rest phase is a short break or a long break.

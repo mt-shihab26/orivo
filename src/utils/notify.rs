@@ -2,7 +2,7 @@ use notify_rust::Notification;
 use rodio::{DeviceSinkBuilder, Source, source::SineWave};
 use std::{error::Error, thread, time::Duration};
 
-use crate::{kinds::phase::Phase, log_error};
+use crate::log_error;
 
 /// Escapes the markup the freedesktop notification spec allows in bodies
 /// (`<b>`, `<i>`, `<a>`, `<img>`), so todo text is shown literally instead of
@@ -14,10 +14,10 @@ fn escape_markup(text: &str) -> String {
 }
 
 /// Sends a desktop notification with the app name prepended to the summary, playing the
-/// freedesktop notification sound plus a synthesized tone for `phase`.
-pub fn notify(summary: &str, body: &str, phase: &Phase) {
+/// freedesktop notification sound plus a synthesized alert tone.
+pub fn notify(summary: &str, body: &str) {
     send(summary, body, Some("message-new-instant"));
-    sound(phase);
+    sound();
 }
 
 /// Sends a desktop notification with no sound at all — for background events (e.g. sync)
@@ -58,15 +58,9 @@ mod tests {
     }
 }
 
-fn sound(phase: &Phase) {
-    let (freq, duration_ms) = match phase {
-        // Work done → warm, satisfying tone
-        Phase::Work => (660.0_f32, 150_u64),
-        // Short break done → bright, alerting tone
-        Phase::Break => (880.0_f32, 100_u64),
-        // Long break done → softer, lower tone
-        Phase::LongBreak => (523.0_f32, 200_u64),
-    };
+/// Plays the same bright, alerting tone for every phase transition.
+fn sound() {
+    let (freq, duration_ms) = (880.0_f32, 100_u64);
 
     thread::spawn(move || {
         let result = (|| -> Result<(), Box<dyn Error>> {
