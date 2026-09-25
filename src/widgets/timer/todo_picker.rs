@@ -6,23 +6,18 @@ use ratatui::{
 
 use crate::models::{session::Stat, todo::Todo};
 
-/// Action returned by the todo-picker after handling a key event.
 pub enum TodoPickerAction {
     /// User confirmed a selection; carries the chosen todo's id.
     Select(i32),
-    /// User cancelled the picker without selecting.
     Cancel,
-    /// No state change occurred.
     None,
 }
 
-/// Props for the todo-picker overlay.
 pub struct TodoPickerProps {
     /// Overdue todos (due_date < today).
     due_todos: Vec<Todo>,
     /// Session stats parallel to `due_todos`.
     due_stats: Vec<Stat>,
-    /// Today's todos.
     todos: Vec<Todo>,
     /// Session stats parallel to `todos`.
     stats: Vec<Stat>,
@@ -30,7 +25,6 @@ pub struct TodoPickerProps {
     cursor: usize,
     /// The id of the todo currently assigned to the timer, shown in phase color.
     selected_id: Option<i32>,
-    /// Phase color used for borders and the selected todo.
     color: Color,
 }
 
@@ -71,7 +65,6 @@ impl TodoPickerProps {
     }
 }
 
-/// Stateful container for the todo-picker, owns its props and cursor.
 pub struct TodoPickerState {
     props: TodoPickerProps,
 }
@@ -85,7 +78,6 @@ impl TodoPickerState {
         &self.props
     }
 
-    /// Handles a key event and returns the resulting action.
     pub fn handle(&mut self, key: KeyEvent) -> TodoPickerAction {
         let total = self.props.total();
         match key.code {
@@ -119,7 +111,6 @@ impl TodoPickerState {
     }
 }
 
-/// Stateless widget that renders the todo-picker popup.
 pub struct TodoPickerWidget<'a> {
     props: &'a TodoPickerProps,
 }
@@ -133,7 +124,7 @@ impl<'a> TodoPickerWidget<'a> {
 /// A display row: either a non-selectable section header or a selectable todo item.
 enum Row {
     Header(&'static str),
-    /// logical index into the combined due+today list
+    /// Logical index into the combined due + today list.
     Item(usize),
 }
 

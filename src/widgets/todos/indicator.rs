@@ -5,7 +5,6 @@ use ratatui::{
 
 use crate::tabs::todos::COLOR;
 
-/// Props for the scroll-overflow indicator widget.
 pub struct IndicatorProps {
     /// Whether there are hidden items above the visible window.
     show_more_above: bool,
@@ -14,7 +13,6 @@ pub struct IndicatorProps {
 }
 
 impl IndicatorProps {
-    /// Creates new indicator props with above/below overflow flags.
     pub fn new(show_more_above: bool, show_more_below: bool) -> Self {
         Self {
             show_more_above,
@@ -25,19 +23,16 @@ impl IndicatorProps {
 
 /// Stateless widget that renders "^ more" / "v more" overflow cues.
 pub struct IndicatorWidget<'a> {
-    /// Borrowed indicator props for this render pass.
     props: &'a IndicatorProps,
 }
 
 impl<'a> IndicatorWidget<'a> {
-    /// Creates a new indicator widget from the given props.
     pub fn new(props: &'a IndicatorProps) -> Self {
         Self { props }
     }
 }
 
 impl Widget for &IndicatorWidget<'_> {
-    /// Renders overflow arrows at the top and/or bottom of the area.
     fn render(self, area: Rect, buf: &mut Buffer) {
         let horizontal_padding = 2;
         let inner_width = area.width.saturating_sub(horizontal_padding * 2);

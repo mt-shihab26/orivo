@@ -32,16 +32,12 @@ use crate::{
 
 use super::Tab;
 
-/// Accent color for the todos tab UI elements.
 pub const COLOR: Color = Color::Green;
 
-/// The todos tab, managing the task list UI and input state.
 pub struct TodosTab {
     /// Currently active page view (Due, Today, Index, History).
     page: Page,
-    /// Current UI mode controlling input handling.
     mode: TodosMode,
-    /// Underlying todos state holding data and pagination.
     state: TodosState,
     /// Active text input state when adding or editing a todo.
     input_state: Option<InputState>,
@@ -50,7 +46,6 @@ pub struct TodosTab {
 }
 
 impl TodosTab {
-    /// Creates a new `TodosTab` connected to the given database and timer cache.
     pub fn new(db: DatabaseConnection, timer_cache: Arc<Mutex<TimerCache>>) -> Self {
         Self {
             page: Page::Today,
@@ -61,12 +56,10 @@ impl TodosTab {
         }
     }
 
-    /// Returns the visible todo items for the current page.
     fn items(&self) -> Ref<'_, [Todo]> {
         self.state.items(self.page)
     }
 
-    /// Returns the total number of todos on the current page.
     fn count(&self) -> usize {
         self.state.count(self.page)
     }
@@ -104,17 +97,14 @@ impl TodosTab {
 }
 
 impl Tab for TodosTab {
-    /// Returns the tab label shown in the tab bar.
     fn name(&self) -> &str {
         "Todos [^t]"
     }
 
-    /// Returns the accent color for the todos tab.
     fn color(&self) -> Color {
         COLOR
     }
 
-    /// Handles a key event, delegating to input, search, or normal-mode handlers.
     fn handle(&mut self, key: KeyEvent) -> Result<()> {
         let pending_g = self.state.begin_input();
 
@@ -202,7 +192,6 @@ impl Tab for TodosTab {
         Ok(())
     }
 
-    /// Renders the todos tab including the list, tabs bar, hint, and input/search overlay.
     fn render(&self, frame: &mut Frame, area: Rect) {
         let buf = frame.buffer_mut();
 
@@ -287,7 +276,6 @@ impl Tab for TodosTab {
         }
     }
 
-    /// Drops any cached data held by this tab.
     fn invalidate_cache(&mut self) {
         self.state.refresh(self.page);
     }

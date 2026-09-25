@@ -14,12 +14,10 @@ pub fn is_authenticated() -> bool {
         .unwrap_or(false)
 }
 
-/// Returns the signed-in GitHub username.
 fn username() -> Result<String> {
     run_gh(&["api", "user", "-q", ".login"])
 }
 
-/// Returns whether `owner/orivo-data` already exists on GitHub.
 fn repo_exists(full_name: &str) -> bool {
     Command::new("gh")
         .args(["repo", "view", full_name])
@@ -68,7 +66,7 @@ pub fn ensure_clone(dir: &Path, repo_full_name: &str) -> Result<()> {
     let output = Command::new("gh")
         .args(["repo", "clone", repo_full_name, &dir.to_string_lossy()])
         .output()
-        .map_err(|_| io_err("`gh` (github CLI) is not installed; see https://cli.github.com"))?;
+        .map_err(|_| io_err("`gh` (github cli) is not installed; see https://cli.github.com"))?;
 
     if !output.status.success() {
         return Err(io_err(
@@ -122,7 +120,7 @@ fn run_gh(args: &[&str]) -> Result<String> {
     let output = Command::new("gh")
         .args(args)
         .output()
-        .map_err(|_| io_err("`gh` (github CLI) is not installed; see https://cli.github.com"))?;
+        .map_err(|_| io_err("`gh` (github cli) is not installed; see https://cli.github.com"))?;
 
     if !output.status.success() {
         return Err(io_err(

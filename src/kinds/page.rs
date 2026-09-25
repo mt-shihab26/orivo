@@ -3,7 +3,6 @@
 pub enum Page {
     /// Todos that are past due.
     Due,
-    /// Todos scheduled for today.
     Today,
     /// All todos grouped by date.
     Index,
@@ -25,7 +24,6 @@ impl Page {
         }
     }
 
-    /// Returns the index of this page within `ALL`.
     pub fn index(&self) -> usize {
         Self::ALL.iter().position(|p| p == self).unwrap()
     }

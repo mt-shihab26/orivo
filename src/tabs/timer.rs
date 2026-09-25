@@ -45,11 +45,9 @@ use crate::{
 
 use super::Tab;
 
-/// The timer tab, managing the pomodoro timer UI and its worker thread.
 pub struct TimerTab {
     /// Render counter shared with the worker thread to pace `TimerTick` events.
     count: Arc<AtomicU8>,
-    /// Shared cache for today's todos and session stats.
     cache: Arc<Mutex<TimerCache>>,
     /// Shared timer state owned by the worker thread.
     state: Arc<Mutex<TimerState>>,
@@ -89,25 +87,21 @@ impl TimerTab {
         }
     }
 
-    /// Sets the currently associated todo on the timer state.
     fn set_todo(&mut self, todo_id: Option<i32>) {
         if let Ok(mut state) = self.state.lock() {
             state.set_todo_id(todo_id);
         }
     }
 
-    /// Confirms the picker selection and closes the overlay.
     fn picker_select(&mut self, id: i32) {
         self.set_todo(Some(id));
         self.picker = None;
     }
 
-    /// Closes the picker without changing the selected todo.
     fn picker_cancel(&mut self) {
         self.picker = None;
     }
 
-    /// Toggles the timer between running and paused.
     fn toggle_running(&self) {
         if let Ok(mut state) = self.state.lock() {
             state.toggle_running();
@@ -121,14 +115,12 @@ impl TimerTab {
         }
     }
 
-    /// Records the current session and advances to the next phase.
     fn skip_session(&self) {
         if let Ok(mut state) = self.state.lock() {
             state.advance();
         }
     }
 
-    /// Opens the todo picker, loading todos and stats from the cache.
     fn open_picker(&mut self) {
         // Read everything that needs the state lock before taking the cache
         // lock. Every other path (timer worker, IPC worker) locks state then
@@ -153,17 +145,14 @@ impl TimerTab {
         }
     }
 
-    /// Clears the currently associated todo from the timer state.
     fn clear_todo(&mut self) {
         self.set_todo(None);
     }
 
-    /// Opens the reduce-time dialog.
     fn open_reduce_picker(&mut self) {
         self.reduce_state = Some(ReducePickerState::new(ReducePickerProps::new(self.color())));
     }
 
-    /// Applies the reduction and closes the dialog.
     fn reduce_picker_apply(&mut self, millis: u32) {
         if let Ok(mut state) = self.state.lock() {
             state.reduce_remaining(millis);
@@ -171,12 +160,10 @@ impl TimerTab {
         self.reduce_state = None;
     }
 
-    /// Closes the reduce dialog without applying.
     fn reduce_picker_cancel(&mut self) {
         self.reduce_state = None;
     }
 
-    /// Toggles millisecond display on the clock.
     fn toggle_millis(&self) {
         if let Ok(mut state) = self.state.lock() {
             state.toggle_show_millis();
@@ -188,7 +175,6 @@ impl TimerTab {
         self.count.fetch_add(1, Ordering::Relaxed);
     }
 
-    /// Returns the todo and stat for the currently selected todo id, if any.
     fn todo_info(&self) -> (Option<Todo>, Option<Stat>) {
         let Some(id) = self.state.lock().ok().and_then(|state| state.todo_id()) else {
             return (None, None);
@@ -211,12 +197,10 @@ impl Drop for TimerTab {
 }
 
 impl Tab for TimerTab {
-    /// Returns the tab label shown in the tab bar.
     fn name(&self) -> &str {
         "Timer [^y]"
     }
 
-    /// Returns the accent color for the timer tab.
     fn color(&self) -> Color {
         if let Ok(state) = self.state.lock() {
             state.cycle_phase().color()
@@ -225,7 +209,6 @@ impl Tab for TimerTab {
         }
     }
 
-    /// Handles a key event, delegating to the active overlay or timer controls.
     fn handle(&mut self, key: KeyEvent) -> Result<()> {
         if let Some(picker) = &mut self.picker {
             match picker.handle(key) {
@@ -259,7 +242,6 @@ impl Tab for TimerTab {
         Ok(())
     }
 
-    /// Renders the timer tab including clock, phase, session, status, todo bar, and hints.
     fn render(&self, frame: &mut Frame, area: Rect) {
         self.tick_render_count();
 
@@ -347,7 +329,6 @@ impl Tab for TimerTab {
         }
     }
 
-    /// Drops any cached data held by this tab.
     fn invalidate_cache(&mut self) {
         if let Ok(mut cache) = self.cache.lock() {
             cache.invalidate_todos();

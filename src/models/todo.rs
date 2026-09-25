@@ -16,29 +16,23 @@ use crate::{
     },
 };
 
-/// Represents a single todo item with optional scheduling and repeat configuration.
 #[derive(Clone)]
 pub struct Todo {
     /// Database primary key; `None` until the todo is persisted.
     pub id: Option<i32>,
-    /// The todo's display text.
     pub text: String,
     /// Local datetime when the todo was completed, or `None` if not yet done.
     pub done_at: Option<OffsetDateTime>,
-    /// Optional datetime the todo is due.
     pub due_date: Option<OffsetDateTime>,
     /// Optional repeat schedule applied when the todo is completed.
     pub repeat: Option<Repeat>,
     /// Id of the todo this was spawned from, if it is a repeated occurrence.
     pub parent_id: Option<i32>,
-    /// Local datetime when the todo was created.
     pub created_at: OffsetDateTime,
-    /// Local datetime when the todo was last updated.
     pub updated_at: OffsetDateTime,
 }
 
 impl Todo {
-    /// Creates an unsaved in-memory Todo with default values.
     pub fn new(
         text: String,
         due_date: Option<OffsetDateTime>,
@@ -259,7 +253,6 @@ impl Todo {
         }
     }
 
-    /// Builds the base ORM query for the given page filter.
     fn base_query(page: Page) -> sea_orm::Select<Entity> {
         let today_date = today();
         let today = format_date(today_date);
@@ -369,7 +362,6 @@ impl Todo {
         }
     }
 
-    /// Converts this todo into a SeaORM active model for insert or update.
     fn to_model(&self) -> ActiveModel {
         let due_date = self.due_date.map(|dt| format_date(dt.date()));
         let repeat = self.repeat.as_ref().map(|r| r.to_db_str().to_string());
@@ -400,7 +392,6 @@ impl Todo {
 }
 
 impl From<Model> for Todo {
-    /// Converts a SeaORM todo row into the domain `Todo` type.
     fn from(m: Model) -> Self {
         Self {
             id: Some(m.id),
@@ -415,7 +406,6 @@ impl From<Model> for Todo {
     }
 }
 
-/// SeaORM row model for the `todos` table.
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "todos")]
 pub struct Model {
@@ -430,13 +420,11 @@ pub struct Model {
     updated_at: String,
 }
 
-/// SeaORM relation set for `todos`.
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {}
 
 impl ActiveModelBehavior for ActiveModel {}
 
-/// Normalizes database and ORM errors into `io::Error` for shared logging paths.
 fn io_err(e: impl std::fmt::Display) -> io::Error {
     io::Error::new(io::ErrorKind::Other, e.to_string())
 }

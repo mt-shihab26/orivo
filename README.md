@@ -87,7 +87,7 @@ daily_session_goal  = 16      # target work sessions to complete today (min: 1, 
 
 # `orivo sync` settings — see the Sync section below.
 [sync]
-repo_name = "orivo-data" # name of the GitHub repo (under your account) synced with
+repo_name = "Todos" # name of the GitHub repo (under your account) synced with
 
 ```
 
@@ -118,13 +118,13 @@ work → break → work → break → work → break → work → LONG BREAK  (c
 
 orivo can sync its local database with a private GitHub repo, WhatsApp-style: a single gzip-compressed snapshot, overwritten in place each time.
 
-**Requires the [GitHub CLI](https://cli.github.com) (`gh`), signed in** — run `gh auth login` once before your first sync.
+**Requires the [github cli](https://cli.github.com) (`gh`), signed in** — run `gh auth login` once before your first sync.
 
 ```sh
 $ orivo sync
 ```
 
-The first run creates a private repo under your GitHub account (named `orivo-data` by default — see `[sync] repo_name` in Configuration) via `gh repo create`, and uploads the database to it. Later runs compare the local database and the repo against the last synced snapshot: pulls if only the repo changed (e.g. you synced from another machine), pushes if only the local database changed, does nothing if neither did, and asks which side to keep if both did.
+The first run creates a private repo under your GitHub account (named `Todos` by default — see `[sync] repo_name` in Configuration) via `gh repo create`, and uploads the database to it. Later runs compare the local database and the repo against the last synced snapshot: pulls if only the repo changed (e.g. you synced from another machine), pushes if only the local database changed, does nothing if neither did, and asks which side to keep if both did.
 
 See [`docs/sync.md`](docs/sync.md) for the full mechanics (change detection, push/pull, conflict handling, error cases).
 

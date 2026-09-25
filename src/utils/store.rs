@@ -8,9 +8,7 @@ use crate::{kinds::phase::Phase, utils::path::store_path};
 /// Persisted runtime state, loaded from and saved to disk on change.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Store {
-    /// The currently selected todo id.
     timer_todo_id: Option<i32>,
-    /// The current pomodoro cycle phase.
     timer_cycle_phase: Phase,
     /// Remaining milliseconds per todo, keyed by todo id (or `"none"` when no todo is selected).
     #[serde(default)]
@@ -48,7 +46,6 @@ impl Store {
             .unwrap_or_default()
     }
 
-    /// Saves the store to disk.
     pub fn save(&self) {
         let path = store_path();
         if let Some(parent) = path.parent() {
@@ -59,52 +56,43 @@ impl Store {
         }
     }
 
-    /// Returns the persisted todo id.
     pub fn timer_todo_id(&self) -> Option<i32> {
         self.timer_todo_id
     }
 
-    /// Sets the todo id and returns `&Self` for chaining.
     pub fn set_timer_todo_id(&mut self, todo_id: Option<i32>) -> &Self {
         self.timer_todo_id = todo_id;
         self
     }
 
-    /// Returns the persisted cycle phase.
     pub fn timer_cycle_phase(&self) -> &Phase {
         &self.timer_cycle_phase
     }
 
-    /// Sets the cycle phase and returns `&Self` for chaining.
     pub fn set_timer_cycle_phase(&mut self, cycle_phase: Phase) -> &Self {
         self.timer_cycle_phase = cycle_phase;
         self
     }
 
-    /// Returns the persisted remaining milliseconds for the given todo, if any.
     pub fn timer_remaining_for_todo(&self, todo_id: Option<i32>) -> Option<u32> {
         self.timer_remaining_millis.get(&todo_key(todo_id)).copied()
     }
 
-    /// Sets the remaining milliseconds for the given todo and returns `&Self` for chaining.
     pub fn set_timer_remaining_for_todo(&mut self, todo_id: Option<i32>, millis: u32) -> &Self {
         self.timer_remaining_millis
             .insert(todo_key(todo_id), millis);
         self
     }
 
-    /// Removes the persisted remaining milliseconds for the given todo and returns `&Self` for chaining.
     pub fn clear_timer_remaining_for_todo(&mut self, todo_id: Option<i32>) -> &Self {
         self.timer_remaining_millis.remove(&todo_key(todo_id));
         self
     }
 
-    /// Returns the persisted phase start timestamp for the given todo, if any.
     pub fn timer_phase_started_at_for_todo(&self, todo_id: Option<i32>) -> Option<OffsetDateTime> {
         self.timer_phase_started_at.get(&todo_key(todo_id)).copied()
     }
 
-    /// Sets the phase start timestamp for the given todo and returns `&Self` for chaining.
     pub fn set_timer_phase_started_at_for_todo(
         &mut self,
         todo_id: Option<i32>,
@@ -115,7 +103,6 @@ impl Store {
         self
     }
 
-    /// Removes the phase start timestamp for the given todo and returns `&Self` for chaining.
     pub fn clear_timer_phase_started_at_for_todo(&mut self, todo_id: Option<i32>) -> &Self {
         self.timer_phase_started_at.remove(&todo_key(todo_id));
         self

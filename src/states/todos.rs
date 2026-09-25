@@ -18,7 +18,6 @@ use crate::{
 
 /// Runtime state for the todos tab, managing pagination, selection, and data caches.
 pub struct TodosState {
-    /// Database connection used for all todo and session queries.
     db: DatabaseConnection,
     /// Whether a `g` keypress is pending (waiting for a second `g` to jump to top).
     pending_g: bool,
@@ -28,7 +27,6 @@ pub struct TodosState {
     offset: usize,
     /// Number of items that fit in the visible list area; updated on each resize.
     page_size: Cell<usize>,
-    /// ratatui list state kept in sync for scroll tracking.
     list_state: RefCell<ListState>,
     /// Cache for the todos list, keyed by page and pagination params.
     todos_cache: TodosCache,
@@ -43,7 +41,6 @@ pub struct TodosState {
 }
 
 impl TodosState {
-    /// Creates a new `TodosState` connected to the given database and timer cache.
     pub fn new(db: DatabaseConnection, timer_cache: Arc<Mutex<TimerCache>>) -> Self {
         Self {
             todos_cache: TodosCache::new(db.clone()),
@@ -60,17 +57,14 @@ impl TodosState {
         }
     }
 
-    /// Returns the index of the currently selected row.
     pub fn selected(&self) -> usize {
         self.selected
     }
 
-    /// Returns the current pagination offset.
     pub fn offset(&self) -> usize {
         self.offset
     }
 
-    /// Returns a mutable borrow of the ratatui list state.
     pub fn list_state_mut(&self) -> RefMut<'_, ListState> {
         self.list_state.borrow_mut()
     }
@@ -97,22 +91,18 @@ impl TodosState {
         (self.offset / self.page_size()) + 1
     }
 
-    /// Returns `true` if there are hidden items above the visible window.
     pub fn show_more_above(&self) -> bool {
         self.offset > 0
     }
 
-    /// Returns `true` if there are hidden items below the visible window.
     pub fn show_more_below(&self, loaded_len: usize, total: usize) -> bool {
         self.offset + loaded_len < total
     }
 
-    /// Returns the active search query (empty string means no search is active).
     pub fn search_query(&self) -> &str {
         &self.search_query
     }
 
-    /// Returns `true` when a non-empty search filter is applied.
     pub fn is_searching(&self) -> bool {
         !self.search_query.is_empty()
     }
@@ -129,7 +119,6 @@ impl TodosState {
         self.clamp_selected(page);
     }
 
-    /// Clears the search query and invalidates search caches.
     pub fn clear_search(&mut self) {
         self.search_query.clear();
         self.invalidate_search_caches();
@@ -140,7 +129,6 @@ impl TodosState {
         *self.search_count.borrow_mut() = None;
     }
 
-    /// Returns a cached page of search results, querying the DB if the cache is empty.
     fn get_search_items(&self, page: Page) -> Ref<'_, [Todo]> {
         if self.search_items.borrow().is_none() {
             *self.search_items.borrow_mut() = Some(Todo::list_search(
@@ -162,7 +150,6 @@ impl TodosState {
             .collect()
     }
 
-    /// Returns a borrowed slice of the visible todos for the given page.
     pub fn items(&self, page: Page) -> Ref<'_, [Todo]> {
         if self.search_query.is_empty() {
             self.todos_cache
@@ -172,7 +159,6 @@ impl TodosState {
         }
     }
 
-    /// Returns the total number of todos for the given page.
     pub fn count(&self, page: Page) -> usize {
         if self.search_query.is_empty() {
             self.todos_cache.get_count(page)
@@ -185,7 +171,6 @@ impl TodosState {
         }
     }
 
-    /// Returns a borrowed reference to the currently selected todo, if any.
     pub fn selected_item(&self, page: Page) -> Option<Ref<'_, Todo>> {
         if self.search_query.is_empty() {
             self.todos_cache
@@ -216,7 +201,6 @@ impl TodosState {
         self.page_size.get().max(1)
     }
 
-    /// Invalidates all todo caches including search results.
     pub fn clear_caches(&self) {
         self.todos_cache.invalidate_all();
         self.invalidate_search_caches();
@@ -236,7 +220,6 @@ impl TodosState {
         *self.search_items.borrow_mut() = None;
     }
 
-    /// Returns `true` if the selected todo on the given page can be deleted.
     pub fn can_delete(&self, page: Page, items: &[Todo]) -> bool {
         !matches!(page, Page::History)
             && items
@@ -260,7 +243,6 @@ impl TodosState {
         }
     }
 
-    /// Syncs the ratatui list state selection to the current `selected` index.
     pub fn sync_list_state(&self, len: usize) {
         let selected = if len == 0 {
             None
@@ -303,7 +285,6 @@ impl TodosState {
         self.pending_g = !pending_g;
     }
 
-    /// Jumps to the last item in the list.
     pub fn go_to_end(&mut self, page: Page) {
         let total = Todo::count(&self.db, page);
         if total == 0 {
@@ -321,7 +302,6 @@ impl TodosState {
         self.clamp_selected(page);
     }
 
-    /// Adds a new todo and refreshes the list.
     pub fn add(
         &mut self,
         page: Page,
@@ -335,7 +315,6 @@ impl TodosState {
         }
     }
 
-    /// Updates the selected todo's text, due date, and repeat rule, then refreshes.
     pub fn update(
         &mut self,
         page: Page,
@@ -392,7 +371,6 @@ impl TodosState {
         }
     }
 
-    /// Toggles the done state of the selected todo and refreshes the list.
     pub fn toggle_selected(&mut self, page: Page) {
         if let Some(mut todo) = self.selected_item(page).map(|todo| todo.clone()) {
             todo.toggle(&self.db);

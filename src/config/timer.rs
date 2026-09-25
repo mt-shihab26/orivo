@@ -1,22 +1,17 @@
 use serde::{Deserialize, Serialize};
 
-/// Default work duration in minutes.
 fn default_work_duration() -> u32 {
     25
 }
-/// Default short break duration in minutes.
 fn default_break_duration() -> u32 {
     5
 }
-/// Default long break duration in minutes.
 fn default_long_break_duration() -> u32 {
     15
 }
-/// Default number of work sessions before a long break.
 fn default_long_break_interval() -> u32 {
     4
 }
-/// Default target number of work sessions per day.
 fn default_daily_session_goal() -> u32 {
     16
 }
@@ -24,7 +19,6 @@ fn default_daily_session_goal() -> u32 {
 /// Configuration for the pomodoro timer, loaded from the user's config file.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct TimerConfig {
-    /// Whether to display milliseconds on the clock.
     #[serde(default)]
     show_millis: bool,
     /// Work session duration in minutes.
@@ -45,7 +39,6 @@ pub struct TimerConfig {
 }
 
 impl Default for TimerConfig {
-    /// Returns the built-in default timer configuration.
     fn default() -> Self {
         Self {
             show_millis: false,
@@ -59,37 +52,36 @@ impl Default for TimerConfig {
 }
 
 impl TimerConfig {
-    /// Returns whether milliseconds should be shown on the clock.
     pub fn show_millis(&self) -> bool {
         self.show_millis
     }
 
-    /// Returns the work session duration in milliseconds. Min: 1 min, max: 120 min.
+    /// Work duration in ms, clamped to 1–120 min.
     pub fn work_duration(&self) -> u32 {
         self.work_duration.clamp(1, 120) * 60 * 1000
     }
 
-    /// Returns the short break duration in milliseconds. Min: 1 min, max: 60 min.
+    /// Short break duration in ms, clamped to 1–60 min.
     pub fn break_duration(&self) -> u32 {
         self.break_duration.clamp(1, 60) * 60 * 1000
     }
 
-    /// Returns the long break duration in milliseconds. Min: 1 min, max: 60 min.
+    /// Long break duration in ms, clamped to 1–60 min.
     pub fn long_break_duration(&self) -> u32 {
         self.long_break_duration.clamp(1, 60) * 60 * 1000
     }
 
-    /// Returns the number of work sessions between long breaks. Min: 1, max: 10.
+    /// Work sessions between long breaks, clamped to 1–10.
     pub fn long_break_interval(&self) -> u32 {
         self.long_break_interval.clamp(1, 10)
     }
 
-    /// Returns the daily session goal. Min: 1, max: 24.
+    /// Daily session goal, clamped to 1–24.
     pub fn daily_session_goal(&self) -> u32 {
         self.daily_session_goal.clamp(1, 24)
     }
 
-    /// Returns the tick interval in milliseconds — 10ms when showing millis, 1000ms otherwise.
+    /// Tick interval in ms: 10 when showing millis, 1000 otherwise.
     pub fn tick_interval(show_millis: bool) -> u32 {
         if show_millis { 10 } else { 1000 }
     }

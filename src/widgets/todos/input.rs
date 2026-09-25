@@ -14,30 +14,23 @@ use super::{
     repeat::{RepeatAction, RepeatProps, RepeatState, RepeatWidget},
 };
 
-/// Action returned by the input widget after handling a key event.
 pub enum InputAction {
     /// User submitted the input; carries the text, optional due date, and repeat rule.
     Confirm {
-        /// The trimmed text entered by the user.
+        /// The entered text.
         text: String,
         /// Optional due date chosen via the calendar picker.
         date: Option<OffsetDateTime>,
         /// Optional repeat rule chosen via the repeat picker.
         repeat: Option<Repeat>,
     },
-    /// User pressed Escape to cancel input.
     Escape,
-    /// No state change occurred.
     None,
 }
 
-/// Props for the todo text-input widget.
 pub struct InputProps {
-    /// The textarea holding the user's current text input.
     textarea: TextArea<'static>,
-    /// Currently selected due date, if any.
     date: Option<OffsetDateTime>,
-    /// Currently selected repeat rule, if any.
     repeat: Option<Repeat>,
 }
 
@@ -58,9 +51,7 @@ impl InputProps {
     }
 }
 
-/// Stateful container for the todo input, owns props and optional picker overlays.
 pub struct InputState {
-    /// Mutable props updated as the user types or picks a date/repeat.
     props: InputProps,
     /// Active calendar state when the date-picker overlay is open.
     calendar_state: Option<CalendarState>,
@@ -69,7 +60,6 @@ pub struct InputState {
 }
 
 impl InputState {
-    /// Creates a new input state wrapping the given props.
     pub fn new(props: InputProps) -> Self {
         Self {
             props,
@@ -78,7 +68,6 @@ impl InputState {
         }
     }
 
-    /// Returns a shared reference to the current props.
     pub fn props(&self) -> &InputProps {
         &self.props
     }
@@ -172,21 +161,17 @@ impl InputState {
     }
 }
 
-/// Stateless widget that renders the todo text-input row.
 pub struct InputWidget<'a> {
-    /// Borrowed input props for this render pass.
     props: &'a InputProps,
 }
 
 impl<'a> InputWidget<'a> {
-    /// Creates a new input widget from the given props.
     pub fn new(props: &'a InputProps) -> Self {
         Self { props }
     }
 }
 
 impl Widget for &InputWidget<'_> {
-    /// Renders the textarea alongside separate date and repeat blocks.
     fn render(self, area: Rect, buf: &mut Buffer) {
         let repeat_width = self
             .props

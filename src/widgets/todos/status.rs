@@ -3,7 +3,6 @@ use ratatui::{
     widgets::Paragraph,
 };
 
-/// Props for the todos pagination status bar.
 pub struct StatusProps {
     /// Total number of todos across all pages.
     total: usize,
@@ -16,7 +15,6 @@ pub struct StatusProps {
 }
 
 impl StatusProps {
-    /// Creates new status props with pagination details.
     pub fn new(total: usize, from: usize, to: usize, page: usize) -> Self {
         Self {
             total,
@@ -27,21 +25,17 @@ impl StatusProps {
     }
 }
 
-/// Stateless widget that renders the pagination status line.
 pub struct StatusWidget<'a> {
-    /// Borrowed status props for this render pass.
     props: &'a StatusProps,
 }
 
 impl<'a> StatusWidget<'a> {
-    /// Creates a new status widget from the given props.
     pub fn new(props: &'a StatusProps) -> Self {
         Self { props }
     }
 }
 
 impl Widget for &StatusWidget<'_> {
-    /// Renders the page and range summary right-aligned into the buffer.
     fn render(self, area: Rect, buf: &mut Buffer) {
         Paragraph::new(format!(
             "Page {} • Range {}-{} • Showing {}/{} items",

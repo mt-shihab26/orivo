@@ -1,11 +1,11 @@
 use time::{Date, Month, OffsetDateTime, PrimitiveDateTime, Time};
 
-/// Returns the current local time, falling back to UTC if the local offset is unavailable.
+/// Current local time, falling back to UTC if the local offset is unavailable.
 pub fn now() -> OffsetDateTime {
     OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc())
 }
 
-/// Returns today's local date, falling back to UTC if the local offset is unavailable.
+/// Today's local date.
 pub fn today() -> Date {
     now().date()
 }
@@ -31,6 +31,32 @@ pub fn parse_date(s: &str) -> Option<Date> {
     Date::from_calendar_date(year, Month::try_from(month).ok()?, day).ok()
 }
 
+/// Formats an `OffsetDateTime` for people to read, e.g. `"Fri, 25 Sep 2026, 8:02 PM (UTC+06:00)"`.
+pub fn format_human_datetime(dt: OffsetDateTime) -> String {
+    let (hour, meridiem) = match dt.hour() {
+        0 => (12, "AM"),
+        h @ 1..=11 => (h, "AM"),
+        12 => (12, "PM"),
+        h => (h - 12, "PM"),
+    };
+    let offset = dt.offset();
+    let (_, om, _) = offset.as_hms();
+    let sign = if offset.is_negative() { '-' } else { '+' };
+    format!(
+        "{:.3}, {} {:.3} {}, {}:{:02} {} (UTC{}{:02}:{:02})",
+        dt.weekday().to_string(),
+        dt.day(),
+        dt.month().to_string(),
+        dt.year(),
+        hour,
+        dt.minute(),
+        meridiem,
+        sign,
+        offset.whole_hours().unsigned_abs(),
+        om.unsigned_abs(),
+    )
+}
+
 /// Formats an `OffsetDateTime` as `"YYYY-MM-DDTHH:MM:SS±HH:MM"`.
 pub fn format_datetime(dt: OffsetDateTime) -> String {
     let offset = dt.offset();
@@ -50,8 +76,8 @@ pub fn format_datetime(dt: OffsetDateTime) -> String {
     )
 }
 
-/// Parses an ISO 8601 datetime string into an `OffsetDateTime`, falling back to local time on
-/// failure. Handles `"YYYY-MM-DDTHH:MM:SS±HH:MM"`, `"YYYY-MM-DDTHH:MM:SSZ"`, and `"YYYY-MM-DD"`.
+/// Parses an ISO 8601 datetime string into an `OffsetDateTime`, or `None` if invalid.
+/// Handles `"YYYY-MM-DDTHH:MM:SS±HH:MM"`, `"YYYY-MM-DDTHH:MM:SSZ"`, and `"YYYY-MM-DD"`.
 pub fn parse_datetime(s: &str) -> Option<OffsetDateTime> {
     if s.len() >= 19 {
         let date = parse_date(&s[..10])?;
@@ -88,7 +114,6 @@ pub fn shift_month(date: Date, delta: i32) -> Date {
     date
 }
 
-/// Returns the number of days in the given month of the given year.
 fn days_in_month(year: i32, month: Month) -> u8 {
     let (ny, nm) = if month == Month::December {
         (year + 1, 1u8)
@@ -152,6 +177,50 @@ mod tests {
         let time = Time::from_hms(0, 0, 0).unwrap();
         let dt = PrimitiveDateTime::new(date, time).assume_utc();
         assert_eq!(format_datetime(dt), "2024-01-01T00:00:00+00:00");
+    }
+
+    #[test]
+    fn format_human_datetime_evening_positive_offset() {
+        let date = Date::from_calendar_date(2026, Month::September, 25).unwrap();
+        let time = Time::from_hms(20, 2, 3).unwrap();
+        let offset = time::UtcOffset::from_hms(6, 0, 0).unwrap();
+        let dt = PrimitiveDateTime::new(date, time).assume_offset(offset);
+        assert_eq!(
+            format_human_datetime(dt),
+            "Fri, 25 Sep 2026, 8:02 PM (UTC+06:00)"
+        );
+    }
+
+    #[test]
+    fn format_human_datetime_midnight_and_noon() {
+        let date = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+        let midnight = PrimitiveDateTime::new(date, Time::from_hms(0, 5, 0).unwrap()).assume_utc();
+        let noon = PrimitiveDateTime::new(date, Time::from_hms(12, 0, 0).unwrap()).assume_utc();
+        assert_eq!(
+            format_human_datetime(midnight),
+            "Mon, 1 Jan 2024, 12:05 AM (UTC+00:00)"
+        );
+        assert_eq!(
+            format_human_datetime(noon),
+            "Mon, 1 Jan 2024, 12:00 PM (UTC+00:00)"
+        );
+    }
+
+    #[test]
+    fn format_human_datetime_negative_offsets() {
+        let date = Date::from_calendar_date(2024, Month::March, 5).unwrap();
+        let time = Time::from_hms(9, 15, 0).unwrap();
+        let ny = time::UtcOffset::from_hms(-5, 0, 0).unwrap();
+        let newfoundland = time::UtcOffset::from_hms(-3, -30, 0).unwrap();
+        let dt = PrimitiveDateTime::new(date, time);
+        assert_eq!(
+            format_human_datetime(dt.assume_offset(ny)),
+            "Tue, 5 Mar 2024, 9:15 AM (UTC-05:00)"
+        );
+        assert_eq!(
+            format_human_datetime(dt.assume_offset(newfoundland)),
+            "Tue, 5 Mar 2024, 9:15 AM (UTC-03:30)"
+        );
     }
 
     #[test]

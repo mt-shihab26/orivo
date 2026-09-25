@@ -15,9 +15,7 @@ use super::{
     item::{ItemProps, ItemWidget},
 };
 
-/// Props for the scrollable todo list widget.
 pub struct ListProps<'a> {
-    /// Slice of todos to display on the current page.
     items: &'a [Todo],
     /// Session stats aligned by index with `items`; `None` when unavailable.
     stats: &'a [Option<Stat>],
@@ -29,14 +27,11 @@ pub struct ListProps<'a> {
     selected: usize,
     /// Accent color for the selected row and section headers.
     color: Color,
-    /// Whether there are hidden items above the visible window.
     show_more_above: bool,
-    /// Whether there are hidden items below the visible window.
     show_more_below: bool,
 }
 
 impl<'a> ListProps<'a> {
-    /// Creates new list props with all display parameters.
     pub fn new(
         items: &'a [Todo],
         stats: &'a [Option<Stat>],
@@ -60,14 +55,11 @@ impl<'a> ListProps<'a> {
     }
 }
 
-/// Stateless widget that renders the todo list in either flat or indexed layout.
 pub struct ListWidget<'a> {
-    /// Borrowed list props for this render pass.
     props: &'a ListProps<'a>,
 }
 
 impl<'a> ListWidget<'a> {
-    /// Creates a new list widget from the given props.
     pub fn new(props: &'a ListProps<'a>) -> Self {
         Self { props }
     }
@@ -180,7 +172,6 @@ impl ListWidget<'_> {
 }
 
 impl Widget for &ListWidget<'_> {
-    /// Renders the todo list with padding and overflow indicators.
     fn render(self, area: Rect, buf: &mut Buffer) {
         let horizontal_padding = 2;
         let top_padding = 1;

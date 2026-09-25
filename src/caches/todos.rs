@@ -6,7 +6,6 @@ use crate::{kinds::page::Page, models::todo::Todo};
 
 /// Per-page cache for the paginated todo list and its total count.
 pub struct TodosCache {
-    /// Database connection used to refresh cached pages and counts.
     db: DatabaseConnection,
     /// Cached page of todos, `None` until first fetch.
     items: RefCell<Option<Vec<Todo>>>,
@@ -15,7 +14,6 @@ pub struct TodosCache {
 }
 
 impl TodosCache {
-    /// Creates a new empty cache backed by the given database connection.
     pub fn new(db: DatabaseConnection) -> Self {
         Self {
             db,
@@ -66,7 +64,6 @@ impl TodosCache {
         *self.count.borrow_mut() = None;
     }
 
-    /// Drops all cached data.
     pub fn invalidate_all(&self) {
         self.invalidate_items();
         self.invalidate_count();

@@ -1,18 +1,15 @@
 use ratatui::prelude::{Buffer, Color, Rect, Style, Widget};
 use tui_big_text::{BigText, PixelSize};
 
-/// Props for the big-text countdown clock.
 pub struct ClockProps {
     /// Whether to display centiseconds alongside mm:ss.
     show_millis: bool,
     /// Current time value in milliseconds.
     time_millis: u32,
-    /// Foreground color used to render the clock digits.
     color: Color,
 }
 
 impl ClockProps {
-    /// Creates new clock props.
     pub fn new(show_millis: bool, time_millis: u32, color: Color) -> Self {
         Self {
             show_millis,
@@ -22,14 +19,11 @@ impl ClockProps {
     }
 }
 
-/// Stateless widget that renders a big-text clock.
 pub struct ClockWidget<'a> {
-    /// Borrowed clock props for this render pass.
     props: &'a ClockProps,
 }
 
 impl<'a> ClockWidget<'a> {
-    /// Creates a new clock widget from the given props.
     pub fn new(props: &'a ClockProps) -> Self {
         Self { props }
     }
@@ -55,7 +49,6 @@ impl<'a> ClockWidget<'a> {
 }
 
 impl Widget for &ClockWidget<'_> {
-    /// Renders the clock into the given buffer area.
     fn render(self, area: Rect, buf: &mut Buffer) {
         BigText::builder()
             .pixel_size(PixelSize::Full)

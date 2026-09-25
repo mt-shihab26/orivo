@@ -5,9 +5,7 @@ use ratatui::{
 
 use crate::kinds::todos_mode::TodosMode;
 
-/// Props for the todos keyboard-hint bar.
 pub struct HintProps {
-    /// Current UI mode determining which hints to display.
     ui_mode: TodosMode,
     /// Whether the delete action is available for the selected todo.
     can_delete: bool,
@@ -16,7 +14,6 @@ pub struct HintProps {
 }
 
 impl HintProps {
-    /// Creates new hint props from the current mode, delete availability, and search state.
     pub fn new(ui_mode: TodosMode, can_delete: bool, is_searching: bool) -> Self {
         Self {
             ui_mode,
@@ -26,13 +23,11 @@ impl HintProps {
     }
 }
 
-/// Stateless widget that renders context-sensitive key hints for the todos tab.
 pub struct HintWidget<'a> {
     props: &'a HintProps,
 }
 
 impl<'a> HintWidget<'a> {
-    /// Creates a new hint widget from the given props.
     pub fn new(props: &'a HintProps) -> Self {
         Self { props }
     }

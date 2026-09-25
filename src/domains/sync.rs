@@ -11,7 +11,7 @@ use sha2::{Digest, Sha256};
 use crate::{
     config::Config,
     utils::{
-        date::{format_datetime, now},
+        date::{format_human_datetime, now},
         gh,
         notify::notify_silent,
         path::{db_path, sync_dir, sync_state_path},
@@ -36,7 +36,6 @@ impl SyncState {
             .unwrap_or_default()
     }
 
-    /// Saves the sync state to disk.
     fn save(&self) {
         let path = sync_state_path();
         if let Some(parent) = path.parent() {
@@ -48,7 +47,7 @@ impl SyncState {
     }
 }
 
-/// Ensures a private `orivo-data` GitHub repo exists for the signed-in `gh` user, then syncs
+/// Ensures the configured private GitHub repo exists for the signed-in `gh` user, then syncs
 /// the local database with it: pulls if the repo has changes this machine doesn't have yet,
 /// pushes if this machine has changes the repo doesn't have, does nothing if neither changed,
 /// or pulls (github wins, overwriting local) if both did — a binary sqlite file can't be
@@ -68,10 +67,10 @@ pub fn run_sync() -> Result<()> {
 }
 
 fn sync() -> Result<String> {
-    println!("checking github CLI sign-in...");
+    println!("checking github cli sign-in...");
     if !gh::is_authenticated() {
         return Err(io_err(
-            "not signed in to the github CLI; run `gh auth login` first",
+            "not signed in to the github cli; run `gh auth login` first",
         ));
     }
 
@@ -144,7 +143,7 @@ fn sync() -> Result<String> {
 /// Commits and pushes the local database to the sync repo as a new commit, then records the
 /// new hash as synced.
 fn push(dir: &Path, branch: &str, gz: Vec<u8>, hash: String, file_name: &str) -> Result<()> {
-    let message = format!("sync: {}", format_datetime(now()));
+    let message = format!("sync: {}", format_human_datetime(now()));
     gh::commit_and_push(dir, branch, &gz, &message, file_name)?;
 
     let mut state = SyncState::load();
@@ -174,7 +173,6 @@ fn pull(gz: Option<Vec<u8>>, hash: Option<String>) -> Result<()> {
     Ok(())
 }
 
-/// Compresses `data` with gzip.
 fn gzip(data: &[u8]) -> Result<Vec<u8>> {
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
     encoder.write_all(data)?;
