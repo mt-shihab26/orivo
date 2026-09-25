@@ -2,7 +2,6 @@ use std::time::{Duration, Instant};
 
 use ratatui::prelude::{Alignment, Buffer, Color, Line, Rect, Span, Stylize, Widget};
 
-/// Props holding the current FPS measurements for rendering.
 pub struct FpsProps {
     /// Smoothed frames-per-second over the last one-second interval.
     per_second: f64,
@@ -11,7 +10,6 @@ pub struct FpsProps {
 }
 
 impl FpsProps {
-    /// Creates new FPS props with zeroed counters.
     pub fn new() -> Self {
         Self {
             per_second: 0.0,
@@ -22,7 +20,6 @@ impl FpsProps {
 
 /// Stateful tracker that updates FPS props once per frame.
 pub struct FpsState {
-    /// Mutable props updated each tick with fresh measurements.
     props: FpsProps,
     /// Running frame count within the current one-second interval.
     frame_count_per_second: u32,
@@ -31,7 +28,6 @@ pub struct FpsState {
 }
 
 impl FpsState {
-    /// Creates a new FPS state with zeroed counters, ready to tick.
     pub fn new() -> Self {
         Self {
             props: FpsProps::new(),
@@ -40,7 +36,6 @@ impl FpsState {
         }
     }
 
-    /// Returns a shared reference to the current FPS props.
     pub fn props(&self) -> &FpsProps {
         &self.props
     }
@@ -62,19 +57,16 @@ impl FpsState {
 
 /// Stateless widget that renders the FPS counter in the top-right corner.
 pub struct FpsWidget<'a> {
-    /// Borrowed FPS props for this render pass.
     props: &'a FpsProps,
 }
 
 impl<'a> FpsWidget<'a> {
-    /// Creates a new FPS widget from the given props.
     pub fn new(props: &'a FpsProps) -> Self {
         Self { props }
     }
 }
 
 impl<'a> Widget for &FpsWidget<'a> {
-    /// Renders the fps and lifetime frame count right-aligned into the buffer.
     fn render(self, area: Rect, buf: &mut Buffer) {
         Line::from(
             Span::from(format!(

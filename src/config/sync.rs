@@ -9,12 +9,10 @@ const DEFAULT_REPO_NAME: &str = if cfg!(debug_assertions) {
     "Notes"
 };
 
-/// Default name of the GitHub repo used for sync.
 fn default_repo_name() -> String {
     DEFAULT_REPO_NAME.to_string()
 }
 
-/// Default name of the synced database blob inside the sync repo.
 fn default_file_name() -> String {
     "orivo.sqlite.gz".to_string()
 }
@@ -32,7 +30,6 @@ pub struct SyncConfig {
 }
 
 impl Default for SyncConfig {
-    /// Returns the built-in default sync configuration.
     fn default() -> Self {
         Self {
             repo_name: default_repo_name(),

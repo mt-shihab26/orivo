@@ -38,13 +38,9 @@ use crate::{
 
 /// The root application, owning all tabs and driving the main event loop.
 pub struct App {
-    /// Whether the application is still running.
     alive: bool,
-    /// Index of the currently active tab.
     selected: usize,
-    /// All registered tabs.
     tabs: Vec<Box<dyn Tab>>,
-    /// Receiver for terminal and timer events.
     events: Receiver<Event>,
     /// FPS counter state, `None` when disabled.
     fps_state: Option<FpsState>,
@@ -100,14 +96,12 @@ impl App {
         Ok(())
     }
 
-    /// Advances the FPS counter by one frame, if enabled.
     fn tick_fps(&mut self) {
         if let Some(fps_state) = &mut self.fps_state {
             fps_state.tick();
         }
     }
 
-    /// Draws the current frame to the terminal.
     fn terminal_draw(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
         if let Err(e) = terminal.draw(|frame| self.render_frame(frame)) {
             log_error!("terminal draw failed: {e}");
@@ -166,7 +160,6 @@ impl App {
         active_tab.render(frame, tab_content);
     }
 
-    /// Returns the application name string.
     fn get_app_name(&self) -> &str {
         "Orivo"
     }
@@ -226,7 +219,6 @@ impl App {
         Ok(event)
     }
 
-    /// Dispatches an incoming event to the appropriate handler.
     fn handle_event(&mut self, event: Option<Event>) -> Result<()> {
         let ctrl = |key: &ratatui::crossterm::event::KeyEvent| {
             key.modifiers.contains(KeyModifiers::CONTROL)
@@ -266,12 +258,10 @@ impl App {
         Ok(())
     }
 
-    /// Sets `alive` to `false`, causing the event loop to exit.
     fn quit(&mut self) {
         self.alive = false;
     }
 
-    /// Toggles the FPS counter on or off.
     fn toggle_fps(&mut self) {
         self.fps_state = if self.fps_state.is_none() {
             Some(FpsState::new())
@@ -280,24 +270,20 @@ impl App {
         };
     }
 
-    /// Drops all cached data across all tabs.
     fn invalidate_caches(&mut self) {
         for tab in &mut self.tabs {
             tab.invalidate_cache();
         }
     }
 
-    /// Switches the active tab to `index`.
     fn select_tab(&mut self, index: usize) {
         self.selected = index;
     }
 
-    /// Advances to the next tab, wrapping around.
     fn next_tab(&mut self) {
         self.selected = (self.selected + 1) % self.tabs.len();
     }
 
-    /// Forwards a key event to the active tab.
     fn handle_key(&mut self, key: ratatui::crossterm::event::KeyEvent) -> Result<()> {
         self.tabs[self.selected].handle(key).map_err(|e| {
             log_error!("tab handle error: {e}");

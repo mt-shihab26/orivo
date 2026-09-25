@@ -5,26 +5,21 @@ use ratatui::{
     widgets::{Block, Clear, Paragraph},
 };
 
-/// Action returned by the reduce-picker after handling a key event.
 pub enum ReducePickerAction {
     /// User confirmed; carries the number of milliseconds to subtract.
     Reduce(u32),
-    /// User cancelled without applying.
     Cancel,
-    /// No state change occurred.
     None,
 }
 
-/// Props for the reduce-picker overlay — plain data, no behaviour.
 pub struct ReducePickerProps {
     /// Up to four digits entered so far: [tens-min, units-min, tens-sec, units-sec].
     digits: Vec<u8>,
-    /// Pass the phase color to use in everywhere
+    /// Phase color.
     color: Color,
 }
 
 impl ReducePickerProps {
-    /// Creates empty props with no digits entered.
     pub fn new(color: Color) -> Self {
         Self {
             digits: Vec::with_capacity(4),
@@ -33,24 +28,19 @@ impl ReducePickerProps {
     }
 }
 
-/// Stateful container for the reduce-picker, owns its props.
 pub struct ReducePickerState {
-    /// Mutable props updated as the user types.
     props: ReducePickerProps,
 }
 
 impl ReducePickerState {
-    /// Creates a new picker state with an empty digit buffer.
     pub fn new(props: ReducePickerProps) -> Self {
         Self { props }
     }
 
-    /// Returns a shared reference to the current props.
     pub fn props(&self) -> &ReducePickerProps {
         &self.props
     }
 
-    /// Handles a key event and returns the resulting action.
     pub fn handle(&mut self, key: KeyEvent) -> ReducePickerAction {
         match key.code {
             KeyCode::Char(c) if c.is_ascii_digit() => {
@@ -82,21 +72,17 @@ impl ReducePickerState {
     }
 }
 
-/// Stateless widget that renders the reduce-time popup.
 pub struct ReducePickerWidget<'a> {
-    /// Borrowed picker props for this render pass.
     props: &'a ReducePickerProps,
 }
 
 impl<'a> ReducePickerWidget<'a> {
-    /// Creates a new widget from the given props.
     pub fn new(props: &'a ReducePickerProps) -> Self {
         Self { props }
     }
 }
 
 impl Widget for &ReducePickerWidget<'_> {
-    /// Renders the centered popup into the buffer.
     fn render(self, area: Rect, buf: &mut Buffer) {
         let popup = centered_rect(area, 36, 7);
 

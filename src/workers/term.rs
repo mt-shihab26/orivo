@@ -4,7 +4,7 @@ use ratatui::crossterm::event::{self, Event as TerminalEvent, KeyEventKind};
 
 use crate::{kinds::event::Event, log_error, log_warn};
 
-/// Spawns the terminal input worker thread that reads key and resize events and forwards them to the main event loop.
+/// Spawns a thread that forwards key presses, mouse, and resize events to the main loop.
 pub fn spawn(sender: Sender<Event>) {
     thread::spawn(move || {
         loop {

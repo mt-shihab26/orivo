@@ -18,11 +18,9 @@ use crate::{
 pub struct TimerState {
     /// Database connection used to persist sessions.
     db: DatabaseConnection,
-    /// Timer configuration (durations, intervals, display options).
     config: TimerConfig,
     /// Shared cache reference, used to invalidate stats after a session completes.
     cache: Arc<Mutex<TimerCache>>,
-    /// Whether the timer is actively counting down.
     is_running: bool,
     /// Remaining time captured at the last pause or resume.
     remaining_millis: u32,
@@ -30,7 +28,6 @@ pub struct TimerState {
     started_at: Option<Instant>,
     /// UTC timestamp of when the current phase was first started, `None` before first resume.
     phase_started_at: Option<OffsetDateTime>,
-    /// Current phase of the pomodoro cycle (work, break, or long break).
     cycle_phase: Phase,
     /// The currently selected todo id, used to associate sessions.
     todo_id: Option<i32>,
@@ -75,17 +72,14 @@ impl TimerState {
         }
     }
 
-    /// Returns the currently associated todo id, if any.
     pub fn todo_id(&self) -> Option<i32> {
         self.todo_id
     }
 
-    /// Returns the current phase of the pomodoro cycle.
     pub fn cycle_phase(&self) -> &Phase {
         &self.cycle_phase
     }
 
-    /// Returns the text of the currently associated todo, if any.
     pub fn todo_text(&self) -> Option<String> {
         let id = self.todo_id?;
         let mut cache = self.cache.lock().ok()?;
@@ -101,22 +95,18 @@ impl TimerState {
         }
     }
 
-    /// Returns whether the timer is actively counting down.
     pub fn is_running(&self) -> bool {
         self.is_running
     }
 
-    /// Returns whether milliseconds are shown on the clock.
     pub fn show_millis(&self) -> bool {
         self.show_millis
     }
 
-    /// Returns the number of work sessions before a long break.
     pub fn long_break_interval(&self) -> u32 {
         self.config.long_break_interval()
     }
 
-    /// Returns the configured daily session goal.
     pub fn daily_session_goal(&self) -> u32 {
         self.config.daily_session_goal()
     }
@@ -214,7 +204,6 @@ impl TimerState {
         }
     }
 
-    /// Toggles whether milliseconds are shown on the clock.
     pub fn toggle_show_millis(&mut self) {
         self.show_millis = !self.show_millis;
     }
@@ -292,7 +281,6 @@ impl TimerState {
             .save();
     }
 
-    /// Sends a desktop notification describing the completed phase.
     fn phase_notification(&self) {
         let todo_name = self
             .todo_id

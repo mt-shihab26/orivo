@@ -6,17 +6,13 @@ use ratatui::{
 
 use crate::{kinds::repeat::Repeat, tabs::todos::COLOR};
 
-/// Action returned by the repeat picker after handling a key event.
 pub enum RepeatAction {
     /// User confirmed; carries the chosen repeat rule (None means "no repeat").
     Confirm(Option<Repeat>),
-    /// User cancelled without selecting.
     Cancel,
-    /// No state change occurred.
     None,
 }
 
-/// Props for the repeat-rule picker overlay.
 pub struct RepeatProps {
     /// Index of the currently highlighted option (0 = "None", 1+ = Repeat::ALL).
     cursor: usize,
@@ -32,24 +28,19 @@ impl RepeatProps {
     }
 }
 
-/// Stateful container for the repeat picker.
 pub struct RepeatState {
-    /// Mutable props updated as the user moves the cursor.
     props: RepeatProps,
 }
 
 impl RepeatState {
-    /// Creates a new repeat state wrapping the given props.
     pub fn new(props: RepeatProps) -> Self {
         Self { props }
     }
 
-    /// Returns a shared reference to the current props.
     pub fn props(&self) -> &RepeatProps {
         &self.props
     }
 
-    /// Handles a key event and returns the resulting repeat action.
     pub fn handle(&mut self, key: KeyEvent) -> RepeatAction {
         let max = Repeat::ALL.len();
         match key.code {
@@ -74,21 +65,17 @@ impl RepeatState {
     }
 }
 
-/// Stateless widget that renders the repeat-rule selection list.
 pub struct RepeatWidget<'a> {
-    /// Borrowed repeat props for this render pass.
     props: &'a RepeatProps,
 }
 
 impl<'a> RepeatWidget<'a> {
-    /// Creates a new repeat widget from the given props.
     pub fn new(props: &'a RepeatProps) -> Self {
         Self { props }
     }
 }
 
 impl Widget for &RepeatWidget<'_> {
-    /// Renders the repeat options list with navigation hints into the buffer.
     fn render(self, area: Rect, buf: &mut Buffer) {
         let [list_area, hint_area] =
             Layout::vertical([Constraint::Fill(1), Constraint::Length(3)]).areas(area);

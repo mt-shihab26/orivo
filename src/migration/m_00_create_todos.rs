@@ -1,9 +1,7 @@
 use sea_orm_migration::prelude::*;
 
-/// SeaORM migration for creating and dropping the `todos` table.
 pub struct Migration;
 
-/// Column identifiers for the `todos` table schema.
 #[derive(DeriveIden)]
 enum Todos {
     Table,
@@ -18,7 +16,6 @@ enum Todos {
 }
 
 impl MigrationName for Migration {
-    /// Returns the stable migration identifier.
     fn name(&self) -> &str {
         "m_00_create_todos"
     }
@@ -26,7 +23,6 @@ impl MigrationName for Migration {
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
-    /// Creates the `todos` table if it does not already exist.
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .create_table(
@@ -62,7 +58,6 @@ impl MigrationTrait for Migration {
             .await
     }
 
-    /// Drops the `todos` table, rolling back this migration.
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .drop_table(Table::drop().table(Todos::Table).to_owned())

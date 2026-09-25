@@ -3,7 +3,6 @@ use time::{Date, Duration};
 /// A recurrence rule for a todo item.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Repeat {
-    /// Repeats every day.
     Daily,
     /// Repeats on the same weekday each week.
     Weekly,
@@ -18,7 +17,6 @@ pub enum Repeat {
 }
 
 impl Repeat {
-    /// Returns the icon used to indicate a repeating todo.
     pub fn icon() -> &'static str {
         "⟳"
     }
@@ -45,7 +43,6 @@ impl Repeat {
         }
     }
 
-    /// Returns the human-readable label for the repeat rule.
     pub fn label(&self) -> &str {
         match self {
             Repeat::Daily => "Daily",
@@ -57,7 +54,6 @@ impl Repeat {
         }
     }
 
-    /// Returns the database string identifier for the repeat rule.
     pub fn to_db_str(&self) -> &str {
         match self {
             Repeat::Daily => "daily",
@@ -69,7 +65,6 @@ impl Repeat {
         }
     }
 
-    /// Parses a repeat rule from its database string identifier, returning `None` if unrecognised.
     pub fn from_db_str(s: &str) -> Option<Self> {
         match s {
             "daily" => Some(Repeat::Daily),
@@ -82,7 +77,7 @@ impl Repeat {
         }
     }
 
-    /// Returns the next due date after `from` according to this repeat rule.
+    /// Next due date after `from`.
     pub fn next_date(&self, from: Date) -> Date {
         match self {
             Repeat::Daily => from + Duration::days(1),

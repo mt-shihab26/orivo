@@ -1,19 +1,4 @@
-//! Binary entrypoint for the Orivo CLI.
-//!
-//! This crate-level binary documentation exists separately from `lib.rs`
-//! because the executable is responsible for command routing rather than the
-//! application's internal architecture.
-//!
-//! The entry flow is intentionally small:
-//!
-//! - read the first CLI argument
-//! - dispatch to the matching command implementation
-//! - load config and connect the database only for commands that need them
-//! - return an `InvalidInput` error for unknown commands
-//!
-//! The default command is `tui`, which launches the interactive terminal UI.
-//! Additional commands such as `seed`, `version`, and `help` are thin wrappers
-//! around the command types defined in the library crate.
+//! Binary entrypoint: routes the first CLI argument to a command (default: `tui`).
 
 use std::{
     env,
@@ -26,7 +11,6 @@ use orivo::{
     utils::db,
 };
 
-/// Parses the CLI argument list and dispatches to the selected command.
 fn main() -> Result<()> {
     match env::args().nth(1).as_deref() {
         None | Some("tui") => Box::new(Tui::new(Config::load()?, db::connect()?)).run(),
@@ -39,7 +23,6 @@ fn main() -> Result<()> {
     }
 }
 
-/// Builds and runs the aggregated help command.
 fn help() -> Result<()> {
     #[cfg(debug_assertions)]
     let helps = [
@@ -54,7 +37,6 @@ fn help() -> Result<()> {
     Box::new(Help::new(&helps)).run()
 }
 
-/// Prints an error for an unknown command and returns `InvalidInput`.
 fn unknown(unknown: &str) -> Result<()> {
     eprintln!("unknown command: {unknown}");
     eprintln!("run `orivo help` for usage");

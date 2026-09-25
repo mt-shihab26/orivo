@@ -52,7 +52,6 @@ pub fn reset() -> Result<()> {
     Ok(())
 }
 
-/// Converts any displayable error into a standard `std::io::Error`.
 fn io_err(e: impl std::fmt::Display) -> std::io::Error {
     std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
 }

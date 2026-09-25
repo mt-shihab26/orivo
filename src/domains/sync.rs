@@ -36,7 +36,6 @@ impl SyncState {
             .unwrap_or_default()
     }
 
-    /// Saves the sync state to disk.
     fn save(&self) {
         let path = sync_state_path();
         if let Some(parent) = path.parent() {
@@ -174,7 +173,6 @@ fn pull(gz: Option<Vec<u8>>, hash: Option<String>) -> Result<()> {
     Ok(())
 }
 
-/// Compresses `data` with gzip.
 fn gzip(data: &[u8]) -> Result<Vec<u8>> {
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
     encoder.write_all(data)?;

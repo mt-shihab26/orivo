@@ -8,11 +8,8 @@ use crate::{
     models::{session::Stat, todo::Todo},
 };
 
-/// Props for a single todo list item row.
 pub struct ItemProps<'a> {
-    /// The todo data to render.
     todo: &'a Todo,
-    /// Optional session statistics for this todo.
     stats: Option<Stat>,
     /// 1-based serial number shown before the todo text.
     serial: usize,
@@ -20,14 +17,12 @@ pub struct ItemProps<'a> {
     serial_width: usize,
     /// Whether the row should appear dimmed (e.g. history page).
     dimmed: bool,
-    /// Whether this row is currently selected by the cursor.
     selected: bool,
     /// Highlight color used when the row is selected.
     color: Color,
 }
 
 impl<'a> ItemProps<'a> {
-    /// Creates new item props with all rendering parameters.
     pub fn new(
         todo: &'a Todo,
         stats: Option<Stat>,
@@ -49,14 +44,11 @@ impl<'a> ItemProps<'a> {
     }
 }
 
-/// Stateless widget that renders a single todo row.
 pub struct ItemWidget<'a> {
-    /// Borrowed item props for this render pass.
     props: &'a ItemProps<'a>,
 }
 
 impl<'a> ItemWidget<'a> {
-    /// Creates a new item widget from the given props.
     pub fn new(props: &'a ItemProps<'a>) -> Self {
         Self { props }
     }
@@ -105,7 +97,6 @@ impl<'a> ItemWidget<'a> {
 }
 
 impl Widget for &ItemWidget<'_> {
-    /// Renders the todo row with selection prefix and appropriate styling.
     fn render(self, area: Rect, buf: &mut Buffer) {
         let serial = self.props.serial;
         let width = self.props.serial_width;

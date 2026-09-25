@@ -14,24 +14,19 @@ use crate::{
     utils::date::{shift_month, today},
 };
 
-/// Action returned by the calendar picker after handling a key event.
 pub enum CalendarAction {
     /// User confirmed; carries the selected date (None = clear date).
     Confirm(Option<Date>),
-    /// User cancelled without confirming.
     Cancel,
-    /// No state change occurred.
     None,
 }
 
-/// Props for the due-date calendar popup.
 pub struct CalendarProps {
     /// Currently highlighted date in the calendar.
     date: Date,
 }
 
 impl CalendarProps {
-    /// Creates new calendar props from an optional existing date.
     pub fn new(date: Option<Date>) -> Self {
         Self {
             date: date.unwrap_or_else(today),
@@ -39,24 +34,19 @@ impl CalendarProps {
     }
 }
 
-/// Stateful container for the calendar picker.
 pub struct CalendarState {
-    /// Mutable props updated as the user navigates or opens sub-pickers.
     props: CalendarProps,
 }
 
 impl CalendarState {
-    /// Creates a new calendar state wrapping the given props.
     pub fn new(props: CalendarProps) -> Self {
         Self { props }
     }
 
-    /// Returns a shared reference to the current props.
     pub fn props(&self) -> &CalendarProps {
         &self.props
     }
 
-    /// Handles a key event and returns the resulting calendar action.
     pub fn handle(&mut self, key: KeyEvent) -> CalendarAction {
         match key.code {
             KeyCode::Char('x') => return CalendarAction::Confirm(None),
@@ -88,21 +78,17 @@ impl CalendarState {
     }
 }
 
-/// Stateless widget that renders the calendar due-date popup.
 pub struct CalendarWidget<'a> {
-    /// Borrowed calendar props for this render pass.
     props: &'a CalendarProps,
 }
 
 impl<'a> CalendarWidget<'a> {
-    /// Creates a new calendar widget from the given props.
     pub fn new(props: &'a CalendarProps) -> Self {
         Self { props }
     }
 }
 
 impl Widget for &CalendarWidget<'_> {
-    /// Renders the calendar date-picker popup into the buffer.
     fn render(self, area: Rect, buf: &mut Buffer) {
         let popup = centered_rect(area, 24, 5 + 10 + 5);
 

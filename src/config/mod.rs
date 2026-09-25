@@ -1,6 +1,4 @@
-/// Sync command configuration loaded from `config.toml`.
 pub mod sync;
-/// Pomodoro timer configuration loaded from `config.toml`.
 pub mod timer;
 
 use std::{
@@ -18,19 +16,15 @@ use crate::{
 /// Top-level application configuration, loaded from `~/.config/orivo/config.toml`.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
-    /// Whether to show the FPS counter in the UI.
     #[serde(default)]
     pub show_fps: bool,
-    /// Pomodoro timer settings.
     #[serde(default)]
     pub timer: TimerConfig,
-    /// Sync command settings.
     #[serde(default)]
     pub sync: SyncConfig,
 }
 
 impl Default for Config {
-    /// Returns the built-in default configuration values.
     fn default() -> Self {
         Self {
             show_fps: false,

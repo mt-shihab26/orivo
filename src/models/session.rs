@@ -19,14 +19,12 @@ use crate::{
 /// Aggregated work session statistics for a single todo.
 #[derive(Clone)]
 pub struct Stat {
-    /// Number of completed work sessions.
     pub completed_sessions: u32,
     /// Total time spent in seconds across all completed work sessions.
     pub completed_secs: u32,
 }
 
 impl Stat {
-    /// Creates a new `Stat` with the given session count and total seconds.
     pub fn new(completed_sessions: u32, completed_secs: u32) -> Self {
         Self {
             completed_sessions,
@@ -35,29 +33,23 @@ impl Stat {
     }
 }
 
-/// A single pomodoro session record.
 #[derive(Clone)]
 pub struct Session {
     /// Database primary key, `None` before the record is saved.
     pub id: Option<i32>,
-    /// Phase identifier stored as a string (e.g. `"work"`, `"break"`).
     pub phase: Phase,
     /// Duration of the session in seconds.
     pub duration_secs: u32,
-    /// Local timestamp of when the session started, `None` if not yet started.
+    /// Local timestamp of when the session started.
     pub started_at: OffsetDateTime,
-    /// Local timestamp of when the session ended, `None` if not yet completed.
+    /// Local timestamp of when the session ended.
     pub ended_at: OffsetDateTime,
-    /// Associated todo id, if any.
     pub todo_id: Option<i32>,
-    /// Local datetime when the record was created.
     pub created_at: OffsetDateTime,
-    /// Local datetime when the record was last updated.
     pub updated_at: OffsetDateTime,
 }
 
 impl Session {
-    /// Creates a new completed session for the given phase and duration.
     pub fn new(
         phase: &Phase,
         duration_millis: u32,
@@ -89,7 +81,6 @@ impl Session {
         Self::new(phase, duration_millis, started_at, todo_id).save(db);
     }
 
-    /// Inserts or updates this session in the database.
     fn save(&mut self, db: &DatabaseConnection) -> bool {
         match rt().block_on(async { self.to_model().insert(db).await.map_err(io_err) }) {
             Ok(model) => {
@@ -153,7 +144,6 @@ impl Session {
         }
     }
 
-    /// Converts this session into a SeaORM active model for insert or update.
     fn to_model(&self) -> ActiveModel {
         let now = now();
 
@@ -183,7 +173,6 @@ impl Session {
 }
 
 impl From<Model> for Session {
-    /// Converts a SeaORM session row into the domain `Session` type.
     fn from(m: Model) -> Self {
         let now = now();
 
@@ -200,7 +189,6 @@ impl From<Model> for Session {
     }
 }
 
-/// SeaORM row model for the `sessions` table.
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "sessions")]
 pub struct Model {
@@ -215,13 +203,11 @@ pub struct Model {
     updated_at: String,
 }
 
-/// SeaORM relation set for `sessions`.
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {}
 
 impl ActiveModelBehavior for ActiveModel {}
 
-/// Normalizes database and ORM errors into `io::Error` for shared logging paths.
 fn io_err(e: impl std::fmt::Display) -> io::Error {
     io::Error::new(io::ErrorKind::Other, e.to_string())
 }

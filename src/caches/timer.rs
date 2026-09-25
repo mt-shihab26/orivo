@@ -7,7 +7,6 @@ use crate::models::{
 
 /// Per-tab cache for today's todos and their session stats.
 pub struct TimerCache {
-    /// Database connection used to refresh cache entries on demand.
     db: DatabaseConnection,
     /// Cached list of overdue todos, `None` until first fetch.
     due_todos: Option<Vec<Todo>>,
@@ -22,7 +21,6 @@ pub struct TimerCache {
 }
 
 impl TimerCache {
-    /// Creates a new empty cache backed by the given database connection.
     pub fn new(db: DatabaseConnection) -> Self {
         Self {
             db,

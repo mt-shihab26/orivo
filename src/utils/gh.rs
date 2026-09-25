@@ -14,12 +14,10 @@ pub fn is_authenticated() -> bool {
         .unwrap_or(false)
 }
 
-/// Returns the signed-in GitHub username.
 fn username() -> Result<String> {
     run_gh(&["api", "user", "-q", ".login"])
 }
 
-/// Returns whether the repo `owner/name` exists on GitHub.
 fn repo_exists(full_name: &str) -> bool {
     Command::new("gh")
         .args(["repo", "view", full_name])

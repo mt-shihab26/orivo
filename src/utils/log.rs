@@ -56,7 +56,6 @@ fn timestamp() -> String {
     format!("{year}-{month:02}-{day:02}T{h:02}:{m:02}:{s:02}Z")
 }
 
-/// Returns `true` if `year` is a Gregorian leap year.
 fn is_leap(year: u64) -> bool {
     (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }
@@ -65,7 +64,6 @@ fn is_leap(year: u64) -> bool {
 /// tick, so without a bound this grows for as long as the app is installed.
 const MAX_LOG_BYTES: u64 = 5 * 1024 * 1024;
 
-/// Appends a timestamped log line with the given level and message to the log file.
 pub fn write(level: &str, msg: &str) {
     let path = log_path();
     if let Some(parent) = path.parent() {
@@ -87,12 +85,10 @@ pub fn write(level: &str, msg: &str) {
 struct DbLogger;
 
 impl log::Log for DbLogger {
-    /// Returns `true` only for sqlx targets at Info level or below.
     fn enabled(&self, metadata: &log::Metadata) -> bool {
         metadata.target().starts_with("sqlx") && metadata.level() <= log::Level::Info
     }
 
-    /// Writes the log record to the app log file if enabled.
     fn log(&self, record: &log::Record) {
         if self.enabled(record.metadata()) {
             write("DB", &format!("{}", record.args()));
@@ -105,25 +101,21 @@ impl log::Log for DbLogger {
 
 static LOGGER: DbLogger = DbLogger;
 
-/// Registers `DbLogger` as the global logger and sets the max level to Info.
 pub fn init() {
     let _ = log::set_logger(&LOGGER);
     log::set_max_level(log::LevelFilter::Info);
 }
 
-/// Logs a message at the ERROR level to the app log file.
 #[macro_export]
 macro_rules! log_error {
     ($($arg:tt)*) => { $crate::utils::log::write("ERROR", &format!($($arg)*)) };
 }
 
-/// Logs a message at the WARN level to the app log file.
 #[macro_export]
 macro_rules! log_warn {
     ($($arg:tt)*) => { $crate::utils::log::write("WARN", &format!($($arg)*)) };
 }
 
-/// Logs a message at the INFO level to the app log file.
 #[macro_export]
 macro_rules! log_info {
     ($($arg:tt)*) => { $crate::utils::log::write("INFO", &format!($($arg)*)) };

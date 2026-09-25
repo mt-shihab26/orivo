@@ -7,7 +7,6 @@ use ratatui::{
 
 use crate::tabs::todos::COLOR;
 
-/// Action returned by the search state after handling a key event.
 pub enum SearchAction {
     /// User pressed Enter; keeps the filter active and closes the bar.
     Confirm,
@@ -15,20 +14,16 @@ pub enum SearchAction {
     Cancel,
     /// Query text changed; carries the new query string.
     QueryChanged(String),
-    /// No state change occurred.
     None,
 }
 
-/// Props for the search widget.
 pub struct SearchProps {
-    /// The current search query string.
     pub query: String,
     /// Whether the search bar is actively being typed into (shows block cursor).
     pub active: bool,
 }
 
 impl SearchProps {
-    /// Creates new search props.
     pub fn new(query: impl Into<String>, active: bool) -> Self {
         Self {
             query: query.into(),
@@ -37,7 +32,6 @@ impl SearchProps {
     }
 }
 
-/// Stateful container for the search bar; owns the query and handles key events.
 pub struct SearchState {
     props: SearchProps,
 }
@@ -50,12 +44,10 @@ impl SearchState {
         }
     }
 
-    /// Returns a reference to the props for rendering.
     pub fn props(&self) -> &SearchProps {
         &self.props
     }
 
-    /// Handles a key event and returns the resulting action.
     pub fn handle(&mut self, key: KeyEvent) -> SearchAction {
         match key.code {
             KeyCode::Enter => SearchAction::Confirm,
@@ -79,7 +71,6 @@ pub struct SearchWidget<'a> {
 }
 
 impl<'a> SearchWidget<'a> {
-    /// Creates a new search widget from the given props.
     pub fn new(props: &'a SearchProps) -> Self {
         Self { props }
     }

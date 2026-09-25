@@ -1,11 +1,11 @@
 use time::{Date, Month, OffsetDateTime, PrimitiveDateTime, Time};
 
-/// Returns the current local time, falling back to UTC if the local offset is unavailable.
+/// Current local time, falling back to UTC if the local offset is unavailable.
 pub fn now() -> OffsetDateTime {
     OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc())
 }
 
-/// Returns today's local date, falling back to UTC if the local offset is unavailable.
+/// Today's local date.
 pub fn today() -> Date {
     now().date()
 }
@@ -76,8 +76,8 @@ pub fn format_datetime(dt: OffsetDateTime) -> String {
     )
 }
 
-/// Parses an ISO 8601 datetime string into an `OffsetDateTime`, falling back to local time on
-/// failure. Handles `"YYYY-MM-DDTHH:MM:SS±HH:MM"`, `"YYYY-MM-DDTHH:MM:SSZ"`, and `"YYYY-MM-DD"`.
+/// Parses an ISO 8601 datetime string into an `OffsetDateTime`, or `None` if invalid.
+/// Handles `"YYYY-MM-DDTHH:MM:SS±HH:MM"`, `"YYYY-MM-DDTHH:MM:SSZ"`, and `"YYYY-MM-DD"`.
 pub fn parse_datetime(s: &str) -> Option<OffsetDateTime> {
     if s.len() >= 19 {
         let date = parse_date(&s[..10])?;
@@ -114,7 +114,6 @@ pub fn shift_month(date: Date, delta: i32) -> Date {
     date
 }
 
-/// Returns the number of days in the given month of the given year.
 fn days_in_month(year: i32, month: Month) -> u8 {
     let (ny, nm) = if month == Month::December {
         (year + 1, 1u8)

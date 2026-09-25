@@ -4,18 +4,16 @@ use ratatui::{
     widgets::{LineGauge, Paragraph},
 };
 
-/// Props for the session progress widget.
 pub struct SessionProps {
     /// Number of completed sessions so far today.
     sessions: u32,
     /// Target number of sessions for the day.
     daily_session_goal: u32,
-    /// Pass the phase color to use in everywhere
+    /// Phase color.
     color: Color,
 }
 
 impl SessionProps {
-    /// Creates new session props with the current count and daily goal.
     pub fn new(sessions: u32, daily_session_goal: u32, color: Color) -> Self {
         Self {
             sessions,
@@ -27,19 +25,16 @@ impl SessionProps {
 
 /// Stateless widget that renders "Session X / Y" text and a centered 50%-wide progress bar.
 pub struct SessionWidget<'a> {
-    /// Borrowed session props for this render pass.
     props: &'a SessionProps,
 }
 
 impl<'a> SessionWidget<'a> {
-    /// Creates a new session widget from the given props.
     pub fn new(props: &'a SessionProps) -> Self {
         Self { props }
     }
 }
 
 impl Widget for &SessionWidget<'_> {
-    /// Renders the session count and a horizontally centered progress bar.
     fn render(self, area: Rect, buf: &mut Buffer) {
         let [text_row, gauge_row] =
             Layout::vertical([Constraint::Length(1), Constraint::Length(1)]).areas(area);
