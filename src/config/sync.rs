@@ -2,9 +2,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::log_warn;
 
-/// Default name of the GitHub repo `orivo sync` creates/uses for the local database.
+/// Default repo name; debug builds use a separate repo to keep dev data apart from real data.
+const DEFAULT_REPO_NAME: &str = if cfg!(debug_assertions) {
+    "Notes-dev"
+} else {
+    "Notes"
+};
+
+/// Default name of the GitHub repo used for sync.
 fn default_repo_name() -> String {
-    "orivo-data".to_string()
+    DEFAULT_REPO_NAME.to_string()
 }
 
 /// Default name of the synced database blob inside the sync repo.
@@ -58,7 +65,7 @@ mod tests {
 
     #[test]
     fn accepts_the_defaults() {
-        assert!(is_safe_segment("orivo-data"));
+        assert!(is_safe_segment("Notes"));
         assert!(is_safe_segment("orivo.sqlite.gz"));
     }
 
@@ -92,7 +99,7 @@ mod tests {
             repo_name: "../../evil".to_string(),
             file_name: "--upload-pack=id".to_string(),
         };
-        assert_eq!(config.repo_name(), "orivo-data");
+        assert_eq!(config.repo_name(), default_repo_name());
         assert_eq!(config.file_name(), "orivo.sqlite.gz");
     }
 }
@@ -108,7 +115,7 @@ impl SyncConfig {
                 "config: ignoring unsafe [sync] repo_name {:?}, using the default",
                 self.repo_name
             );
-            "orivo-data"
+            DEFAULT_REPO_NAME
         }
     }
 

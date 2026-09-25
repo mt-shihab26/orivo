@@ -48,7 +48,7 @@ impl SyncState {
     }
 }
 
-/// Ensures a private `orivo-data` GitHub repo exists for the signed-in `gh` user, then syncs
+/// Ensures the configured private GitHub repo exists for the signed-in `gh` user, then syncs
 /// the local database with it: pulls if the repo has changes this machine doesn't have yet,
 /// pushes if this machine has changes the repo doesn't have, does nothing if neither changed,
 /// or pulls (github wins, overwriting local) if both did — a binary sqlite file can't be

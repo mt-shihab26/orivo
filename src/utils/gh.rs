@@ -19,7 +19,7 @@ fn username() -> Result<String> {
     run_gh(&["api", "user", "-q", ".login"])
 }
 
-/// Returns whether `owner/orivo-data` already exists on GitHub.
+/// Returns whether the repo `owner/name` exists on GitHub.
 fn repo_exists(full_name: &str) -> bool {
     Command::new("gh")
         .args(["repo", "view", full_name])
