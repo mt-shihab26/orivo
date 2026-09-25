@@ -4,9 +4,9 @@ use crate::log_warn;
 
 /// Default repo name; debug builds use a separate repo to keep dev data apart from real data.
 const DEFAULT_REPO_NAME: &str = if cfg!(debug_assertions) {
-    "Notes-dev"
+    "Todos-dev"
 } else {
-    "Notes"
+    "Todos"
 };
 
 fn default_repo_name() -> String {
@@ -62,7 +62,7 @@ mod tests {
 
     #[test]
     fn accepts_the_defaults() {
-        assert!(is_safe_segment("Notes"));
+        assert!(is_safe_segment("Todos"));
         assert!(is_safe_segment("orivo.sqlite.gz"));
     }
 
