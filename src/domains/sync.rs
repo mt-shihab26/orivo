@@ -11,7 +11,7 @@ use sha2::{Digest, Sha256};
 use crate::{
     config::Config,
     utils::{
-        date::{format_datetime, now},
+        date::{format_human_datetime, now},
         gh,
         notify::notify_silent,
         path::{db_path, sync_dir, sync_state_path},
@@ -144,7 +144,7 @@ fn sync() -> Result<String> {
 /// Commits and pushes the local database to the sync repo as a new commit, then records the
 /// new hash as synced.
 fn push(dir: &Path, branch: &str, gz: Vec<u8>, hash: String, file_name: &str) -> Result<()> {
-    let message = format!("sync: {}", format_datetime(now()));
+    let message = format!("sync: {}", format_human_datetime(now()));
     gh::commit_and_push(dir, branch, &gz, &message, file_name)?;
 
     let mut state = SyncState::load();
