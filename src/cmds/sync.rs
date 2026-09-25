@@ -3,7 +3,7 @@ use std::io::Result;
 use crate::{cmds::Cmd, domains::sync::run_sync};
 
 /// Command that syncs the local database with the user's `orivo-data` GitHub repo, creating
-/// it via the GitHub CLI if it doesn't exist yet.
+/// it via the github cli if it doesn't exist yet.
 pub struct Sync;
 
 impl Sync {

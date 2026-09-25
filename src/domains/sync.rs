@@ -68,10 +68,10 @@ pub fn run_sync() -> Result<()> {
 }
 
 fn sync() -> Result<String> {
-    println!("checking github CLI sign-in...");
+    println!("checking github cli sign-in...");
     if !gh::is_authenticated() {
         return Err(io_err(
-            "not signed in to the github CLI; run `gh auth login` first",
+            "not signed in to the github cli; run `gh auth login` first",
         ));
     }
 

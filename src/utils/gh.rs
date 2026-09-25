@@ -68,7 +68,7 @@ pub fn ensure_clone(dir: &Path, repo_full_name: &str) -> Result<()> {
     let output = Command::new("gh")
         .args(["repo", "clone", repo_full_name, &dir.to_string_lossy()])
         .output()
-        .map_err(|_| io_err("`gh` (github CLI) is not installed; see https://cli.github.com"))?;
+        .map_err(|_| io_err("`gh` (github cli) is not installed; see https://cli.github.com"))?;
 
     if !output.status.success() {
         return Err(io_err(
@@ -122,7 +122,7 @@ fn run_gh(args: &[&str]) -> Result<String> {
     let output = Command::new("gh")
         .args(args)
         .output()
-        .map_err(|_| io_err("`gh` (github CLI) is not installed; see https://cli.github.com"))?;
+        .map_err(|_| io_err("`gh` (github cli) is not installed; see https://cli.github.com"))?;
 
     if !output.status.success() {
         return Err(io_err(

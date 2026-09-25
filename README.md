@@ -118,7 +118,7 @@ work → break → work → break → work → break → work → LONG BREAK  (c
 
 orivo can sync its local database with a private GitHub repo, WhatsApp-style: a single gzip-compressed snapshot, overwritten in place each time.
 
-**Requires the [GitHub CLI](https://cli.github.com) (`gh`), signed in** — run `gh auth login` once before your first sync.
+**Requires the [github cli](https://cli.github.com) (`gh`), signed in** — run `gh auth login` once before your first sync.
 
 ```sh
 $ orivo sync
