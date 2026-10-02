@@ -107,7 +107,7 @@ type Entity interface {
 }
 ```
 
-Entities share a `core.World`, which holds the timer, the todo source and the state of the current frame. The remaining packages under `src/` are the data behind it: the timer state machine, the store, the session log and the Todoist cache.
+Entities share a `core.World`, which holds the timer, the todo source and the state of the current frame. The packages under `src/systems` are what runs behind it: the timer state machine, the store, the session log and the Todoist cache.
 
 ## Development
 

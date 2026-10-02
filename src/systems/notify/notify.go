@@ -4,7 +4,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/mt-shihab26/orivo/src/logx"
+	"github.com/mt-shihab26/orivo/src/systems/logx"
 )
 
 var escape = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")

@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mt-shihab26/orivo/src/logx"
-	"github.com/mt-shihab26/orivo/src/timer"
+	"github.com/mt-shihab26/orivo/src/systems/logx"
+	"github.com/mt-shihab26/orivo/src/systems/timer"
 )
 
 type status struct {

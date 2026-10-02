@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mt-shihab26/orivo/src/phase"
+	"github.com/mt-shihab26/orivo/src/systems/phase"
 )
 
 func TestRoundTrip(t *testing.T) {

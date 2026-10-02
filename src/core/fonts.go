@@ -8,7 +8,7 @@ import (
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 
-	"github.com/mt-shihab26/orivo/src/logx"
+	"github.com/mt-shihab26/orivo/src/systems/logx"
 )
 
 type Face struct {

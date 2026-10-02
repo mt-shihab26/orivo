@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"github.com/mt-shihab26/orivo/src/config"
-	"github.com/mt-shihab26/orivo/src/logx"
-	"github.com/mt-shihab26/orivo/src/phase"
-	"github.com/mt-shihab26/orivo/src/sessions"
-	"github.com/mt-shihab26/orivo/src/store"
+	"github.com/mt-shihab26/orivo/src/systems/logx"
+	"github.com/mt-shihab26/orivo/src/systems/phase"
+	"github.com/mt-shihab26/orivo/src/systems/sessions"
+	"github.com/mt-shihab26/orivo/src/systems/store"
 )
 
 type State struct {

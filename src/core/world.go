@@ -7,10 +7,10 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	"github.com/mt-shihab26/orivo/src/config"
-	"github.com/mt-shihab26/orivo/src/phase"
-	"github.com/mt-shihab26/orivo/src/sessions"
-	"github.com/mt-shihab26/orivo/src/timer"
-	"github.com/mt-shihab26/orivo/src/todos"
+	"github.com/mt-shihab26/orivo/src/systems/phase"
+	"github.com/mt-shihab26/orivo/src/systems/sessions"
+	"github.com/mt-shihab26/orivo/src/systems/timer"
+	"github.com/mt-shihab26/orivo/src/systems/todos"
 )
 
 const (

@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/mt-shihab26/orivo/src/logx"
-	"github.com/mt-shihab26/orivo/src/phase"
+	"github.com/mt-shihab26/orivo/src/systems/logx"
+	"github.com/mt-shihab26/orivo/src/systems/phase"
 )
 
 const version = 2
