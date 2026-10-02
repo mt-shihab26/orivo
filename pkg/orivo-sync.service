@@ -1,9 +1,17 @@
 [Unit]
+# Name shown by `systemctl --user status orivo-sync` and in the journal.
 Description=Sync orivo todos with Todoist
+# Where to read more about this unit (`systemctl --user help orivo-sync.service`).
 Documentation=https://github.com/mt-shihab26/orivo
-After=network-online.target
-Wants=network-online.target
 
 [Service]
+# Run the command once and exit; started by orivo-sync.timer, not kept running.
 Type=oneshot
+# Wait until Todoist is reachable before syncing. This is a user unit, which cannot use
+# network-online.target (that only exists in the system manager), so it checks itself:
+# every 10 seconds, try a TCP connection to the Todoist API until one succeeds.
+ExecStartPre=/usr/bin/bash -c 'until timeout 5 bash -c ": >/dev/tcp/api.todoist.com/443" 2>/dev/null; do sleep 10; done'
+# Fetch the overdue and today's Work todos and write them to the cache the picker reads.
 ExecStart=/usr/bin/orivo sync-todoist
+# Never time out while waiting: the wait above can last until the internet comes back.
+TimeoutStartSec=infinity
