@@ -1,9 +1,9 @@
 package core
 
 import (
-	"image/color"
-
 	rl "github.com/gen2brain/raylib-go/raylib"
+
+	"orivo/src/systems/theme"
 )
 
 const (
@@ -11,13 +11,24 @@ const (
 	BaseHeight = 540
 )
 
+// The colors are read while drawing, so ApplyTheme must run on the render
+// loop's goroutine.
 var (
-	ColorBackground = color.RGBA{15, 17, 21, 255}
-	ColorPanel      = color.RGBA{23, 26, 33, 255}
-	ColorTrack      = color.RGBA{42, 46, 55, 255}
-	ColorDim        = color.RGBA{107, 114, 128, 255}
-	ColorText       = color.RGBA{229, 231, 235, 255}
+	ColorBackground = theme.Default.Background
+	ColorPanel      = theme.Default.Panel
+	ColorTrack      = theme.Default.Track
+	ColorDim        = theme.Default.Dim
+	ColorText       = theme.Default.Text
+
+	ColorWork      = theme.Default.Work
+	ColorBreak     = theme.Default.Break
+	ColorLongBreak = theme.Default.LongBreak
 )
+
+func ApplyTheme(t theme.Theme) {
+	ColorBackground, ColorPanel, ColorTrack, ColorDim, ColorText = t.Background, t.Panel, t.Track, t.Dim, t.Text
+	ColorWork, ColorBreak, ColorLongBreak = t.Work, t.Break, t.LongBreak
+}
 
 type Screen struct {
 	Width, Height, Scale float32

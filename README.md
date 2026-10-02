@@ -113,6 +113,23 @@ A break starts by itself when a work session ends; the next work session waits f
 
 **Daily session goal** (`daily_session_goal`) sets how many work sessions you aim to complete each day. Progress is shown at the top of the window.
 
+### Colors
+
+On [Omarchy](https://omarchy.org), orivo uses the colors of the current theme, read from `~/.local/state/omarchy/current/theme/colors.toml`:
+
+| orivo                | Omarchy key          |
+| -------------------- | -------------------- |
+| Background           | `background`         |
+| Dialog panel         | `lighter_background` |
+| Progress track       | `selection`          |
+| Dimmed text          | `dark_foreground`    |
+| Text                 | `foreground`         |
+| Work                 | `red`                |
+| Short Break          | `green`              |
+| Long Break           | `cyan`               |
+
+Switching the theme with `omarchy-theme-set` recolors orivo straight away, without a restart. Without Omarchy, or for any key the theme is missing or gives as something other than a `#rrggbb` color, orivo uses its own colors, and a problem with the theme file is written to the log.
+
 ## Commands
 
 ```
@@ -191,9 +208,9 @@ src/domains/root/
          └─ reduce_dialog/       embeds dialog
 ```
 
-`Clock` is the timer: it handles Space, `r`, `n` and `m`, counts down, rolls from one phase to the next, records sessions and saves. `Dialog` is the base both dialogs embed; it owns open and closed, Esc to dismiss, and the backdrop, panel, title and hint. Keys follow the tree: a parent reads its own keys only while none of its dialogs is open, and stops updating the other branch meanwhile, so nothing behind an open dialog reacts. `app.go` only opens the window, creates the top-level entities and runs the loop.
+`Clock` is the timer: it handles Space, `r`, `n` and `m`, counts down, rolls from one phase to the next, records sessions and saves. `Dialog` is the base both dialogs embed; it owns open and closed, Esc to dismiss, and the backdrop, panel, title and hint. Keys follow the tree: a parent reads its own keys only while none of its dialogs is open, and stops updating the other branch meanwhile, so nothing behind an open dialog reacts. `app.go` only opens the window, loads the theme, creates the top-level entities and runs the loop.
 
-The packages under `src/systems` are helpers the entities call: the phase names, durations and colors, the session history, the store, the todo cache, the Todoist client, the status socket, notifications and signal handling.
+The packages under `src/systems` are helpers the entities call: the phase names, durations and colors, the session history, the store, the todo cache, the Todoist client, the Omarchy theme loader and watcher, the status socket, notifications and signal handling.
 
 Each command is one file in `src/commands` implementing the `Command` interface, and only routes: its logic lives in a folder of its own under `src/domains` (`root`, `connect_todoist`, `sync_todoist`). `commands.go` routes the first argument to the command with that name:
 

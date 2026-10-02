@@ -4,6 +4,7 @@ import (
 	"image/color"
 	"time"
 
+	"orivo/src/domains/root/core"
 	"orivo/src/systems/config"
 )
 
@@ -18,12 +19,12 @@ const (
 var phases = [...]struct {
 	name, key, label string
 	summary, body    string
-	color            color.RGBA
+	color            *color.RGBA
 	duration         func(config.Timer) time.Duration
 }{
-	Work:      {"Work", "work", "Work Session", "Work Session Complete", "Time for a break!", color.RGBA{239, 83, 80, 255}, config.Timer.Work},
-	Break:     {"Break", "break", "Short Break", "Break Complete", "Ready to focus?", color.RGBA{102, 187, 106, 255}, config.Timer.Break},
-	LongBreak: {"LongBreak", "long_break", "Long Break", "Long Break Complete", "Ready to focus?", color.RGBA{38, 198, 218, 255}, config.Timer.LongBreak},
+	Work:      {"Work", "work", "Work Session", "Work Session Complete", "Time for a break!", &core.ColorWork, config.Timer.Work},
+	Break:     {"Break", "break", "Short Break", "Break Complete", "Ready to focus?", &core.ColorBreak, config.Timer.Break},
+	LongBreak: {"LongBreak", "long_break", "Long Break", "Long Break Complete", "Ready to focus?", &core.ColorLongBreak, config.Timer.LongBreak},
 }
 
 func Named(name string) Phase {
@@ -52,7 +53,7 @@ func (p Phase) Duration(cfg config.Timer) time.Duration {
 }
 
 func (p Phase) Color() color.RGBA {
-	return phases[p].color
+	return *phases[p].color
 }
 
 func (p Phase) EndMessage() (summary, body string) {
