@@ -176,7 +176,7 @@ func TestFinishedWorkSendsTheTodosProgress(t *testing.T) {
 	f.wait(25 * time.Minute) // work ends
 	f.wait(5 * time.Minute)  // the break ends, and must not send
 
-	if len(sent) != 1 || sent[0] != "a Worked on this for 25 minutes in 1 session." {
+	if len(sent) != 1 || sent[0] != "a (1, 25 min)" {
 		t.Fatalf("sent = %q", sent)
 	}
 }
@@ -205,9 +205,9 @@ func TestEachDayStartsTheTodosProgressFromZero(t *testing.T) {
 	f.wait(25 * time.Minute)
 
 	want := []string{
-		"Worked on this for 25 minutes in 1 session.",
-		"Worked on this for 50 minutes across 2 sessions.",
-		"Worked on this for 25 minutes in 1 session.",
+		"(1, 25 min)",
+		"(2, 50 min)",
+		"(1, 25 min)",
 	}
 	if !slices.Equal(sent, want) {
 		t.Fatalf("sent = %q, want %q", sent, want)

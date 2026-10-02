@@ -23,8 +23,8 @@ func TestEveryRequestIsLogged(t *testing.T) {
 	})
 	client.HTTP = newHTTP()
 
-	client.descriptions([]string{"a", "b"})
-	client.descriptions([]string{"c"})
+	client.texts([]string{"a", "b"})
+	client.texts([]string{"c"})
 
 	if len(lines) != 2 {
 		t.Fatalf("logged %d lines, want 2: %q", len(lines), lines)

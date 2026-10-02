@@ -172,7 +172,7 @@ func (c *Clock) Update(dt float32) {
 		}
 		if c.progress != nil && c.phase == phase.Work && c.todoID != "" {
 			stat := c.history.StatOn(now, c.todoID)
-			c.progress(c.todoID, todoist.ProgressLine(stat.Sessions, stat.Secs))
+			c.progress(c.todoID, todoist.ProgressTag(stat.Sessions, stat.Secs))
 			c.flushWanted = true
 		}
 
