@@ -12,6 +12,7 @@ import (
 
 type fixture struct {
 	*Pomodoro
+	input    *core.Input
 	dir      string
 	clock    time.Time
 	notified []string
@@ -28,16 +29,16 @@ func (f *fixture) open() {
 	cfg := config.Default()
 	cfg.Timer.LongBreakInterval = 2
 
-	world := &core.World{Config: cfg}
-	f.Pomodoro = newPomodoro(world, filepath.Join(f.dir, "store.json"), filepath.Join(f.dir, "sessions.jsonl"))
+	f.input = &core.Input{}
+	f.Pomodoro = newPomodoro(cfg.Timer, f.input, filepath.Join(f.dir, "store.json"), filepath.Join(f.dir, "sessions.jsonl"))
 	f.Pomodoro.now = func() time.Time { return f.clock }
 	f.Pomodoro.OnPhaseEnd = func(summary, _ string) { f.notified = append(f.notified, summary) }
 }
 
 func (f *fixture) press(ch rune) {
-	f.world.Keys = []core.Key{{Ch: ch}}
+	f.input.Keys = []core.Key{{Ch: ch}}
 	f.Update(0)
-	f.world.Keys = nil
+	f.input.Keys = nil
 }
 
 func (f *fixture) wait(d time.Duration) {
@@ -74,9 +75,6 @@ func TestWorkRollsIntoBreakThenWaitsForWork(t *testing.T) {
 	}
 	if f.SessionsToday() != 1 {
 		t.Fatalf("sessions today = %d, want 1", f.SessionsToday())
-	}
-	if f.world.Color != Break.Color() {
-		t.Fatalf("world color did not follow the phase")
 	}
 
 	f.wait(5 * time.Minute)

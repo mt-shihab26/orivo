@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/signal"
 	"slices"
+	"sync/atomic"
 	"syscall"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -14,8 +15,10 @@ import (
 )
 
 type App struct {
-	world    *core.World
+	fonts    *core.Fonts
+	input    *core.Input
 	entities []core.Entity
+	quit     atomic.Bool
 }
 
 func New(cfg config.Config) *App {
@@ -27,22 +30,24 @@ func New(cfg config.Config) *App {
 	rl.SetExitKey(0)
 	rl.InitAudioDevice()
 
-	world := &core.World{Config: cfg, Fonts: core.NewFonts(cfg.Font)}
-	pomodoro := entities.NewPomodoro(world)
-
 	a := &App{
-		world: world,
-		entities: []core.Entity{
-			pomodoro,
-			entities.NewTopBar(world),
-			entities.NewSessionBar(world, pomodoro),
-			entities.NewClock(world, pomodoro),
-			entities.NewTodoLabel(world, pomodoro),
-			entities.NewHints(world),
-			entities.NewTodoPicker(world, pomodoro),
-			entities.NewReduceDialog(world, pomodoro),
-		},
+		fonts: core.NewFonts(cfg.Font),
+		input: &core.Input{},
 	}
+
+	pomodoro := entities.NewPomodoro(cfg.Timer, a.input)
+
+	a.entities = []core.Entity{
+		pomodoro,
+		entities.NewTopBar(a.input, a.fonts, cfg.ShowFPS, a.Quit),
+		entities.NewSessionBar(a.fonts, pomodoro),
+		entities.NewClock(a.fonts, pomodoro),
+		entities.NewTodoLabel(a.input, a.fonts, pomodoro),
+		entities.NewHints(a.fonts),
+		entities.NewTodoPicker(a.input, a.fonts, pomodoro),
+		entities.NewReduceDialog(a.input, a.fonts, pomodoro),
+	}
+
 	a.quitOnSignal()
 	return a
 }
@@ -51,34 +56,37 @@ func (a *App) Close() {
 	for _, entity := range slices.Backward(a.entities) {
 		entity.Close()
 	}
-	a.world.Fonts.Close()
+	a.fonts.Close()
 	rl.CloseAudioDevice()
 	rl.CloseWindow()
 }
 
+func (a *App) Quit() {
+	a.quit.Store(true)
+}
+
 func (a *App) Run() {
-	for !rl.WindowShouldClose() && !a.world.ShouldQuit() {
+	for !rl.WindowShouldClose() && !a.quit.Load() {
 		a.Update(rl.GetFrameTime())
 		a.Draw()
 	}
 }
 
 func (a *App) Update(dt float32) {
-	a.world.Sync()
 	keys := core.ReadKeys()
 	modal := a.openModal()
 
 	for _, entity := range a.entities {
-		a.world.Keys = nil
+		a.input.Keys = nil
 		if modal == nil || entity == modal {
-			a.world.Keys = keys
+			a.input.Keys = keys
 		}
 		entity.Update(dt)
 	}
 }
 
 func (a *App) Draw() {
-	a.world.Sync()
+	a.fonts.Ensure(core.CurrentScreen().Scale)
 
 	rl.BeginDrawing()
 	defer rl.EndDrawing()
@@ -103,6 +111,6 @@ func (a *App) quitOnSignal() {
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-signals
-		a.world.Quit()
+		a.Quit()
 	}()
 }

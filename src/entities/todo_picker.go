@@ -14,7 +14,8 @@ import (
 )
 
 type TodoPicker struct {
-	world    *core.World
+	input    *core.Input
+	fonts    *core.Fonts
 	pomodoro *Pomodoro
 	open     bool
 
@@ -36,8 +37,8 @@ type pickerRow struct {
 	index  int
 }
 
-func NewTodoPicker(world *core.World, pomodoro *Pomodoro) *TodoPicker {
-	return &TodoPicker{world: world, pomodoro: pomodoro}
+func NewTodoPicker(input *core.Input, fonts *core.Fonts, pomodoro *Pomodoro) *TodoPicker {
+	return &TodoPicker{input: input, fonts: fonts, pomodoro: pomodoro}
 }
 
 func SplitTodos(all []todos.Todo, now time.Time) (overdue, today []todos.Todo) {
@@ -66,7 +67,7 @@ func (p *TodoPicker) IsOpen() bool {
 }
 
 func (p *TodoPicker) Update(dt float32) {
-	for _, key := range p.world.Keys {
+	for _, key := range p.input.Keys {
 		switch {
 		case !p.open:
 			if key.Ch == 't' {
@@ -108,8 +109,6 @@ func (p *TodoPicker) updateMouse() {
 }
 
 func (p *TodoPicker) show() {
-	w := p.world
-
 	all, err := todos.Cache{Path: paths.TodoistCache()}.Read()
 	overdue, today := SplitTodos(all, time.Now())
 
@@ -121,13 +120,13 @@ func (p *TodoPicker) show() {
 	p.hits = nil
 
 	for i, todo := range p.todos {
-		w.Fonts.Need(todo.Text)
+		p.fonts.Need(todo.Text)
 		if todo.ID == p.selectedID {
 			p.cursor = i
 		}
 	}
 	if err != nil {
-		w.Fonts.Need(err.Error())
+		p.fonts.Need(err.Error())
 	}
 	p.open = true
 }
@@ -164,16 +163,17 @@ func (p *TodoPicker) Draw() {
 	if !p.open {
 		return
 	}
-	w := p.world
-	s := w.Scale
-	fonts := w.Fonts
+	screen := core.CurrentScreen()
+	s := screen.Scale
+	fonts := p.fonts
+	accent := p.pomodoro.Phase.Color()
 
-	panel := rl.Rectangle{Width: min(600*s, w.Width-32*s), Height: w.Height - 64*s}
-	panel.X, panel.Y = (w.Width-panel.Width)/2, (w.Height-panel.Height)/2
-	w.DrawDialog(panel)
+	panel := rl.Rectangle{Width: min(600*s, screen.Width-32*s), Height: screen.Height - 64*s}
+	panel.X, panel.Y = (screen.Width-panel.Width)/2, (screen.Height-panel.Height)/2
+	screen.DrawDialog(panel, accent)
 
-	cx := w.Width / 2
-	fonts.Body.DrawCentered("Select Todo", cx, panel.Y+16*s, w.Color)
+	cx := screen.Width / 2
+	fonts.Body.DrawCentered("Select Todo", cx, panel.Y+16*s, accent)
 	fonts.Small.DrawCentered("[j/k] Move   [Enter] Select   [Esc] Cancel",
 		cx, panel.Y+panel.Height-30*s, core.ColorDim)
 
@@ -222,9 +222,10 @@ func (p *TodoPicker) Draw() {
 }
 
 func (p *TodoPicker) drawTodo(rect rl.Rectangle, index int) {
-	w := p.world
-	s := w.Scale
-	fonts := w.Fonts
+	screen := core.CurrentScreen()
+	s := screen.Scale
+	fonts := p.fonts
+	accent := p.pomodoro.Phase.Color()
 
 	todo := p.todos[index]
 	isCursor := index == p.cursor
@@ -232,11 +233,11 @@ func (p *TodoPicker) drawTodo(rect rl.Rectangle, index int) {
 	textColor, noteColor := core.ColorText, core.ColorDim
 	switch {
 	case todo.ID == p.selectedID:
-		rl.DrawRectangleRounded(rect, 0.3, 6, w.Color)
+		rl.DrawRectangleRounded(rect, 0.3, 6, accent)
 		textColor, noteColor = core.ColorBackground, core.ColorBackground
 	case isCursor:
 		rl.DrawRectangleRounded(rect, 0.3, 6, core.ColorTrack)
-		textColor = w.Color
+		textColor = accent
 	}
 
 	note := ""

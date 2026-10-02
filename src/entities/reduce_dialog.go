@@ -9,14 +9,15 @@ import (
 )
 
 type ReduceDialog struct {
-	world    *core.World
+	input    *core.Input
+	fonts    *core.Fonts
 	pomodoro *Pomodoro
 	open     bool
 	digits   []int
 }
 
-func NewReduceDialog(world *core.World, pomodoro *Pomodoro) *ReduceDialog {
-	return &ReduceDialog{world: world, pomodoro: pomodoro}
+func NewReduceDialog(input *core.Input, fonts *core.Fonts, pomodoro *Pomodoro) *ReduceDialog {
+	return &ReduceDialog{input: input, fonts: fonts, pomodoro: pomodoro}
 }
 
 func (d *ReduceDialog) Close() {}
@@ -26,7 +27,7 @@ func (d *ReduceDialog) IsOpen() bool {
 }
 
 func (d *ReduceDialog) Update(dt float32) {
-	for _, key := range d.world.Keys {
+	for _, key := range d.input.Keys {
 		switch {
 		case !d.open:
 			if key.Ch == 'd' {
@@ -67,16 +68,17 @@ func (d *ReduceDialog) Draw() {
 	if !d.open {
 		return
 	}
-	w := d.world
-	s := w.Scale
-	fonts := w.Fonts
+	screen := core.CurrentScreen()
+	s := screen.Scale
+	fonts := d.fonts
+	accent := d.pomodoro.Phase.Color()
 
 	panel := rl.Rectangle{Width: 340 * s, Height: 190 * s}
-	panel.X, panel.Y = (w.Width-panel.Width)/2, (w.Height-panel.Height)/2
-	w.DrawDialog(panel)
+	panel.X, panel.Y = (screen.Width-panel.Width)/2, (screen.Height-panel.Height)/2
+	screen.DrawDialog(panel, accent)
 
-	cx := w.Width / 2
-	fonts.Body.DrawCentered("Reduce Remaining", cx, panel.Y+18*s, w.Color)
+	cx := screen.Width / 2
+	fonts.Body.DrawCentered("Reduce Remaining", cx, panel.Y+18*s, accent)
 
 	char := func(i int) byte {
 		if i < len(d.digits) {
@@ -85,7 +87,7 @@ func (d *ReduceDialog) Draw() {
 		return '_'
 	}
 	display := string([]byte{char(0), char(1), ':', char(2), char(3)})
-	fonts.Body.DrawCentered(display, cx, panel.Y+72*s, w.Color)
+	fonts.Body.DrawCentered(display, cx, panel.Y+72*s, accent)
 	fonts.Small.DrawCentered("minutes : seconds", cx, panel.Y+104*s, core.ColorDim)
 	fonts.Small.DrawCentered("[Enter] Apply   [Esc] Cancel", cx, panel.Y+panel.Height-32*s, core.ColorDim)
 }

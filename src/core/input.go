@@ -12,6 +12,10 @@ type Key struct {
 	Ctrl bool
 }
 
+type Input struct {
+	Keys []Key
+}
+
 var controlKeys = []int32{
 	rl.KeyEnter, rl.KeyKpEnter, rl.KeyEscape, rl.KeyBackspace, rl.KeyUp, rl.KeyDown,
 }

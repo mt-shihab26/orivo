@@ -9,21 +9,23 @@ import (
 )
 
 type TopBar struct {
-	world   *core.World
+	input   *core.Input
+	fonts   *core.Fonts
+	quit    func()
 	showFPS bool
 }
 
-func NewTopBar(world *core.World) *TopBar {
-	return &TopBar{world: world, showFPS: world.Config.ShowFPS}
+func NewTopBar(input *core.Input, fonts *core.Fonts, showFPS bool, quit func()) *TopBar {
+	return &TopBar{input: input, fonts: fonts, quit: quit, showFPS: showFPS}
 }
 
 func (t *TopBar) Close() {}
 
 func (t *TopBar) Update(dt float32) {
-	for _, key := range t.world.Keys {
+	for _, key := range t.input.Keys {
 		switch {
 		case key.Ctrl && (key.Code == rl.KeyQ || key.Code == rl.KeyC):
-			t.world.Quit()
+			t.quit()
 		case key.Ctrl && key.Code == rl.KeyF:
 			t.showFPS = !t.showFPS
 		}
@@ -31,12 +33,13 @@ func (t *TopBar) Update(dt float32) {
 }
 
 func (t *TopBar) Draw() {
-	w := t.world
-	small := w.Fonts.Small
+	screen := core.CurrentScreen()
+	s := screen.Scale
+	small := t.fonts.Small
 
-	small.Draw("^q quit   ^f fps", 14*w.Scale, 12*w.Scale, core.ColorDim)
+	small.Draw("^q quit   ^f fps", 14*s, 12*s, core.ColorDim)
 	if t.showFPS {
 		fps := fmt.Sprintf("%d fps", rl.GetFPS())
-		small.Draw(fps, w.Width-14*w.Scale-small.Width(fps), 12*w.Scale, core.ColorDim)
+		small.Draw(fps, screen.Width-14*s-small.Width(fps), 12*s, core.ColorDim)
 	}
 }

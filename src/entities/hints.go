@@ -3,11 +3,11 @@ package entities
 import "github.com/mt-shihab26/orivo/src/core"
 
 type Hints struct {
-	world *core.World
+	fonts *core.Fonts
 }
 
-func NewHints(world *core.World) *Hints {
-	return &Hints{world: world}
+func NewHints(fonts *core.Fonts) *Hints {
+	return &Hints{fonts: fonts}
 }
 
 func (h *Hints) Close() {}
@@ -15,9 +15,10 @@ func (h *Hints) Close() {}
 func (h *Hints) Update(dt float32) {}
 
 func (h *Hints) Draw() {
-	w := h.world
-	small := w.Fonts.Small
+	screen := core.CurrentScreen()
+	s := screen.Scale
+	small := h.fonts.Small
 
 	text := "[Space] Toggle   [r] Reset   [n] Skip   [t] Todo   [T] Clear   [m] Millis   [d] Reduce"
-	small.DrawCentered(small.Fit(text, w.Width-24*w.Scale), w.Width/2, w.Height-34*w.Scale, core.ColorDim)
+	small.DrawCentered(small.Fit(text, screen.Width-24*s), screen.Width/2, screen.Height-34*s, core.ColorDim)
 }

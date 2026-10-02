@@ -10,12 +10,12 @@ import (
 )
 
 type Clock struct {
-	world    *core.World
+	fonts    *core.Fonts
 	pomodoro *Pomodoro
 }
 
-func NewClock(world *core.World, pomodoro *Pomodoro) *Clock {
-	return &Clock{world: world, pomodoro: pomodoro}
+func NewClock(fonts *core.Fonts, pomodoro *Pomodoro) *Clock {
+	return &Clock{fonts: fonts, pomodoro: pomodoro}
 }
 
 func (c *Clock) Close() {}
@@ -23,22 +23,23 @@ func (c *Clock) Close() {}
 func (c *Clock) Update(dt float32) {}
 
 func (c *Clock) Draw() {
-	w := c.world
-	s := w.Scale
+	screen := core.CurrentScreen()
+	s := screen.Scale
 	pomodoro := c.pomodoro
-	fonts := w.Fonts
+	fonts := c.fonts
+	accent := pomodoro.Phase.Color()
 	remaining := pomodoro.Remaining()
 
-	top, bottom := 92*s, w.Height-96*s
-	radius := max(min((bottom-top)/2-6*s, w.Width*0.38), 40*s)
-	cx, cy := w.Width/2, (top+bottom)/2
+	top, bottom := 92*s, screen.Height-96*s
+	radius := max(min((bottom-top)/2-6*s, screen.Width*0.38), 40*s)
+	cx, cy := screen.Width/2, (top+bottom)/2
 	center := rl.Vector2{X: cx, Y: cy}
 
 	thickness := max(7*s, 3)
 	rl.DrawRing(center, radius-thickness, radius, 0, 360, 96, core.ColorTrack)
 	elapsed := 1 - float32(remaining)/float32(pomodoro.Total())
 	if elapsed > 0 {
-		rl.DrawRing(center, radius-thickness, radius, -90, -90+360*min(elapsed, 1), 96, w.Color)
+		rl.DrawRing(center, radius-thickness, radius, -90, -90+360*min(elapsed, 1), 96, accent)
 	}
 
 	text := clockText(remaining, pomodoro.ShowMillis)
@@ -49,13 +50,13 @@ func (c *Clock) Draw() {
 	if width := digits.Width(text); width > inner {
 		digits.Size *= inner / width
 	}
-	digits.DrawCentered(text, cx, cy-digits.Size/2, w.Color)
+	digits.DrawCentered(text, cx, cy-digits.Size/2, accent)
 
-	fonts.Body.DrawCentered(pomodoro.Phase.Label(), cx, cy-digits.Size/2-fonts.Body.Size-10*s, w.Color)
+	fonts.Body.DrawCentered(pomodoro.Phase.Label(), cx, cy-digits.Size/2-fonts.Body.Size-10*s, accent)
 
 	status, statusColor := "Paused", core.ColorDim
 	if pomodoro.Running {
-		status, statusColor = "Running", w.Color
+		status, statusColor = "Running", accent
 	}
 	fonts.Body.DrawCentered(status, cx, cy+digits.Size/2+10*s, statusColor)
 }

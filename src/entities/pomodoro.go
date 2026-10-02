@@ -96,7 +96,8 @@ type Stat struct {
 }
 
 type Pomodoro struct {
-	world        *core.World
+	cfg          config.Timer
+	input        *core.Input
 	store        *store.Store
 	sessionsPath string
 	server       *ipc.Server
@@ -117,8 +118,8 @@ type Pomodoro struct {
 	sinceSave      float32
 }
 
-func NewPomodoro(world *core.World) *Pomodoro {
-	p := newPomodoro(world, paths.Store(), paths.Sessions())
+func NewPomodoro(cfg config.Timer, input *core.Input) *Pomodoro {
+	p := newPomodoro(cfg, input, paths.Store(), paths.Sessions())
 	p.server = ipc.Serve(paths.Socket())
 	notify.LoadSound()
 	p.OnPhaseEnd = notify.Send
@@ -126,13 +127,14 @@ func NewPomodoro(world *core.World) *Pomodoro {
 	return p
 }
 
-func newPomodoro(world *core.World, storePath, sessionsPath string) *Pomodoro {
+func newPomodoro(cfg config.Timer, input *core.Input, storePath, sessionsPath string) *Pomodoro {
 	p := &Pomodoro{
-		world:        world,
+		cfg:          cfg,
+		input:        input,
 		store:        store.Load(storePath),
 		sessionsPath: sessionsPath,
 		now:          time.Now,
-		ShowMillis:   world.Config.Timer.ShowMillis,
+		ShowMillis:   cfg.ShowMillis,
 		days:         map[string]int{},
 		stats:        map[string]Stat{},
 	}
@@ -148,7 +150,6 @@ func newPomodoro(world *core.World, storePath, sessionsPath string) *Pomodoro {
 	p.Phase = phaseNamed(p.store.Phase())
 	p.TodoID, p.TodoText = p.store.Todo()
 	p.restore()
-	world.Color = p.Phase.Color()
 	return p
 }
 
@@ -158,7 +159,7 @@ func (p *Pomodoro) Close() {
 }
 
 func (p *Pomodoro) Update(dt float32) {
-	for _, key := range p.world.Keys {
+	for _, key := range p.input.Keys {
 		switch key.Ch {
 		case ' ':
 			p.toggle()
@@ -181,7 +182,6 @@ func (p *Pomodoro) Update(dt float32) {
 		p.save()
 	}
 
-	p.world.Color = p.Phase.Color()
 	p.publish()
 }
 
@@ -195,7 +195,7 @@ func (p *Pomodoro) Remaining() time.Duration {
 }
 
 func (p *Pomodoro) Total() time.Duration {
-	return p.Phase.Duration(p.world.Config.Timer)
+	return p.Phase.Duration(p.cfg)
 }
 
 func (p *Pomodoro) SessionsToday() int {
@@ -203,7 +203,7 @@ func (p *Pomodoro) SessionsToday() int {
 }
 
 func (p *Pomodoro) DailyGoal() int {
-	return p.world.Config.Timer.Goal()
+	return p.cfg.Goal()
 }
 
 func (p *Pomodoro) Stat(todoID string) Stat {
@@ -312,7 +312,7 @@ func (p *Pomodoro) advance() {
 }
 
 func (p *Pomodoro) breakAfter(sessionsToday int) Phase {
-	if sessionsToday%p.world.Config.Timer.Interval() == 0 {
+	if sessionsToday%p.cfg.Interval() == 0 {
 		return LongBreak
 	}
 	return Break

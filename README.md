@@ -127,7 +127,7 @@ type Entity interface {
 }
 ```
 
-All the logic lives in the entities. `Pomodoro` is the timer itself: the phases, the countdown, the selected todo and the session history; the other entities draw it and act on it. `src/app/app.go` only wires the entities together and decides which one gets the keyboard. Entities share a `core.World`, which holds the config and the state of the current frame.
+All the logic lives in the entities. `Pomodoro` is the timer itself: the phases, the countdown, the selected todo and the session history; the other entities draw it and act on it. `src/app/app.go` creates the entities, handing each one only what it needs (the fonts, the key input, the pomodoro, a config value), and decides which one gets the keyboard each frame.
 
 The packages under `src/systems` are helpers for the outside world and hold no logic of their own: reading and writing the store, the session log and the todo cache, talking to Todoist, serving the status socket, and sending notifications.
 
