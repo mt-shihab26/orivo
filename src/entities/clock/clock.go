@@ -1,4 +1,4 @@
-package entities
+package clock
 
 import (
 	"fmt"
@@ -9,6 +9,8 @@ import (
 
 	"github.com/mt-shihab26/orivo/src/config"
 	"github.com/mt-shihab26/orivo/src/core"
+	"github.com/mt-shihab26/orivo/src/entities/clock/reducedialog"
+	"github.com/mt-shihab26/orivo/src/entities/clock/todolabel"
 	"github.com/mt-shihab26/orivo/src/systems/ipc"
 	"github.com/mt-shihab26/orivo/src/systems/logx"
 	"github.com/mt-shihab26/orivo/src/systems/notify"
@@ -21,14 +23,16 @@ import (
 const saveEvery = 60
 
 type Clock struct {
-	cfg        config.Timer
-	dialogOpen *bool
-	fonts      *core.Fonts
-	store      *store.Store
-	history    *sessions.History
-	server     *ipc.Server
-	now        func() time.Time
-	notify     func(summary, body string)
+	cfg     config.Timer
+	fonts   *core.Fonts
+	store   *store.Store
+	history *sessions.History
+	server  *ipc.Server
+	now     func() time.Time
+	notify  func(summary, body string)
+
+	todo   *todolabel.TodoLabel
+	reduce *reducedialog.ReduceDialog
 
 	phase          phase.Phase
 	running        bool
@@ -41,9 +45,9 @@ type Clock struct {
 	sinceSave      float32
 }
 
-func NewClock(cfg config.Timer, dialogOpen *bool, fonts *core.Fonts) *Clock {
-	c := newClock(cfg, dialogOpen, paths.Store(), paths.Sessions())
-	c.fonts = fonts
+func New(cfg config.Timer, fonts *core.Fonts) *Clock {
+	c := newClock(cfg, fonts, paths.Store(), paths.Sessions())
+	fonts.Need(c.todoText)
 	c.server = ipc.Serve(paths.Socket())
 	notify.LoadSound()
 	c.notify = notify.Send
@@ -51,7 +55,7 @@ func NewClock(cfg config.Timer, dialogOpen *bool, fonts *core.Fonts) *Clock {
 	return c
 }
 
-func newClock(cfg config.Timer, dialogOpen *bool, storePath, sessionsPath string) *Clock {
+func newClock(cfg config.Timer, fonts *core.Fonts, storePath, sessionsPath string) *Clock {
 	history, err := sessions.Open(sessionsPath)
 	if err != nil {
 		logx.Error("failed to read %s: %v", sessionsPath, err)
@@ -59,7 +63,7 @@ func newClock(cfg config.Timer, dialogOpen *bool, storePath, sessionsPath string
 
 	c := &Clock{
 		cfg:        cfg,
-		dialogOpen: dialogOpen,
+		fonts:      fonts,
 		store:      store.Load(storePath),
 		history:    history,
 		now:        time.Now,
@@ -68,10 +72,15 @@ func newClock(cfg config.Timer, dialogOpen *bool, storePath, sessionsPath string
 	c.phase = phase.Named(c.store.Phase())
 	c.todoID, c.todoText = c.store.Todo()
 	c.restore()
+
+	c.todo = todolabel.New(fonts, c)
+	c.reduce = reducedialog.New(fonts, c)
 	return c
 }
 
 func (c *Clock) Close() {
+	c.reduce.Close()
+	c.todo.Close()
 	c.save()
 	notify.UnloadSound()
 }
@@ -80,8 +89,15 @@ func (c *Clock) Update(dt float32) {
 	now := c.now()
 	ended := false
 
+	if !c.todo.DialogOpen() {
+		c.reduce.Update(dt)
+	}
+	if !c.reduce.IsOpen() {
+		c.todo.Update(dt)
+	}
+
 	ctrl := rl.IsKeyDown(rl.KeyLeftControl) || rl.IsKeyDown(rl.KeyRightControl)
-	listening := !*c.dialogOpen && !ctrl
+	listening := !c.reduce.IsOpen() && !c.todo.DialogOpen() && !ctrl
 
 	if listening && rl.IsKeyPressed(rl.KeySpace) {
 		if c.running {
@@ -220,6 +236,9 @@ func (c *Clock) Draw() {
 		status, statusColor = "Running", accent
 	}
 	fonts.Body.DrawCentered(status, cx, cy+digits.Size/2+10*s, statusColor)
+
+	c.todo.Draw()
+	c.reduce.Draw()
 }
 
 func (c *Clock) Accent() color.RGBA {

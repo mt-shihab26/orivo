@@ -1,4 +1,4 @@
-package entities
+package sessionbar
 
 import (
 	"fmt"
@@ -6,14 +6,15 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	"github.com/mt-shihab26/orivo/src/core"
+	"github.com/mt-shihab26/orivo/src/entities/clock"
 )
 
 type SessionBar struct {
 	fonts *core.Fonts
-	clock *Clock
+	clock *clock.Clock
 }
 
-func NewSessionBar(fonts *core.Fonts, clock *Clock) *SessionBar {
+func New(fonts *core.Fonts, clock *clock.Clock) *SessionBar {
 	return &SessionBar{fonts: fonts, clock: clock}
 }
 

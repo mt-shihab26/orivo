@@ -1,4 +1,4 @@
-package entities
+package hints
 
 import "github.com/mt-shihab26/orivo/src/core"
 
@@ -6,7 +6,7 @@ type Hints struct {
 	fonts *core.Fonts
 }
 
-func NewHints(fonts *core.Fonts) *Hints {
+func New(fonts *core.Fonts) *Hints {
 	return &Hints{fonts: fonts}
 }
 

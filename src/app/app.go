@@ -8,15 +8,17 @@ import (
 
 	"github.com/mt-shihab26/orivo/src/config"
 	"github.com/mt-shihab26/orivo/src/core"
-	"github.com/mt-shihab26/orivo/src/entities"
+	"github.com/mt-shihab26/orivo/src/entities/clock"
+	"github.com/mt-shihab26/orivo/src/entities/hints"
+	"github.com/mt-shihab26/orivo/src/entities/sessionbar"
+	"github.com/mt-shihab26/orivo/src/entities/topbar"
 	"github.com/mt-shihab26/orivo/src/systems/signals"
 )
 
 type App struct {
-	fonts      *core.Fonts
-	dialogOpen bool
-	entities   []core.Entity
-	quit       atomic.Bool
+	fonts    *core.Fonts
+	entities []core.Entity
+	quit     atomic.Bool
 }
 
 func New(cfg config.Config) *App {
@@ -32,16 +34,13 @@ func New(cfg config.Config) *App {
 		fonts: core.NewFonts(cfg.Font),
 	}
 
-	clock := entities.NewClock(cfg.Timer, &a.dialogOpen, a.fonts)
+	timer := clock.New(cfg.Timer, a.fonts)
 
 	a.entities = []core.Entity{
-		entities.NewTopBar(a.fonts, cfg.ShowFPS, a.Quit),
-		entities.NewSessionBar(a.fonts, clock),
-		clock,
-		entities.NewTodoLabel(&a.dialogOpen, a.fonts, clock),
-		entities.NewHints(a.fonts),
-		entities.NewTodoPicker(&a.dialogOpen, a.fonts, clock),
-		entities.NewReduceDialog(&a.dialogOpen, a.fonts, clock),
+		topbar.New(a.fonts, cfg.ShowFPS, a.Quit),
+		sessionbar.New(a.fonts, timer),
+		hints.New(a.fonts),
+		timer,
 	}
 
 	signals.OnInterrupt(a.Quit)

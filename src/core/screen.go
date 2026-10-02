@@ -30,11 +30,3 @@ func CurrentScreen() Screen {
 	scale = float32(int(scale*20)) / 20
 	return Screen{Width: width, Height: height, Scale: min(max(scale, 0.5), 4)}
 }
-
-func (s Screen) DrawDialog(panel rl.Rectangle, border color.RGBA) {
-	rl.DrawRectangle(0, 0, int32(s.Width), int32(s.Height), rl.Fade(ColorBackground, 0.8))
-
-	roundness := 16 * s.Scale / min(panel.Width, panel.Height)
-	rl.DrawRectangleRounded(panel, roundness, 8, ColorPanel)
-	rl.DrawRectangleRoundedLinesEx(panel, roundness, 8, max(1.5*s.Scale, 1), border)
-}

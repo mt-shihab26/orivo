@@ -1,4 +1,4 @@
-package entities
+package todopicker
 
 import (
 	"slices"
@@ -22,7 +22,7 @@ func TestSplitsTodosIntoOverdueAndToday(t *testing.T) {
 	}
 	now := time.Date(2026, 10, 2, 14, 30, 0, 0, time.Local)
 
-	overdue, today := SplitTodos([]todos.Todo{
+	overdue, today := Split([]todos.Todo{
 		{ID: "1", Text: "today", Due: day(10, 2)},
 		{ID: "2", Text: "yesterday", Due: day(10, 1)},
 		{ID: "3", Text: "last week", Due: day(9, 25)},
@@ -37,7 +37,7 @@ func TestSplitsTodosIntoOverdueAndToday(t *testing.T) {
 		t.Errorf("today = %v, want %v", got, want)
 	}
 
-	overdue, today = SplitTodos([]todos.Todo{{ID: "1", Text: "was due today", Due: day(10, 2)}}, now.AddDate(0, 0, 1))
+	overdue, today = Split([]todos.Todo{{ID: "1", Text: "was due today", Due: day(10, 2)}}, now.AddDate(0, 0, 1))
 	if len(overdue) != 1 || len(today) != 0 {
 		t.Errorf("a day later: overdue = %v, today = %v", overdue, today)
 	}

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mt-shihab26/orivo/src/entities"
+	"github.com/mt-shihab26/orivo/src/entities/clock/todolabel/todopicker"
 	"github.com/mt-shihab26/orivo/src/systems/paths"
 	"github.com/mt-shihab26/orivo/src/systems/todoist"
 	"github.com/mt-shihab26/orivo/src/systems/todos"
@@ -42,7 +42,7 @@ func (c *SyncTodoist) Run(args []string) error {
 		return err
 	}
 
-	overdue, today := entities.SplitTodos(all, time.Now())
+	overdue, today := todopicker.Split(all, time.Now())
 	printTodos("Overdue", overdue, true)
 	printTodos("Today", today, false)
 

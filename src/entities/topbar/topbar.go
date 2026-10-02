@@ -1,4 +1,4 @@
-package entities
+package topbar
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ type TopBar struct {
 	showFPS bool
 }
 
-func NewTopBar(fonts *core.Fonts, showFPS bool, quit func()) *TopBar {
+func New(fonts *core.Fonts, showFPS bool, quit func()) *TopBar {
 	return &TopBar{fonts: fonts, quit: quit, showFPS: showFPS}
 }
 

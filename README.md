@@ -117,7 +117,7 @@ Runtime state lives under `~/.local/state/orivo/`:
 
 ## Structure
 
-The window is built like a game: `src/app` runs the loop, and everything in it is an entity from `src/entities` (the clock, the session bar, the todo picker, …). Every entity is created by its `New` function and implements the same three methods, defined in `src/core`:
+The window is built like a game: `src/app` runs the loop, and everything in it is an entity under `src/entities` (the clock, the session bar, the todo picker, …). Every entity is created by its package's `New` function and implements the same three methods, defined in `src/core`:
 
 ```go
 type Entity interface {
@@ -127,7 +127,21 @@ type Entity interface {
 }
 ```
 
-An entity is something that is drawn, and each one keeps its own logic and key handling in its `Update`. `Clock` is the timer: it handles Space, `r`, `n` and `m`, counts down, rolls from one phase to the next, records sessions and saves. The todo picker and the reduce dialog handle their own keys and act on the clock; each entity reads the keyboard straight from raylib, and while a dialog is open the others ignore their keys. `src/app/app.go` only opens the window, creates the entities with what each one needs (the fonts, the clock, the dialog-open flag, a config value) and runs the loop.
+An entity is something that is drawn, and each one keeps its own logic and key handling in its `Update`, reading the keyboard straight from raylib. Entities form a tree: a parent creates, updates, draws and closes its children, and the folders mirror it. Each entity is its own package, nested under its parent.
+
+```
+src/entities/
+├─ topbar/
+├─ sessionbar/
+├─ hints/
+├─ dialog/                 the base both dialogs embed
+└─ clock/
+   ├─ todolabel/
+   │  └─ todopicker/       embeds dialog
+   └─ reducedialog/        embeds dialog
+```
+
+`Clock` is the timer: it handles Space, `r`, `n` and `m`, counts down, rolls from one phase to the next, records sessions and saves. `Dialog` is the base both dialogs embed; it owns open and closed, Esc to dismiss, and the backdrop, panel, title and hint. Keys follow the tree: a parent reads its own keys only while none of its dialogs is open, and stops updating the other branch meanwhile, so nothing behind an open dialog reacts. `src/app/app.go` only opens the window, creates the top-level entities and runs the loop.
 
 The packages under `src/systems` are helpers the entities call: the phase names, durations and colors, the session history, the store, the todo cache, the Todoist client, the status socket, notifications and signal handling.
 

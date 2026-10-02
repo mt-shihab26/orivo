@@ -1,4 +1,4 @@
-package entities
+package clock
 
 import (
 	"path/filepath"
@@ -28,7 +28,7 @@ func (f *fixture) open() {
 	cfg := config.Default()
 	cfg.Timer.LongBreakInterval = 2
 
-	f.Clock = newClock(cfg.Timer, new(bool), filepath.Join(f.dir, "store.json"), filepath.Join(f.dir, "sessions.jsonl"))
+	f.Clock = newClock(cfg.Timer, nil, filepath.Join(f.dir, "store.json"), filepath.Join(f.dir, "sessions.jsonl"))
 	f.Clock.now = func() time.Time { return f.time }
 	f.Clock.notify = func(summary, _ string) { f.notified = append(f.notified, summary) }
 }
@@ -112,7 +112,7 @@ func TestOpenDialogDoesNotStopTheCountdown(t *testing.T) {
 	f := newFixture(t)
 
 	f.start()
-	*f.dialogOpen = true
+	f.reduce.Show()
 	f.wait(25 * time.Minute)
 
 	if f.phase != phase.Break {

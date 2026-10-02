@@ -1,23 +1,31 @@
-package entities
+package todopicker
 
 import (
 	"errors"
 	"fmt"
+	"image/color"
 	"sort"
 	"time"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	"github.com/mt-shihab26/orivo/src/core"
+	"github.com/mt-shihab26/orivo/src/entities/dialog"
 	"github.com/mt-shihab26/orivo/src/systems/paths"
+	"github.com/mt-shihab26/orivo/src/systems/sessions"
 	"github.com/mt-shihab26/orivo/src/systems/todos"
 )
 
+type Timer interface {
+	Accent() color.RGBA
+	TodoID() string
+	Stat(todoID string) sessions.Stat
+	SetTodo(id, text string)
+}
+
 type TodoPicker struct {
-	dialogOpen *bool
-	fonts      *core.Fonts
-	clock      *Clock
-	open       bool
+	dialog.Dialog
+	timer Timer
 
 	todos      []todos.Todo
 	overdue    int
@@ -37,11 +45,14 @@ type pickerRow struct {
 	index  int
 }
 
-func NewTodoPicker(dialogOpen *bool, fonts *core.Fonts, clock *Clock) *TodoPicker {
-	return &TodoPicker{dialogOpen: dialogOpen, fonts: fonts, clock: clock}
+func New(fonts *core.Fonts, timer Timer) *TodoPicker {
+	return &TodoPicker{
+		Dialog: dialog.New(fonts, "Select Todo", "[j/k] Move   [Enter] Select   [Esc] Cancel"),
+		timer:  timer,
+	}
 }
 
-func SplitTodos(all []todos.Todo, now time.Time) (overdue, today []todos.Todo) {
+func Split(all []todos.Todo, now time.Time) (overdue, today []todos.Todo) {
 	y, m, d := now.Local().Date()
 	start := time.Date(y, m, d, 0, 0, 0, 0, time.Local)
 
@@ -60,37 +71,39 @@ func SplitTodos(all []todos.Todo, now time.Time) (overdue, today []todos.Todo) {
 	return overdue, today
 }
 
-func (p *TodoPicker) Close() {}
-
 func (p *TodoPicker) Update(dt float32) {
 	shift := rl.IsKeyDown(rl.KeyLeftShift) || rl.IsKeyDown(rl.KeyRightShift)
 
-	if !p.open {
-		if *p.dialogOpen || shift || !rl.IsKeyPressed(rl.KeyT) {
+	if !p.IsOpen() {
+		if shift || !rl.IsKeyPressed(rl.KeyT) {
 			return
 		}
 
 		all, err := todos.Cache{Path: paths.TodoistCache()}.Read()
-		overdue, today := SplitTodos(all, time.Now())
+		overdue, today := Split(all, time.Now())
 
 		p.todos = append(overdue, today...)
 		p.overdue = len(overdue)
 		p.err = err
-		p.selectedID = p.clock.TodoID()
+		p.selectedID = p.timer.TodoID()
 		p.cursor = 0
 		p.hits = nil
 
 		for i, todo := range p.todos {
-			p.fonts.Need(todo.Text)
+			p.Fonts.Need(todo.Text)
 			if todo.ID == p.selectedID {
 				p.cursor = i
 			}
 		}
 		if err != nil {
-			p.fonts.Need(err.Error())
+			p.Fonts.Need(err.Error())
 		}
-		p.open = true
-		*p.dialogOpen = true
+		p.Show()
+		return
+	}
+
+	p.Dialog.Update(dt)
+	if !p.IsOpen() {
 		return
 	}
 
@@ -127,11 +140,10 @@ func (p *TodoPicker) Update(dt float32) {
 
 	if picked && len(p.todos) > 0 {
 		todo := p.todos[p.cursor]
-		p.clock.SetTodo(todo.ID, todo.Text)
+		p.timer.SetTodo(todo.ID, todo.Text)
 	}
-	if picked || rl.IsKeyPressed(rl.KeyEscape) {
-		p.open = false
-		*p.dialogOpen = false
+	if picked {
+		p.Hide()
 	}
 }
 
@@ -150,28 +162,24 @@ func (p *TodoPicker) rows() []pickerRow {
 }
 
 func (p *TodoPicker) Draw() {
-	if !p.open {
+	if !p.IsOpen() {
 		return
 	}
 	screen := core.CurrentScreen()
 	s := screen.Scale
-	fonts := p.fonts
-	accent := p.clock.Accent()
+	fonts := p.Fonts
 
-	panel := rl.Rectangle{Width: min(600*s, screen.Width-32*s), Height: screen.Height - 64*s}
-	panel.X, panel.Y = (screen.Width-panel.Width)/2, (screen.Height-panel.Height)/2
-	screen.DrawDialog(panel, accent)
+	p.Accent = p.timer.Accent()
+	p.Panel = rl.Rectangle{Width: min(600*s, screen.Width-32*s), Height: screen.Height - 64*s}
+	p.Panel.X, p.Panel.Y = (screen.Width-p.Panel.Width)/2, (screen.Height-p.Panel.Height)/2
+	p.Dialog.Draw()
 
 	cx := screen.Width / 2
-	fonts.Body.DrawCentered("Select Todo", cx, panel.Y+16*s, accent)
-	fonts.Small.DrawCentered("[j/k] Move   [Enter] Select   [Esc] Cancel",
-		cx, panel.Y+panel.Height-30*s, core.ColorDim)
-
 	list := rl.Rectangle{
-		X:      panel.X + 12*s,
-		Y:      panel.Y + 54*s,
-		Width:  panel.Width - 24*s,
-		Height: panel.Height - 54*s - 44*s,
+		X:      p.Panel.X + 12*s,
+		Y:      p.Panel.Y + 54*s,
+		Width:  p.Panel.Width - 24*s,
+		Height: p.Panel.Height - 54*s - 44*s,
 	}
 
 	p.hits = p.hits[:0]
@@ -214,8 +222,8 @@ func (p *TodoPicker) Draw() {
 func (p *TodoPicker) drawTodo(rect rl.Rectangle, index int) {
 	screen := core.CurrentScreen()
 	s := screen.Scale
-	fonts := p.fonts
-	accent := p.clock.Accent()
+	fonts := p.Fonts
+	accent := p.timer.Accent()
 
 	todo := p.todos[index]
 	isCursor := index == p.cursor
@@ -231,7 +239,7 @@ func (p *TodoPicker) drawTodo(rect rl.Rectangle, index int) {
 	}
 
 	note := ""
-	if stat := p.clock.Stat(todo.ID); stat.Sessions > 0 {
+	if stat := p.timer.Stat(todo.ID); stat.Sessions > 0 {
 		note = fmt.Sprintf("%d× %dm", stat.Sessions, stat.Secs/60)
 	}
 	if index < p.overdue {
