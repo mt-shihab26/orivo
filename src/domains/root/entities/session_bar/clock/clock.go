@@ -12,10 +12,10 @@ import (
 	"orivo/src/domains/root/entities/session_bar/clock/reduce_dialog"
 	"orivo/src/domains/root/entities/session_bar/clock/todo_label"
 	"orivo/src/systems/config"
+	"orivo/src/systems/config/paths"
 	"orivo/src/systems/ipc"
 	"orivo/src/systems/logx"
 	"orivo/src/systems/notify"
-	"orivo/src/systems/paths"
 	"orivo/src/systems/sessions"
 	"orivo/src/systems/store"
 )

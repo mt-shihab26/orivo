@@ -10,7 +10,7 @@ import (
 
 	"orivo/src/domains/root/core"
 	"orivo/src/domains/root/entities/dialog"
-	"orivo/src/systems/paths"
+	"orivo/src/systems/config/paths"
 	"orivo/src/systems/sessions"
 	"orivo/src/systems/todos"
 )

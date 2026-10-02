@@ -5,7 +5,7 @@ import (
 
 	"orivo/src/domains/root"
 	"orivo/src/systems/config"
-	"orivo/src/systems/paths"
+	"orivo/src/systems/config/paths"
 )
 
 type Root struct{}

@@ -10,7 +10,7 @@ import (
 
 	"orivo/src/domains/root/core"
 	"orivo/src/domains/root/entities/session_bar/clock/todo_label/todo_picker"
-	"orivo/src/systems/paths"
+	"orivo/src/systems/config/paths"
 	"orivo/src/systems/sessions"
 	"orivo/src/systems/todoist"
 	"orivo/src/systems/todos"

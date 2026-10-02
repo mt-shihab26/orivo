@@ -6,7 +6,7 @@ import (
 	"slices"
 
 	"orivo/src/commands"
-	"orivo/src/systems/paths"
+	"orivo/src/systems/config/paths"
 )
 
 var version = "dev"

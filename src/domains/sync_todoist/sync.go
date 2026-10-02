@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"orivo/src/systems/paths"
+	"orivo/src/systems/config/paths"
 	"orivo/src/systems/todoist"
 	"orivo/src/systems/todos"
 )

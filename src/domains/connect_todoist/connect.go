@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"orivo/src/systems/paths"
+	"orivo/src/systems/config/paths"
 	"orivo/src/systems/todoist"
 )
 
