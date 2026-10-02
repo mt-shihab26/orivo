@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"orivo/src/domains/root/entities/session_bar/clock/phase"
 	"orivo/src/systems/config"
-	"orivo/src/systems/phase"
 )
 
 type fixture struct {
