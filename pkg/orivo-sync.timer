@@ -1,22 +1,21 @@
 [Unit]
-# Name shown by `systemctl --user list-timers` and in the journal.
 Description=Sync orivo todos with Todoist at midnight, hourly and after boot
-# Where to read more about this unit (`systemctl --user help orivo-sync.timer`).
+# Name shown in list-timers and the journal.
 Documentation=https://github.com/mt-shihab26/orivo
+# Where to read more.
 
 [Timer]
-# At the start of each day (00:00), so the picker shows the new day's todos right away.
 OnCalendar=*-*-* 00:00:00
-# Every hour on the hour, to pick up todos added or completed during the day.
+# Sync at the start of each day.
 OnCalendar=hourly
-# If the PC was off or asleep at a scheduled time, run once as soon as it is back
-# (systemd stores the last run time on disk to know a run was missed).
+# Sync every hour for changes made during the day.
 Persistent=true
-# Also run 1 minute after the user session starts, so every boot gets a fresh sync.
+# Run a missed sync once the PC is back on.
 OnStartupSec=1min
-# Fire within 1 second of the scheduled time instead of systemd's default 1 minute window.
+# Sync 1 minute after login.
 AccuracySec=1s
+# Fire on time, not up to a minute late.
 
 [Install]
-# Start this timer along with the user's other timers when they log in.
 WantedBy=timers.target
+# Start with the user's timers at login.
