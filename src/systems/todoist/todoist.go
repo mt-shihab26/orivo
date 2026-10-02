@@ -30,7 +30,7 @@ func NewClient(token string) *Client {
 	return &Client{
 		Token:   token,
 		BaseURL: defaultBaseURL,
-		HTTP:    &http.Client{Timeout: 20 * time.Second},
+		HTTP:    newHTTP(),
 	}
 }
 

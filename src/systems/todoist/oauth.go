@@ -38,7 +38,7 @@ func NewOAuth() *OAuth {
 		RegisterURL:  "https://api.todoist.com/oauth/register",
 		AuthorizeURL: "https://app.todoist.com/oauth/authorize",
 		TokenURL:     "https://api.todoist.com/oauth/access_token",
-		HTTP:         &http.Client{Timeout: 20 * time.Second},
+		HTTP:         newHTTP(),
 	}
 }
 

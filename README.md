@@ -148,7 +148,7 @@ When a work session on a todo ends, orivo writes a sentence with the time spent 
 Worked on this for 1 hour and 40 minutes across 4 sessions.
 ```
 
-This happens in the background. If it fails (offline, or the sign-in expired), the update waits in `~/.local/state/orivo/todoist-outbox.txt` and is retried on the next sync. Writing descriptions needs read and write access to Todoist. If you connected before orivo asked for it, run `orivo connect-todoist` again; until then, syncs fail with an error that says so.
+The update is queued in `~/.local/state/orivo/todoist-outbox.txt` and sent in the background right away, together with anything else queued. To go easy on Todoist, sends are at least a minute apart: a session that ends sooner after the last send waits out the rest of that minute. If a send fails (offline, or the sign-in expired), the updates stay queued for the next session or sync. Every request orivo makes to Todoist is written to `orivo.log`, with its answer, how long it took and the time since the previous request. Writing descriptions needs read and write access to Todoist. If you connected before orivo asked for it, run `orivo connect-todoist` again; until then, syncs fail with an error that says so.
 
 ## Files
 
@@ -160,7 +160,7 @@ Runtime state lives under `~/.local/state/orivo/`:
 - `todoist-auth.json` → the Todoist sign-in
 - `todoist-outbox.txt` → session counts waiting to be written to Todoist (see above)
 - `orivo.sock` → Unix socket that answers each connection with one JSON line describing the live timer (phase, running, remaining time, todo, sessions today), for bar widgets such as [omarchy-orivo-plugin](https://github.com/mt-shihab26/omarchy-orivo-plugin)
-- `orivo.log` → warnings and errors
+- `orivo.log` → warnings, errors and every request sent to Todoist
 
 ## Structure
 

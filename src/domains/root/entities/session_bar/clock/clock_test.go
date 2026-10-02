@@ -180,6 +180,71 @@ func TestFinishedWorkSendsTheTodosProgress(t *testing.T) {
 	}
 }
 
+func TestFinishedWorkIsSentAtOnce(t *testing.T) {
+	f := newFixture(t)
+	f.progress = func(string, string) {}
+	flushes := 0
+	f.flush = func() bool { flushes++; return true }
+
+	f.wait(time.Minute)
+	if flushes != 0 {
+		t.Fatalf("flushed with nothing queued")
+	}
+
+	f.SetTodo("a", "Write report")
+	f.start()
+	f.wait(25 * time.Minute)
+	if flushes != 1 {
+		t.Fatalf("flushes = %d, want 1 as soon as work ends", flushes)
+	}
+}
+
+func TestSendsAreAtLeastAMinuteApart(t *testing.T) {
+	f := newFixture(t)
+	var sent []time.Time
+	f.flush = func() bool { sent = append(sent, f.time); return true }
+
+	f.flushWanted = true
+	f.wait(time.Second)
+	f.flushWanted = true
+	f.wait(30 * time.Second)
+	if len(sent) != 1 {
+		t.Fatalf("sent %d times within a minute", len(sent))
+	}
+
+	f.wait(29 * time.Second)
+	if len(sent) != 1 {
+		t.Fatalf("sent again after %v", f.time.Sub(sent[0]))
+	}
+	f.wait(time.Second)
+	if len(sent) != 2 || sent[1].Sub(sent[0]) != time.Minute {
+		t.Fatalf("sent = %v, want the second exactly a minute after the first", sent)
+	}
+}
+
+func TestBusyFlushIsRetried(t *testing.T) {
+	f := newFixture(t)
+	f.progress = func(string, string) {}
+	busy := true
+	flushes := 0
+	f.flush = func() bool {
+		if busy {
+			return false
+		}
+		flushes++
+		return true
+	}
+
+	f.SetTodo("a", "Write report")
+	f.start()
+	f.wait(25 * time.Minute)
+	busy = false
+	f.wait(time.Second)
+	if flushes != 1 {
+		t.Fatalf("flushes = %d, want the busy one retried", flushes)
+	}
+}
+
 func TestStateSurvivesRestart(t *testing.T) {
 	f := newFixture(t)
 
