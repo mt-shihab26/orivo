@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"orivo/src/domains/root/core"
-	"orivo/src/systems/sessions"
+	"orivo/src/domains/root/entities/session_bar/clock/sessions"
 	"orivo/src/systems/todoist"
 )
 

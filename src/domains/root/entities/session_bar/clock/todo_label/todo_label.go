@@ -9,9 +9,9 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	"orivo/src/domains/root/core"
+	"orivo/src/domains/root/entities/session_bar/clock/sessions"
 	"orivo/src/domains/root/entities/session_bar/clock/todo_label/todo_picker"
 	"orivo/src/systems/config"
-	"orivo/src/systems/sessions"
 	"orivo/src/systems/todoist"
 	"orivo/src/systems/todos"
 )

@@ -10,8 +10,8 @@ import (
 
 	"orivo/src/domains/root/core"
 	"orivo/src/domains/root/entities/dialog"
+	"orivo/src/domains/root/entities/session_bar/clock/sessions"
 	"orivo/src/systems/config"
-	"orivo/src/systems/sessions"
 	"orivo/src/systems/todos"
 )
 
