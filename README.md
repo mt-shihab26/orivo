@@ -10,6 +10,43 @@ A Pomodoro timer for the desktop, written in [Go](https://go.dev) with [raylib](
 
 Todos are not managed in orivo: the timer can be pointed at a todo from [Todoist](https://todoist.com) that has the `Work` label and is overdue or due today, and sessions are recorded against it.
 
+## Installation
+
+### [Omarchy](https://omarchy.org)
+
+```sh
+git clone --depth 1 https://github.com/mt-shihab26/orivo.git /tmp/orivo
+cd /tmp/orivo/pkg
+makepkg -si
+```
+
+This builds the package from [`PKGBUILD`](pkg/PKGBUILD) using the prebuilt release binary. It installs `orivo` to `/usr/bin`, adds a desktop entry that opens orivo in its own window, and adds an `orivo-sync.timer` user unit. Installing enables that timer, which runs `orivo sync-todoist` once a day at 00:01. If the machine was off at that time, the sync runs after the next boot.
+
+Usage (app launcher):
+
+1. Press `SUPER + ALT + SPACE` to open the app launcher
+2. Search for orivo
+
+Usage (terminal):
+
+```sh
+$ orivo
+```
+
+Uninstall (also disables the `orivo-sync.timer` unit):
+
+```sh
+omarchy pkg drop orivo
+```
+
+#### Bar widget
+
+[omarchy-orivo-plugin](https://github.com/mt-shihab26/omarchy-orivo-plugin)
+adds an Omarchy bar widget showing the current session (Work/Break/Long
+Break) and countdown, e.g. `W 24:59`. It reads orivo's live IPC socket
+(`~/.local/state/orivo/orivo.sock`) and hides itself when orivo is not
+open.
+
 ## Build
 
 Requires Go and a C compiler (raylib is compiled from source through cgo), plus the usual OpenGL and X11/Wayland development headers.
