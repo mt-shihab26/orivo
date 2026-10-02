@@ -161,7 +161,7 @@ type Command interface {
 ## Development
 
 ```sh
-$ go run . --dev    # keep config and state under ./.dev instead of the system paths
+$ ./dev.sh           # build and run with config and state under ./.dev instead of the system paths
 $ go test ./...     # run the test suite
 $ gofmt -l .        # check formatting
 $ go vet ./...      # lint
