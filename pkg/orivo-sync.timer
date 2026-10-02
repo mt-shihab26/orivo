@@ -1,18 +1,14 @@
 [Unit]
 # Name shown in list-timers and the journal.
-Description=Sync orivo todos with Todoist at midnight, hourly and after boot
+Description=Sync orivo todos with Todoist once a day
 # Where to read more.
 Documentation=https://github.com/mt-shihab26/orivo
 
 [Timer]
 # Sync 1 minute after the day starts.
 OnCalendar=*-*-* 00:01:00
-# Sync every hour for changes made during the day.
-OnCalendar=hourly
 # Run a missed sync once the PC is back on.
 Persistent=true
-# Sync 1 minute after login.
-OnStartupSec=1min
 # Fire on time, not up to a minute late.
 AccuracySec=1s
 
