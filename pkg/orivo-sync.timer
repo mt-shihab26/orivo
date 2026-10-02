@@ -5,8 +5,8 @@ Description=Sync orivo todos with Todoist at midnight, hourly and after boot
 Documentation=https://github.com/mt-shihab26/orivo
 
 [Timer]
-# Sync at the start of each day.
-OnCalendar=*-*-* 00:00:00
+# Sync 1 minute after the day starts.
+OnCalendar=*-*-* 00:01:00
 # Sync every hour for changes made during the day.
 OnCalendar=hourly
 # Run a missed sync once the PC is back on.
