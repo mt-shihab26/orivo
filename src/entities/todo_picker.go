@@ -14,10 +14,10 @@ import (
 )
 
 type TodoPicker struct {
-	input    *core.Input
-	fonts    *core.Fonts
-	pomodoro *Pomodoro
-	open     bool
+	input *core.Input
+	fonts *core.Fonts
+	timer core.Timer
+	open  bool
 
 	todos      []todos.Todo
 	overdue    int
@@ -37,8 +37,8 @@ type pickerRow struct {
 	index  int
 }
 
-func NewTodoPicker(input *core.Input, fonts *core.Fonts, pomodoro *Pomodoro) *TodoPicker {
-	return &TodoPicker{input: input, fonts: fonts, pomodoro: pomodoro}
+func NewTodoPicker(input *core.Input, fonts *core.Fonts, timer core.Timer) *TodoPicker {
+	return &TodoPicker{input: input, fonts: fonts, timer: timer}
 }
 
 func SplitTodos(all []todos.Todo, now time.Time) (overdue, today []todos.Todo) {
@@ -115,7 +115,7 @@ func (p *TodoPicker) show() {
 	p.todos = append(overdue, today...)
 	p.overdue = len(overdue)
 	p.err = err
-	p.selectedID = p.pomodoro.TodoID
+	p.selectedID = p.timer.TodoID()
 	p.cursor = 0
 	p.hits = nil
 
@@ -140,7 +140,7 @@ func (p *TodoPicker) move(delta int) {
 func (p *TodoPicker) pick() {
 	if len(p.todos) > 0 {
 		todo := p.todos[p.cursor]
-		p.pomodoro.SetTodo(todo.ID, todo.Text)
+		p.timer.SetTodo(todo.ID, todo.Text)
 	}
 	p.open = false
 }
@@ -166,7 +166,7 @@ func (p *TodoPicker) Draw() {
 	screen := core.CurrentScreen()
 	s := screen.Scale
 	fonts := p.fonts
-	accent := p.pomodoro.Phase.Color()
+	accent := p.timer.Accent()
 
 	panel := rl.Rectangle{Width: min(600*s, screen.Width-32*s), Height: screen.Height - 64*s}
 	panel.X, panel.Y = (screen.Width-panel.Width)/2, (screen.Height-panel.Height)/2
@@ -225,7 +225,7 @@ func (p *TodoPicker) drawTodo(rect rl.Rectangle, index int) {
 	screen := core.CurrentScreen()
 	s := screen.Scale
 	fonts := p.fonts
-	accent := p.pomodoro.Phase.Color()
+	accent := p.timer.Accent()
 
 	todo := p.todos[index]
 	isCursor := index == p.cursor
@@ -241,7 +241,7 @@ func (p *TodoPicker) drawTodo(rect rl.Rectangle, index int) {
 	}
 
 	note := ""
-	if stat := p.pomodoro.Stat(todo.ID); stat.Sessions > 0 {
+	if stat := p.timer.Stat(todo.ID); stat.Sessions > 0 {
 		note = fmt.Sprintf("%d× %dm", stat.Sessions, stat.Secs/60)
 	}
 	if index < p.overdue {
