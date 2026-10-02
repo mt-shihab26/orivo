@@ -31,6 +31,7 @@ func (f *fixture) open() {
 	f.Clock = newClock(cfg.Timer, nil, filepath.Join(f.dir, "store.json"), filepath.Join(f.dir, "sessions.jsonl"))
 	f.Clock.now = func() time.Time { return f.time }
 	f.Clock.notify = func(summary, _ string) { f.notified = append(f.notified, summary) }
+	logSync = func(string, ...any) {}
 }
 
 func (f *fixture) start() {

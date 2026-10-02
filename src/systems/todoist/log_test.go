@@ -13,7 +13,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestEveryRequestIsLoggedWithTheGapSinceTheLast(t *testing.T) {
+func TestEveryRequestIsLogged(t *testing.T) {
 	var lines []string
 	logRequest = func(format string, args ...any) { lines = append(lines, fmt.Sprintf(format, args...)) }
 	t.Cleanup(func() { logRequest = func(string, ...any) {} })
@@ -31,9 +31,6 @@ func TestEveryRequestIsLoggedWithTheGapSinceTheLast(t *testing.T) {
 	}
 	if !strings.Contains(lines[0], "GET ") || !strings.Contains(lines[0], "/tasks?ids=a,b") || !strings.Contains(lines[0], "200 OK") {
 		t.Errorf("line = %q", lines[0])
-	}
-	if !strings.Contains(lines[1], "since the previous request") {
-		t.Errorf("line = %q, want the gap", lines[1])
 	}
 	for _, line := range lines {
 		if strings.Contains(line, "secret") {

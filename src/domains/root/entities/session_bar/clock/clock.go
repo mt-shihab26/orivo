@@ -205,6 +205,11 @@ func (c *Clock) Update(dt float32) {
 	// sessions ending close together do not hammer Todoist.
 	if c.flushWanted && c.flush != nil && (c.lastFlush.IsZero() || now.Sub(c.lastFlush) >= flushGap) {
 		if c.flush() {
+			gap := "first sync"
+			if !c.lastFlush.IsZero() {
+				gap = now.Sub(c.lastFlush).Round(time.Second).String() + " since the last sync"
+			}
+			logSync("todoist: syncing session progress in the background (%s)", gap)
 			c.flushWanted = false
 			c.lastFlush = now
 		}
@@ -374,6 +379,9 @@ func queueProgress(todoID, line string) {
 }
 
 var flushing atomic.Bool
+
+// logSync is swapped out in tests so they do not write to the real log.
+var logSync = logx.Info
 
 // flushProgress sends the outbox to Todoist in the background. It reports
 // false when the last flush is still out, so the caller tries again later;

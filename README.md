@@ -148,7 +148,7 @@ When a work session on a todo ends, orivo writes a sentence with the time spent 
 Worked on this for 1 hour and 40 minutes across 4 sessions.
 ```
 
-The update is queued in `~/.local/state/orivo/todoist-outbox.txt` and sent in the background right away, together with anything else queued. To go easy on Todoist, sends are at least a minute apart: a session that ends sooner after the last send waits out the rest of that minute. If a send fails (offline, or the sign-in expired), the updates stay queued for the next session or sync. Every request orivo makes to Todoist is written to `orivo.log`, with its answer, how long it took and the time since the previous request. Writing descriptions needs read and write access to Todoist. If you connected before orivo asked for it, run `orivo connect-todoist` again; until then, syncs fail with an error that says so.
+The update is queued in `~/.local/state/orivo/todoist-outbox.txt` and sent in the background right away, together with anything else queued. To go easy on Todoist, sends are at least a minute apart: a session that ends sooner after the last send waits out the rest of that minute. If a send fails (offline, or the sign-in expired), the updates stay queued for the next session or sync. Every request orivo makes to Todoist is written to `orivo.log` with its answer and how long it took, and each background sync with the time since the last one. Writing descriptions needs read and write access to Todoist. If you connected before orivo asked for it, run `orivo connect-todoist` again; until then, syncs fail with an error that says so.
 
 ## Files
 
