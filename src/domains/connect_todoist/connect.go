@@ -7,10 +7,11 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
-	"orivo/src/systems/browser"
 	"orivo/src/systems/paths"
 	"orivo/src/systems/todoist"
 )
@@ -71,7 +72,7 @@ func browserLogin() (todoist.Credentials, error) {
 	fmt.Println()
 	fmt.Println("  " + loginURL)
 	fmt.Println()
-	_ = browser.Open(loginURL)
+	_ = openBrowser(loginURL)
 
 	fmt.Println("Waiting for you to approve access...")
 	code, err := waitForCode(listener, state)
@@ -146,4 +147,15 @@ func readToken() (todoist.Credentials, error) {
 		return todoist.Credentials{}, errors.New("the token is empty")
 	}
 	return todoist.Credentials{AccessToken: token}, nil
+}
+
+func openBrowser(url string) error {
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("open", url).Start()
+	case "windows":
+		return exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	default:
+		return exec.Command("xdg-open", url).Start()
+	}
 }
