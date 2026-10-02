@@ -61,3 +61,54 @@ func Append(path string, s Session) error {
 	_, err = file.Write(append(line, '\n'))
 	return err
 }
+
+type Stat struct {
+	Sessions int
+	Secs     int
+}
+
+type History struct {
+	path  string
+	days  map[string]int
+	stats map[string]Stat
+}
+
+func Open(path string) (*History, error) {
+	h := &History{path: path, days: map[string]int{}, stats: map[string]Stat{}}
+
+	all, err := Read(path)
+	for _, s := range all {
+		h.count(s)
+	}
+	return h, err
+}
+
+func (h *History) Record(s Session) error {
+	h.count(s)
+	return Append(h.path, s)
+}
+
+func (h *History) CountOn(day time.Time) int {
+	return h.days[dayOf(day)]
+}
+
+func (h *History) Stat(todoID string) Stat {
+	return h.stats[todoID]
+}
+
+func (h *History) count(s Session) {
+	if s.Phase != "work" {
+		return
+	}
+	h.days[dayOf(s.EndedAt)]++
+	if s.TodoID != "" {
+		stat := h.stats[s.TodoID]
+		stat.Sessions++
+		stat.Secs += s.DurationSecs
+		h.stats[s.TodoID] = stat
+	}
+}
+
+func dayOf(t time.Time) string {
+	return t.Local().Format(time.DateOnly)
+}

@@ -16,7 +16,7 @@ import (
 type TodoPicker struct {
 	input *core.Input
 	fonts *core.Fonts
-	timer core.Timer
+	clock *Clock
 	open  bool
 
 	todos      []todos.Todo
@@ -37,8 +37,8 @@ type pickerRow struct {
 	index  int
 }
 
-func NewTodoPicker(input *core.Input, fonts *core.Fonts, timer core.Timer) *TodoPicker {
-	return &TodoPicker{input: input, fonts: fonts, timer: timer}
+func NewTodoPicker(input *core.Input, fonts *core.Fonts, clock *Clock) *TodoPicker {
+	return &TodoPicker{input: input, fonts: fonts, clock: clock}
 }
 
 func SplitTodos(all []todos.Todo, now time.Time) (overdue, today []todos.Todo) {
@@ -115,7 +115,7 @@ func (p *TodoPicker) show() {
 	p.todos = append(overdue, today...)
 	p.overdue = len(overdue)
 	p.err = err
-	p.selectedID = p.timer.TodoID()
+	p.selectedID = p.clock.TodoID()
 	p.cursor = 0
 	p.hits = nil
 
@@ -140,7 +140,7 @@ func (p *TodoPicker) move(delta int) {
 func (p *TodoPicker) pick() {
 	if len(p.todos) > 0 {
 		todo := p.todos[p.cursor]
-		p.timer.SetTodo(todo.ID, todo.Text)
+		p.clock.SetTodo(todo.ID, todo.Text)
 	}
 	p.open = false
 }
@@ -166,7 +166,7 @@ func (p *TodoPicker) Draw() {
 	screen := core.CurrentScreen()
 	s := screen.Scale
 	fonts := p.fonts
-	accent := p.timer.Accent()
+	accent := p.clock.Accent()
 
 	panel := rl.Rectangle{Width: min(600*s, screen.Width-32*s), Height: screen.Height - 64*s}
 	panel.X, panel.Y = (screen.Width-panel.Width)/2, (screen.Height-panel.Height)/2
@@ -225,7 +225,7 @@ func (p *TodoPicker) drawTodo(rect rl.Rectangle, index int) {
 	screen := core.CurrentScreen()
 	s := screen.Scale
 	fonts := p.fonts
-	accent := p.timer.Accent()
+	accent := p.clock.Accent()
 
 	todo := p.todos[index]
 	isCursor := index == p.cursor
@@ -241,7 +241,7 @@ func (p *TodoPicker) drawTodo(rect rl.Rectangle, index int) {
 	}
 
 	note := ""
-	if stat := p.timer.Stat(todo.ID); stat.Sessions > 0 {
+	if stat := p.clock.Stat(todo.ID); stat.Sessions > 0 {
 		note = fmt.Sprintf("%d× %dm", stat.Sessions, stat.Secs/60)
 	}
 	if index < p.overdue {

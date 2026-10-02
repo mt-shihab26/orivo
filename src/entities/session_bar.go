@@ -10,11 +10,11 @@ import (
 
 type SessionBar struct {
 	fonts *core.Fonts
-	timer core.Timer
+	clock *Clock
 }
 
-func NewSessionBar(fonts *core.Fonts, timer core.Timer) *SessionBar {
-	return &SessionBar{fonts: fonts, timer: timer}
+func NewSessionBar(fonts *core.Fonts, clock *Clock) *SessionBar {
+	return &SessionBar{fonts: fonts, clock: clock}
 }
 
 func (b *SessionBar) Close() {}
@@ -25,8 +25,8 @@ func (b *SessionBar) Draw() {
 	screen := core.CurrentScreen()
 	s := screen.Scale
 	y := 42 * s
-	accent := b.timer.Accent()
-	done, goal := b.timer.SessionsToday(), b.timer.DailyGoal()
+	accent := b.clock.Accent()
+	done, goal := b.clock.SessionsToday(), b.clock.DailyGoal()
 
 	label := fmt.Sprintf("Session %d / %d", done, goal)
 	b.fonts.Body.DrawCentered(label, screen.Width/2, y, accent)

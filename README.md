@@ -127,9 +127,9 @@ type Entity interface {
 }
 ```
 
-An entity is something that is drawn. The timer itself draws nothing, so it lives in `src/app/app.go`: the phases, the countdown, the selected todo and the session history, alongside the loop. The app creates the entities, handing each one only what it needs (the fonts, the key input, the timer, a config value), and decides which one gets the keyboard each frame. Entities reach the timer through the `core.Timer` interface, which the app implements.
+An entity is something that is drawn, and each one keeps its own logic and key handling in its `Update`. `Clock` is the timer: it handles Space, `r`, `n` and `m`, counts down, rolls from one phase to the next, records sessions and saves. The todo picker and the reduce dialog handle their own keys and act on the clock. `src/app/app.go` only opens the window, creates the entities with what each one needs (the fonts, the key input, the clock, a config value), runs the loop, and decides which entity gets the keyboard each frame.
 
-The packages under `src/systems` are helpers for the outside world and hold no logic of their own: reading and writing the store, the session log and the todo cache, talking to Todoist, serving the status socket, and sending notifications.
+The packages under `src/systems` are helpers the entities call: the phase names, durations and colors, the session history, the store, the todo cache, the Todoist client, the status socket, notifications and signal handling.
 
 Each command is one file in `src/commands` implementing `core.Command`; `commands.go` routes the first argument to the command with that name:
 

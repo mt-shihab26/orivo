@@ -11,13 +11,13 @@ import (
 type ReduceDialog struct {
 	input  *core.Input
 	fonts  *core.Fonts
-	timer  core.Timer
+	clock  *Clock
 	open   bool
 	digits []int
 }
 
-func NewReduceDialog(input *core.Input, fonts *core.Fonts, timer core.Timer) *ReduceDialog {
-	return &ReduceDialog{input: input, fonts: fonts, timer: timer}
+func NewReduceDialog(input *core.Input, fonts *core.Fonts, clock *Clock) *ReduceDialog {
+	return &ReduceDialog{input: input, fonts: fonts, clock: clock}
 }
 
 func (d *ReduceDialog) Close() {}
@@ -45,7 +45,7 @@ func (d *ReduceDialog) Update(dt float32) {
 			}
 		case key.Code == rl.KeyEnter || key.Code == rl.KeyKpEnter:
 			if len(d.digits) > 0 {
-				d.timer.Reduce(d.amount())
+				d.clock.Reduce(d.amount())
 			}
 			d.open = false
 		case key.Code == rl.KeyEscape:
@@ -71,7 +71,7 @@ func (d *ReduceDialog) Draw() {
 	screen := core.CurrentScreen()
 	s := screen.Scale
 	fonts := d.fonts
-	accent := d.timer.Accent()
+	accent := d.clock.Accent()
 
 	panel := rl.Rectangle{Width: 340 * s, Height: 190 * s}
 	panel.X, panel.Y = (screen.Width-panel.Width)/2, (screen.Height-panel.Height)/2
