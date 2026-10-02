@@ -167,3 +167,25 @@ $ go test ./...     # run the test suite
 $ gofmt -l .        # check formatting
 $ go vet ./...      # lint
 ```
+
+## Releasing
+
+Releases go out from `main`. The version comes from the git tag and is passed to the binary at build time with `-ldflags "-X main.version=..."`, so you don't edit a version anywhere in the source.
+
+1. Open a pull request into `main` titled `Release vX.Y.Z`. The Test and Format workflows run on it.
+2. Merge it after CI passes.
+3. Create the release and its tag on `main`:
+
+   ```sh
+   $ gh release create vX.Y.Z --target main --generate-notes
+   ```
+
+Create the release with `gh release create` rather than pushing a bare tag. The workflow uploads into an existing release, so it fails if the release isn't there yet.
+
+The new `vX.Y.Z` tag starts the Build workflow (`.github/workflows/build.yml`), which:
+
+- builds `orivo-vX.Y.Z-linux-x86_64` and `orivo-vX.Y.Z-linux-aarch64`, each on its own runner
+- uploads both binaries to the release, along with `orivo-omarchy.desktop`, `orivo.svg` and `SHA256SUMS.txt`
+- sets `pkgver` in `pkg/PKGBUILD`, refreshes its checksums and `pkg/.SRCINFO`, and pushes that commit to `main`
+
+After a release, pull `main` so you have the PKGBUILD bump locally.
