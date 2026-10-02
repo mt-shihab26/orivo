@@ -1,6 +1,6 @@
 package hints
 
-import "github.com/mt-shihab26/orivo/src/core"
+import "orivo/src/domains/root/core"
 
 type Hints struct {
 	fonts *core.Fonts

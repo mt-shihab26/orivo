@@ -1,4 +1,4 @@
-package app
+package root
 
 import (
 	"slices"
@@ -6,12 +6,12 @@ import (
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 
-	"github.com/mt-shihab26/orivo/src/config"
-	"github.com/mt-shihab26/orivo/src/core"
-	"github.com/mt-shihab26/orivo/src/entities/hints"
-	"github.com/mt-shihab26/orivo/src/entities/sessionbar"
-	"github.com/mt-shihab26/orivo/src/entities/topbar"
-	"github.com/mt-shihab26/orivo/src/systems/signals"
+	"orivo/src/domains/root/core"
+	"orivo/src/domains/root/entities/hints"
+	"orivo/src/domains/root/entities/sessionbar"
+	"orivo/src/domains/root/entities/topbar"
+	"orivo/src/systems/config"
+	"orivo/src/systems/signals"
 )
 
 type App struct {

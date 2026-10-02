@@ -5,9 +5,9 @@ import (
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 
-	"github.com/mt-shihab26/orivo/src/config"
-	"github.com/mt-shihab26/orivo/src/core"
-	"github.com/mt-shihab26/orivo/src/entities/sessionbar/clock"
+	"orivo/src/domains/root/core"
+	"orivo/src/domains/root/entities/sessionbar/clock"
+	"orivo/src/systems/config"
 )
 
 type SessionBar struct {

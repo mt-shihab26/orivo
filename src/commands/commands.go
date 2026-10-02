@@ -1,10 +1,6 @@
 package commands
 
-import (
-	"fmt"
-
-	"github.com/mt-shihab26/orivo/src/core"
-)
+import "fmt"
 
 var aliases = map[string]string{
 	"--version": "version",
@@ -13,8 +9,8 @@ var aliases = map[string]string{
 	"-h":        "help",
 }
 
-func All(version string) []core.Command {
-	all := []core.Command{
+func All(version string) []Command {
+	all := []Command{
 		&Root{},
 		&ConnectTodoist{},
 		&SyncTodoist{},

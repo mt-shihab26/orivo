@@ -5,8 +5,8 @@ import (
 	"os"
 	"slices"
 
-	"github.com/mt-shihab26/orivo/src/commands"
-	"github.com/mt-shihab26/orivo/src/systems/paths"
+	"orivo/src/commands"
+	"orivo/src/systems/paths"
 )
 
 var version = "dev"

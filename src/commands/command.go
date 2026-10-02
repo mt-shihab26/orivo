@@ -1,4 +1,4 @@
-package core
+package commands
 
 type Command interface {
 	Name() string

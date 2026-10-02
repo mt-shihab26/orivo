@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mt-shihab26/orivo/src/config"
-	"github.com/mt-shihab26/orivo/src/systems/phase"
+	"orivo/src/systems/config"
+	"orivo/src/systems/phase"
 )
 
 type fixture struct {

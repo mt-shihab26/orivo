@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/mt-shihab26/orivo/src/systems/logx"
+	"orivo/src/systems/logx"
 )
 
 type Status struct {

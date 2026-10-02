@@ -1,13 +1,9 @@
 package commands
 
-import (
-	"fmt"
-
-	"github.com/mt-shihab26/orivo/src/core"
-)
+import "fmt"
 
 type Help struct {
-	commands []core.Command
+	commands []Command
 }
 
 func (c *Help) Name() string {

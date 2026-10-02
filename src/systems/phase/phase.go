@@ -4,7 +4,7 @@ import (
 	"image/color"
 	"time"
 
-	"github.com/mt-shihab26/orivo/src/config"
+	"orivo/src/systems/config"
 )
 
 type Phase int

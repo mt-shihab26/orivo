@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mt-shihab26/orivo/src/systems/paths"
+	"orivo/src/systems/paths"
 )
 
 const maxBytes = 5 * 1024 * 1024

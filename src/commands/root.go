@@ -3,9 +3,9 @@ package commands
 import (
 	"fmt"
 
-	"github.com/mt-shihab26/orivo/src/app"
-	"github.com/mt-shihab26/orivo/src/config"
-	"github.com/mt-shihab26/orivo/src/systems/paths"
+	"orivo/src/domains/root"
+	"orivo/src/systems/config"
+	"orivo/src/systems/paths"
 )
 
 type Root struct{}
@@ -23,7 +23,7 @@ func (c *Root) Run(args []string) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", paths.Config(), err)
 	}
-	a := app.New(cfg)
+	a := root.New(cfg)
 	defer a.Close()
 	a.Run()
 	return nil

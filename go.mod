@@ -1,4 +1,4 @@
-module github.com/mt-shihab26/orivo
+module orivo
 
 go 1.27.1
 

@@ -9,11 +9,11 @@ import (
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 
-	"github.com/mt-shihab26/orivo/src/core"
-	"github.com/mt-shihab26/orivo/src/entities/dialog"
-	"github.com/mt-shihab26/orivo/src/systems/paths"
-	"github.com/mt-shihab26/orivo/src/systems/sessions"
-	"github.com/mt-shihab26/orivo/src/systems/todos"
+	"orivo/src/domains/root/core"
+	"orivo/src/domains/root/entities/dialog"
+	"orivo/src/systems/paths"
+	"orivo/src/systems/sessions"
+	"orivo/src/systems/todos"
 )
 
 type Timer interface {

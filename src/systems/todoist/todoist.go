@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mt-shihab26/orivo/src/systems/todos"
+	"orivo/src/systems/todos"
 )
 
 const (

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/mt-shihab26/orivo/src/systems/logx"
+	"orivo/src/systems/logx"
 )
 
 const version = 2

@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mt-shihab26/orivo/src/systems/paths"
-	"github.com/mt-shihab26/orivo/src/systems/todoist"
+	"orivo/src/systems/paths"
+	"orivo/src/systems/todoist"
 )
 
 type ConnectTodoist struct{}

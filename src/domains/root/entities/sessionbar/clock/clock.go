@@ -7,17 +7,17 @@ import (
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 
-	"github.com/mt-shihab26/orivo/src/config"
-	"github.com/mt-shihab26/orivo/src/core"
-	"github.com/mt-shihab26/orivo/src/entities/sessionbar/clock/reducedialog"
-	"github.com/mt-shihab26/orivo/src/entities/sessionbar/clock/todolabel"
-	"github.com/mt-shihab26/orivo/src/systems/ipc"
-	"github.com/mt-shihab26/orivo/src/systems/logx"
-	"github.com/mt-shihab26/orivo/src/systems/notify"
-	"github.com/mt-shihab26/orivo/src/systems/paths"
-	"github.com/mt-shihab26/orivo/src/systems/phase"
-	"github.com/mt-shihab26/orivo/src/systems/sessions"
-	"github.com/mt-shihab26/orivo/src/systems/store"
+	"orivo/src/domains/root/core"
+	"orivo/src/domains/root/entities/sessionbar/clock/reducedialog"
+	"orivo/src/domains/root/entities/sessionbar/clock/todolabel"
+	"orivo/src/systems/config"
+	"orivo/src/systems/ipc"
+	"orivo/src/systems/logx"
+	"orivo/src/systems/notify"
+	"orivo/src/systems/paths"
+	"orivo/src/systems/phase"
+	"orivo/src/systems/sessions"
+	"orivo/src/systems/store"
 )
 
 const saveEvery = 60

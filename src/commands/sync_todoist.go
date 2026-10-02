@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mt-shihab26/orivo/src/entities/sessionbar/clock/todolabel/todopicker"
-	"github.com/mt-shihab26/orivo/src/systems/paths"
-	"github.com/mt-shihab26/orivo/src/systems/todoist"
-	"github.com/mt-shihab26/orivo/src/systems/todos"
+	"orivo/src/domains/root/entities/sessionbar/clock/todolabel/todopicker"
+	"orivo/src/systems/paths"
+	"orivo/src/systems/todoist"
+	"orivo/src/systems/todos"
 )
 
 type SyncTodoist struct{}
