@@ -2,11 +2,11 @@
 pkgname=orivo
 pkgver=0.7.0
 pkgrel=1
-pkgdesc="A terminal-based (TUI) Todos + Pomodoro timer written in Rust"
+pkgdesc="A Pomodoro timer for your Todoist todos, with its own window and a CLI"
 arch=('x86_64' 'aarch64')
 url="https://github.com/mt-shihab26/orivo"
 license=('MIT')
-depends=('sqlite' 'alsa-lib' 'gcc-libs')
+depends=('glibc' 'libgl' 'libx11' 'libxkbcommon' 'wayland' 'libffi' 'libnotify')
 options=('!strip' '!debug')
 install=orivo.install
 
