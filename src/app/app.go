@@ -13,10 +13,10 @@ import (
 )
 
 type App struct {
-	fonts    *core.Fonts
-	input    *core.Input
-	entities []core.Entity
-	quit     atomic.Bool
+	fonts      *core.Fonts
+	dialogOpen bool
+	entities   []core.Entity
+	quit       atomic.Bool
 }
 
 func New(cfg config.Config) *App {
@@ -30,19 +30,18 @@ func New(cfg config.Config) *App {
 
 	a := &App{
 		fonts: core.NewFonts(cfg.Font),
-		input: &core.Input{},
 	}
 
-	clock := entities.NewClock(cfg.Timer, a.input, a.fonts)
+	clock := entities.NewClock(cfg.Timer, &a.dialogOpen, a.fonts)
 
 	a.entities = []core.Entity{
-		entities.NewTopBar(a.input, a.fonts, cfg.ShowFPS, a.Quit),
+		entities.NewTopBar(a.fonts, cfg.ShowFPS, a.Quit),
 		entities.NewSessionBar(a.fonts, clock),
 		clock,
-		entities.NewTodoLabel(a.input, a.fonts, clock),
+		entities.NewTodoLabel(&a.dialogOpen, a.fonts, clock),
 		entities.NewHints(a.fonts),
-		entities.NewTodoPicker(a.input, a.fonts, clock),
-		entities.NewReduceDialog(a.input, a.fonts, clock),
+		entities.NewTodoPicker(&a.dialogOpen, a.fonts, clock),
+		entities.NewReduceDialog(&a.dialogOpen, a.fonts, clock),
 	}
 
 	signals.OnInterrupt(a.Quit)
@@ -70,8 +69,6 @@ func (a *App) Run() {
 }
 
 func (a *App) Update(dt float32) {
-	a.input.Read()
-
 	for _, entity := range a.entities {
 		entity.Update(dt)
 	}

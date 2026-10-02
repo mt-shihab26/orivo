@@ -14,10 +14,10 @@ import (
 )
 
 type TodoPicker struct {
-	input *core.Input
-	fonts *core.Fonts
-	clock *Clock
-	open  bool
+	dialogOpen *bool
+	fonts      *core.Fonts
+	clock      *Clock
+	open       bool
 
 	todos      []todos.Todo
 	overdue    int
@@ -37,8 +37,8 @@ type pickerRow struct {
 	index  int
 }
 
-func NewTodoPicker(input *core.Input, fonts *core.Fonts, clock *Clock) *TodoPicker {
-	return &TodoPicker{input: input, fonts: fonts, clock: clock}
+func NewTodoPicker(dialogOpen *bool, fonts *core.Fonts, clock *Clock) *TodoPicker {
+	return &TodoPicker{dialogOpen: dialogOpen, fonts: fonts, clock: clock}
 }
 
 func SplitTodos(all []todos.Todo, now time.Time) (overdue, today []todos.Todo) {
@@ -63,51 +63,48 @@ func SplitTodos(all []todos.Todo, now time.Time) (overdue, today []todos.Todo) {
 func (p *TodoPicker) Close() {}
 
 func (p *TodoPicker) Update(dt float32) {
-	move, picked, cancelled := 0, false, false
-
-	for _, key := range p.input.KeysFor(p) {
-		switch {
-		case !p.open:
-			if key.Ch != 't' {
-				continue
-			}
-			all, err := todos.Cache{Path: paths.TodoistCache()}.Read()
-			overdue, today := SplitTodos(all, time.Now())
-
-			p.todos = append(overdue, today...)
-			p.overdue = len(overdue)
-			p.err = err
-			p.selectedID = p.clock.TodoID()
-			p.cursor = 0
-			p.hits = nil
-
-			for i, todo := range p.todos {
-				p.fonts.Need(todo.Text)
-				if todo.ID == p.selectedID {
-					p.cursor = i
-				}
-			}
-			if err != nil {
-				p.fonts.Need(err.Error())
-			}
-			p.open = true
-			p.input.Capture(p)
-
-		case key.Ch == 'j' || key.Code == rl.KeyDown:
-			move++
-		case key.Ch == 'k' || key.Code == rl.KeyUp:
-			move--
-		case key.Code == rl.KeyEnter || key.Code == rl.KeyKpEnter:
-			picked = true
-		case key.Code == rl.KeyEscape:
-			cancelled = true
-		}
-	}
+	shift := rl.IsKeyDown(rl.KeyLeftShift) || rl.IsKeyDown(rl.KeyRightShift)
 
 	if !p.open {
+		if *p.dialogOpen || shift || !rl.IsKeyPressed(rl.KeyT) {
+			return
+		}
+
+		all, err := todos.Cache{Path: paths.TodoistCache()}.Read()
+		overdue, today := SplitTodos(all, time.Now())
+
+		p.todos = append(overdue, today...)
+		p.overdue = len(overdue)
+		p.err = err
+		p.selectedID = p.clock.TodoID()
+		p.cursor = 0
+		p.hits = nil
+
+		for i, todo := range p.todos {
+			p.fonts.Need(todo.Text)
+			if todo.ID == p.selectedID {
+				p.cursor = i
+			}
+		}
+		if err != nil {
+			p.fonts.Need(err.Error())
+		}
+		p.open = true
+		*p.dialogOpen = true
 		return
 	}
 
+	move := 0
+	for _, key := range []int32{rl.KeyJ, rl.KeyDown} {
+		if rl.IsKeyPressed(key) || rl.IsKeyPressedRepeat(key) {
+			move++
+		}
+	}
+	for _, key := range []int32{rl.KeyK, rl.KeyUp} {
+		if rl.IsKeyPressed(key) || rl.IsKeyPressedRepeat(key) {
+			move--
+		}
+	}
 	if wheel := rl.GetMouseWheelMove(); wheel > 0 {
 		move--
 	} else if wheel < 0 {
@@ -117,6 +114,7 @@ func (p *TodoPicker) Update(dt float32) {
 		p.cursor = min(max(p.cursor+move, 0), len(p.todos)-1)
 	}
 
+	picked := rl.IsKeyPressed(rl.KeyEnter) || rl.IsKeyPressed(rl.KeyKpEnter)
 	if rl.IsMouseButtonPressed(rl.MouseButtonLeft) {
 		pos := rl.GetMousePosition()
 		for _, hit := range p.hits {
@@ -131,9 +129,9 @@ func (p *TodoPicker) Update(dt float32) {
 		todo := p.todos[p.cursor]
 		p.clock.SetTodo(todo.ID, todo.Text)
 	}
-	if picked || cancelled {
+	if picked || rl.IsKeyPressed(rl.KeyEscape) {
 		p.open = false
-		p.input.Release()
+		*p.dialogOpen = false
 	}
 }
 

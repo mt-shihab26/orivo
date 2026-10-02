@@ -9,26 +9,26 @@ import (
 )
 
 type TopBar struct {
-	input   *core.Input
 	fonts   *core.Fonts
 	quit    func()
 	showFPS bool
 }
 
-func NewTopBar(input *core.Input, fonts *core.Fonts, showFPS bool, quit func()) *TopBar {
-	return &TopBar{input: input, fonts: fonts, quit: quit, showFPS: showFPS}
+func NewTopBar(fonts *core.Fonts, showFPS bool, quit func()) *TopBar {
+	return &TopBar{fonts: fonts, quit: quit, showFPS: showFPS}
 }
 
 func (t *TopBar) Close() {}
 
 func (t *TopBar) Update(dt float32) {
-	for _, key := range t.input.KeysFor(t) {
-		switch {
-		case key.Ctrl && (key.Code == rl.KeyQ || key.Code == rl.KeyC):
-			t.quit()
-		case key.Ctrl && key.Code == rl.KeyF:
-			t.showFPS = !t.showFPS
-		}
+	if !rl.IsKeyDown(rl.KeyLeftControl) && !rl.IsKeyDown(rl.KeyRightControl) {
+		return
+	}
+	if rl.IsKeyPressed(rl.KeyQ) || rl.IsKeyPressed(rl.KeyC) {
+		t.quit()
+	}
+	if rl.IsKeyPressed(rl.KeyF) {
+		t.showFPS = !t.showFPS
 	}
 }
 

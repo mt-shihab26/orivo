@@ -7,13 +7,11 @@ import (
 	"time"
 
 	"github.com/mt-shihab26/orivo/src/config"
-	"github.com/mt-shihab26/orivo/src/core"
 	"github.com/mt-shihab26/orivo/src/systems/phase"
 )
 
 type fixture struct {
 	*Clock
-	keys     *core.Input
 	dir      string
 	time     time.Time
 	notified []string
@@ -30,16 +28,15 @@ func (f *fixture) open() {
 	cfg := config.Default()
 	cfg.Timer.LongBreakInterval = 2
 
-	f.keys = &core.Input{}
-	f.Clock = newClock(cfg.Timer, f.keys, filepath.Join(f.dir, "store.json"), filepath.Join(f.dir, "sessions.jsonl"))
+	f.Clock = newClock(cfg.Timer, new(bool), filepath.Join(f.dir, "store.json"), filepath.Join(f.dir, "sessions.jsonl"))
 	f.Clock.now = func() time.Time { return f.time }
 	f.Clock.notify = func(summary, _ string) { f.notified = append(f.notified, summary) }
 }
 
-func (f *fixture) press(ch rune) {
-	f.keys.Keys = []core.Key{{Ch: ch}}
-	f.Update(0)
-	f.keys.Keys = nil
+func (f *fixture) start() {
+	f.running = true
+	f.startedAt = f.time
+	f.phaseStartedAt = f.time
 }
 
 func (f *fixture) wait(d time.Duration) {
@@ -55,20 +52,18 @@ func TestCountsDownOnlyWhileRunning(t *testing.T) {
 		t.Fatalf("paused timer moved: %v", got)
 	}
 
-	f.press(' ')
+	f.start()
 	f.wait(10 * time.Minute)
-	f.press(' ')
-	f.wait(time.Hour)
 
-	if f.running || f.Remaining() != 15*time.Minute {
-		t.Fatalf("got running=%v remaining=%v, want paused at 15m", f.running, f.Remaining())
+	if !f.running || f.Remaining() != 15*time.Minute {
+		t.Fatalf("got running=%v remaining=%v, want running at 15m", f.running, f.Remaining())
 	}
 }
 
 func TestWorkRollsIntoBreakThenWaitsForWork(t *testing.T) {
 	f := newFixture(t)
 
-	f.press(' ')
+	f.start()
 	f.wait(25 * time.Minute)
 
 	if f.phase != phase.Break || !f.running || f.Remaining() != 5*time.Minute {
@@ -99,26 +94,29 @@ func TestWorkRollsIntoBreakThenWaitsForWork(t *testing.T) {
 func TestLongBreakFollowsEveryIntervalOfWork(t *testing.T) {
 	f := newFixture(t)
 
-	f.press('n')
+	f.start()
+	f.wait(25 * time.Minute)
 	if f.phase != phase.Break {
 		t.Fatalf("after 1 session: %v", f.phase)
 	}
-	f.press('n')
-	f.press('n')
+	f.wait(5 * time.Minute)
+
+	f.start()
+	f.wait(25 * time.Minute)
 	if f.phase != phase.LongBreak {
 		t.Fatalf("after 2 sessions: %v", f.phase)
 	}
 }
 
-func TestResetRestoresTheFullPhase(t *testing.T) {
+func TestOpenDialogDoesNotStopTheCountdown(t *testing.T) {
 	f := newFixture(t)
 
-	f.press(' ')
-	f.wait(10 * time.Minute)
-	f.press('r')
+	f.start()
+	*f.dialogOpen = true
+	f.wait(25 * time.Minute)
 
-	if f.running || f.Remaining() != 25*time.Minute {
-		t.Fatalf("got running=%v remaining=%v, want paused at 25m", f.running, f.Remaining())
+	if f.phase != phase.Break {
+		t.Fatalf("phase = %v, want the break to have started", f.phase)
 	}
 }
 
@@ -140,7 +138,7 @@ func TestEachTodoKeepsItsOwnRemainingTime(t *testing.T) {
 	f := newFixture(t)
 
 	f.SetTodo("a", "Write report")
-	f.press(' ')
+	f.start()
 	f.wait(10 * time.Minute)
 
 	f.SetTodo("b", "Review PR")
@@ -159,7 +157,7 @@ func TestSessionsAreRecordedAgainstTheTodo(t *testing.T) {
 	f := newFixture(t)
 
 	f.SetTodo("a", "Write report")
-	f.press(' ')
+	f.start()
 	f.wait(25 * time.Minute)
 
 	if stat := f.Stat("a"); stat.Sessions != 1 || stat.Secs != 25*60 {
@@ -171,7 +169,7 @@ func TestStateSurvivesRestart(t *testing.T) {
 	f := newFixture(t)
 
 	f.SetTodo("a", "Write report")
-	f.press(' ')
+	f.start()
 	f.wait(25 * time.Minute)
 	f.wait(2 * time.Minute)
 	f.save()

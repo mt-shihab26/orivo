@@ -21,14 +21,14 @@ import (
 const saveEvery = 60
 
 type Clock struct {
-	cfg     config.Timer
-	input   *core.Input
-	fonts   *core.Fonts
-	store   *store.Store
-	history *sessions.History
-	server  *ipc.Server
-	now     func() time.Time
-	notify  func(summary, body string)
+	cfg        config.Timer
+	dialogOpen *bool
+	fonts      *core.Fonts
+	store      *store.Store
+	history    *sessions.History
+	server     *ipc.Server
+	now        func() time.Time
+	notify     func(summary, body string)
 
 	phase          phase.Phase
 	running        bool
@@ -41,8 +41,8 @@ type Clock struct {
 	sinceSave      float32
 }
 
-func NewClock(cfg config.Timer, input *core.Input, fonts *core.Fonts) *Clock {
-	c := newClock(cfg, input, paths.Store(), paths.Sessions())
+func NewClock(cfg config.Timer, dialogOpen *bool, fonts *core.Fonts) *Clock {
+	c := newClock(cfg, dialogOpen, paths.Store(), paths.Sessions())
 	c.fonts = fonts
 	c.server = ipc.Serve(paths.Socket())
 	notify.LoadSound()
@@ -51,7 +51,7 @@ func NewClock(cfg config.Timer, input *core.Input, fonts *core.Fonts) *Clock {
 	return c
 }
 
-func newClock(cfg config.Timer, input *core.Input, storePath, sessionsPath string) *Clock {
+func newClock(cfg config.Timer, dialogOpen *bool, storePath, sessionsPath string) *Clock {
 	history, err := sessions.Open(sessionsPath)
 	if err != nil {
 		logx.Error("failed to read %s: %v", sessionsPath, err)
@@ -59,7 +59,7 @@ func newClock(cfg config.Timer, input *core.Input, storePath, sessionsPath strin
 
 	c := &Clock{
 		cfg:        cfg,
-		input:      input,
+		dialogOpen: dialogOpen,
 		store:      store.Load(storePath),
 		history:    history,
 		now:        time.Now,
@@ -80,17 +80,17 @@ func (c *Clock) Update(dt float32) {
 	now := c.now()
 	ended := false
 
-	for _, key := range c.input.KeysFor(c) {
-		switch key.Ch {
-		case ' ':
-			if c.running {
-				c.remaining = c.Remaining()
-				c.startedAt = time.Time{}
-				c.running = false
-				c.store.SetRemaining(c.todoID, c.remaining)
-				c.store.Save()
-				continue
-			}
+	ctrl := rl.IsKeyDown(rl.KeyLeftControl) || rl.IsKeyDown(rl.KeyRightControl)
+	listening := !*c.dialogOpen && !ctrl
+
+	if listening && rl.IsKeyPressed(rl.KeySpace) {
+		if c.running {
+			c.remaining = c.Remaining()
+			c.startedAt = time.Time{}
+			c.running = false
+			c.store.SetRemaining(c.todoID, c.remaining)
+			c.store.Save()
+		} else {
 			if c.phaseStartedAt.IsZero() {
 				c.phaseStartedAt = now
 				c.store.SetPhaseStartedAt(c.todoID, now)
@@ -98,22 +98,25 @@ func (c *Clock) Update(dt float32) {
 			}
 			c.startedAt = now
 			c.running = true
-
-		case 'r':
-			c.remaining = c.total()
-			c.startedAt = time.Time{}
-			c.phaseStartedAt = time.Time{}
-			c.running = false
-			c.store.ClearRemaining(c.todoID)
-			c.store.ClearPhaseStartedAt(c.todoID)
-			c.store.Save()
-
-		case 'n':
-			ended = true
-
-		case 'm':
-			c.showMillis = !c.showMillis
 		}
+	}
+
+	if listening && rl.IsKeyPressed(rl.KeyR) {
+		c.remaining = c.total()
+		c.startedAt = time.Time{}
+		c.phaseStartedAt = time.Time{}
+		c.running = false
+		c.store.ClearRemaining(c.todoID)
+		c.store.ClearPhaseStartedAt(c.todoID)
+		c.store.Save()
+	}
+
+	if listening && rl.IsKeyPressed(rl.KeyN) {
+		ended = true
+	}
+
+	if listening && rl.IsKeyPressed(rl.KeyM) {
+		c.showMillis = !c.showMillis
 	}
 
 	if c.running && c.Remaining() == 0 {

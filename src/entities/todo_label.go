@@ -3,27 +3,29 @@ package entities
 import (
 	"fmt"
 
+	rl "github.com/gen2brain/raylib-go/raylib"
+
 	"github.com/mt-shihab26/orivo/src/core"
 )
 
 type TodoLabel struct {
-	input *core.Input
-	fonts *core.Fonts
-	clock *Clock
+	dialogOpen *bool
+	fonts      *core.Fonts
+	clock      *Clock
 }
 
-func NewTodoLabel(input *core.Input, fonts *core.Fonts, clock *Clock) *TodoLabel {
+func NewTodoLabel(dialogOpen *bool, fonts *core.Fonts, clock *Clock) *TodoLabel {
 	fonts.Need(clock.TodoText())
-	return &TodoLabel{input: input, fonts: fonts, clock: clock}
+	return &TodoLabel{dialogOpen: dialogOpen, fonts: fonts, clock: clock}
 }
 
 func (l *TodoLabel) Close() {}
 
 func (l *TodoLabel) Update(dt float32) {
-	for _, key := range l.input.KeysFor(l) {
-		if key.Ch == 'T' {
-			l.clock.SetTodo("", "")
-		}
+	shift := rl.IsKeyDown(rl.KeyLeftShift) || rl.IsKeyDown(rl.KeyRightShift)
+
+	if !*l.dialogOpen && shift && rl.IsKeyPressed(rl.KeyT) {
+		l.clock.SetTodo("", "")
 	}
 }
 
