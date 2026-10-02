@@ -12,8 +12,10 @@ import (
 
 func Run() error {
 	all, err := todoist.Sync(paths.TodoistAuth(), paths.TodoistCache())
+	// Not an error: the sync timer runs for every user, connected or not.
 	if errors.Is(err, todoist.ErrNotConnected) {
-		return errors.New("not connected to Todoist; run `orivo connect-todoist` first")
+		fmt.Println("Not connected to Todoist; run `orivo connect-todoist` first")
+		return nil
 	}
 	if errors.Is(err, todoist.ErrTokenRejected) {
 		return errors.New("the Todoist sign-in has expired; run `orivo connect-todoist` again")
