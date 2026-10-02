@@ -1,8 +1,11 @@
 package root
 
 import (
+	"os"
+	"os/signal"
 	"slices"
 	"sync/atomic"
+	"syscall"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 
@@ -11,7 +14,6 @@ import (
 	"orivo/src/domains/root/entities/session_bar"
 	"orivo/src/domains/root/entities/top_bar"
 	"orivo/src/systems/config"
-	"orivo/src/systems/signals"
 )
 
 type App struct {
@@ -39,7 +41,7 @@ func New(cfg config.Config) *App {
 		session_bar.New(cfg.Timer, a.fonts),
 	}
 
-	signals.OnInterrupt(a.Quit)
+	onInterrupt(a.Quit)
 	return a
 }
 
@@ -79,4 +81,13 @@ func (a *App) Draw() {
 	for _, entity := range a.entities {
 		entity.Draw()
 	}
+}
+
+func onInterrupt(fn func()) {
+	received := make(chan os.Signal, 1)
+	signal.Notify(received, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-received
+		fn()
+	}()
 }
