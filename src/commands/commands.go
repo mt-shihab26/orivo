@@ -9,6 +9,12 @@ var aliases = map[string]string{
 	"-h":        "help",
 }
 
+type Command interface {
+	Name() string
+	Summary() string
+	Run(args []string) error
+}
+
 func All(version string) []Command {
 	all := []Command{
 		&Root{},
