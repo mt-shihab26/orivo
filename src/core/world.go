@@ -7,10 +7,6 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	"github.com/mt-shihab26/orivo/src/config"
-	"github.com/mt-shihab26/orivo/src/systems/phase"
-	"github.com/mt-shihab26/orivo/src/systems/sessions"
-	"github.com/mt-shihab26/orivo/src/systems/timer"
-	"github.com/mt-shihab26/orivo/src/systems/todos"
 )
 
 const (
@@ -27,14 +23,10 @@ var (
 )
 
 type World struct {
-	Config   config.Config
-	Timer    *timer.State
-	Todos    todos.Source
-	Sessions *sessions.Log
-	Fonts    *Fonts
+	Config config.Config
+	Fonts  *Fonts
 
 	Width, Height, Scale float32
-	Snap                 timer.Snapshot
 	Color                color.RGBA
 	Keys                 []Key
 
@@ -56,20 +48,6 @@ func (w *World) Sync() {
 	scale = float32(int(scale*20)) / 20
 	w.Scale = min(max(scale, 0.5), 4)
 	w.Fonts.Ensure(w.Scale)
-
-	w.Snap = w.Timer.Snapshot()
-	w.Color = PhaseColor(w.Snap.Phase)
-}
-
-func PhaseColor(p phase.Phase) color.RGBA {
-	switch p {
-	case phase.Break:
-		return color.RGBA{102, 187, 106, 255}
-	case phase.LongBreak:
-		return color.RGBA{38, 198, 218, 255}
-	default:
-		return color.RGBA{239, 83, 80, 255}
-	}
 }
 
 func (w *World) DrawDialog(panel rl.Rectangle) {

@@ -5,12 +5,12 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/mt-shihab26/orivo/src/systems/logx"
-	"github.com/mt-shihab26/orivo/src/systems/timer"
 )
 
-type status struct {
+type Status struct {
 	Phase            string  `json:"phase"`
 	Label            string  `json:"label"`
 	IsRunning        bool    `json:"is_running"`
@@ -21,7 +21,14 @@ type status struct {
 	DailySessionGoal int     `json:"daily_session_goal"`
 }
 
-func Serve(path string, state *timer.State) {
+type Server struct {
+	mu     sync.Mutex
+	status Status
+}
+
+func Serve(path string) *Server {
+	server := &Server{}
+
 	dir := filepath.Dir(path)
 	_ = os.MkdirAll(dir, 0o700)
 	_ = os.Chmod(dir, 0o700)
@@ -29,13 +36,13 @@ func Serve(path string, state *timer.State) {
 	if conn, err := net.Dial("unix", path); err == nil {
 		conn.Close()
 		logx.Warn("ipc: another orivo instance already serves %s; skipping IPC", path)
-		return
+		return server
 	}
 
 	if info, err := os.Lstat(path); err == nil {
 		if info.Mode()&os.ModeSocket == 0 {
 			logx.Error("ipc: %s exists and is not a socket; refusing to replace it", path)
-			return
+			return server
 		}
 		_ = os.Remove(path)
 	}
@@ -43,7 +50,7 @@ func Serve(path string, state *timer.State) {
 	listener, err := net.Listen("unix", path)
 	if err != nil {
 		logx.Error("ipc: failed to bind %s: %v", path, err)
-		return
+		return server
 	}
 	if err := os.Chmod(path, 0o600); err != nil {
 		logx.Warn("ipc: failed to restrict permissions on %s: %v", path, err)
@@ -56,29 +63,29 @@ func Serve(path string, state *timer.State) {
 				logx.Warn("ipc: accept failed: %v", err)
 				return
 			}
-			respond(conn, state)
+			server.respond(conn)
 		}
 	}()
+	return server
 }
 
-func respond(conn net.Conn, state *timer.State) {
+func (s *Server) Publish(status Status) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.status = status
+}
+
+func (s *Server) respond(conn net.Conn) {
 	defer conn.Close()
 
-	snap := state.Snapshot()
-	st := status{
-		Phase:            snap.Phase.Key(),
-		Label:            snap.Phase.Label(),
-		IsRunning:        snap.Running,
-		RemainingMillis:  snap.Remaining.Milliseconds(),
-		SessionsToday:    snap.SessionsToday,
-		DailySessionGoal: snap.DailyGoal,
-	}
-	if snap.TodoID != "" {
-		st.TodoID = &snap.TodoID
-		st.TodoText = &snap.TodoText
-	}
+	s.mu.Lock()
+	status := s.status
+	s.mu.Unlock()
 
-	if err := json.NewEncoder(conn).Encode(st); err != nil {
+	if err := json.NewEncoder(conn).Encode(status); err != nil {
 		logx.Warn("ipc: write failed: %v", err)
 	}
 }

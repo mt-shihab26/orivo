@@ -1,10 +1,14 @@
 package app
 
 import (
+	"os"
+	"os/signal"
 	"slices"
+	"syscall"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 
+	"github.com/mt-shihab26/orivo/src/config"
 	"github.com/mt-shihab26/orivo/src/core"
 	"github.com/mt-shihab26/orivo/src/entities"
 )
@@ -14,7 +18,7 @@ type App struct {
 	entities []core.Entity
 }
 
-func New(world *core.World) *App {
+func New(cfg config.Config) *App {
 	rl.SetTraceLogLevel(rl.LogWarning)
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagMsaa4xHint)
 	rl.InitWindow(core.BaseWidth, core.BaseHeight, "Orivo")
@@ -23,21 +27,25 @@ func New(world *core.World) *App {
 	rl.SetExitKey(0)
 	rl.InitAudioDevice()
 
-	world.Fonts = core.NewFonts(world.Config.Font)
+	world := &core.World{Config: cfg, Fonts: core.NewFonts(cfg.Font)}
+	pomodoro := entities.NewPomodoro(world)
 
-	return &App{
+	a := &App{
 		world: world,
 		entities: []core.Entity{
-			entities.NewPomodoro(world),
+			pomodoro,
+			entities.NewBell(world, pomodoro),
 			entities.NewTopBar(world),
-			entities.NewSessionBar(world),
-			entities.NewClock(world),
-			entities.NewTodoLabel(world),
+			entities.NewSessionBar(world, pomodoro),
+			entities.NewClock(world, pomodoro),
+			entities.NewTodoLabel(world, pomodoro),
 			entities.NewHints(world),
-			entities.NewTodoPicker(world),
-			entities.NewReduceDialog(world),
+			entities.NewTodoPicker(world, pomodoro),
+			entities.NewReduceDialog(world, pomodoro),
 		},
 	}
+	a.quitOnSignal()
+	return a
 }
 
 func (a *App) Close() {
@@ -59,13 +67,7 @@ func (a *App) Run() {
 func (a *App) Update(dt float32) {
 	a.world.Sync()
 	keys := core.ReadKeys()
-
-	var modal core.Entity
-	for _, entity := range a.entities {
-		if m, ok := entity.(core.Modal); ok && m.IsOpen() {
-			modal = entity
-		}
-	}
+	modal := a.openModal()
 
 	for _, entity := range a.entities {
 		a.world.Keys = nil
@@ -86,4 +88,22 @@ func (a *App) Draw() {
 	for _, entity := range a.entities {
 		entity.Draw()
 	}
+}
+
+func (a *App) openModal() core.Entity {
+	for _, entity := range a.entities {
+		if modal, ok := entity.(core.Modal); ok && modal.IsOpen() {
+			return entity
+		}
+	}
+	return nil
+}
+
+func (a *App) quitOnSignal() {
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-signals
+		a.world.Quit()
+	}()
 }

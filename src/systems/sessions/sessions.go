@@ -7,11 +7,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 )
-
-const workPhase = "work"
 
 type Session struct {
 	Phase        string    `json:"phase"`
@@ -22,57 +19,40 @@ type Session struct {
 	TodoText     string    `json:"todo_text,omitempty"`
 }
 
-type Stat struct {
-	Sessions int
-	Secs     int
-}
-
-type Log struct {
-	mu    sync.Mutex
-	path  string
-	stats map[string]Stat
-	days  map[string]int
-}
-
-func Open(path string) (*Log, error) {
-	l := &Log{path: path, stats: map[string]Stat{}, days: map[string]int{}}
-
+func Read(path string) ([]Session, error) {
 	file, err := os.Open(path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return l, nil
+		return nil, nil
 	}
 	if err != nil {
-		return l, err
+		return nil, err
 	}
 	defer file.Close()
 
+	var all []Session
 	scanner := bufio.NewScanner(file)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for scanner.Scan() {
 		var s Session
 		if json.Unmarshal(scanner.Bytes(), &s) == nil {
-			l.index(s)
+			all = append(all, s)
 		}
 	}
-	return l, scanner.Err()
+	return all, scanner.Err()
 }
 
-func (l *Log) Record(s Session) error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
+func Append(path string, s Session) error {
 	s.StartedAt = s.StartedAt.Round(0)
 	s.EndedAt = s.EndedAt.Round(0)
-	l.index(s)
 
 	line, err := json.Marshal(s)
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(l.path), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
-	file, err := os.OpenFile(l.path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}
@@ -80,33 +60,4 @@ func (l *Log) Record(s Session) error {
 
 	_, err = file.Write(append(line, '\n'))
 	return err
-}
-
-func (l *Log) CountToday(now time.Time) int {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.days[day(now)]
-}
-
-func (l *Log) Stat(todoID string) Stat {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.stats[todoID]
-}
-
-func (l *Log) index(s Session) {
-	if s.Phase != workPhase {
-		return
-	}
-	l.days[day(s.EndedAt)]++
-	if s.TodoID != "" {
-		stat := l.stats[s.TodoID]
-		stat.Sessions++
-		stat.Secs += s.DurationSecs
-		l.stats[s.TodoID] = stat
-	}
-}
-
-func day(t time.Time) string {
-	return t.Local().Format(time.DateOnly)
 }

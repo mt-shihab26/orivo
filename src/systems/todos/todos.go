@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 )
@@ -20,25 +19,8 @@ type Todo struct {
 	Due  time.Time
 }
 
-type Lists struct {
-	Overdue []Todo
-	Today   []Todo
-}
-
-type Source interface {
-	Load(now time.Time) (Lists, error)
-}
-
 type Cache struct {
 	Path string
-}
-
-func (c Cache) Load(now time.Time) (Lists, error) {
-	all, err := c.Read()
-	if err != nil {
-		return Lists{}, err
-	}
-	return Split(all, now), nil
 }
 
 func (c Cache) Read() ([]Todo, error) {
@@ -82,26 +64,6 @@ func (c Cache) Write(all []Todo) error {
 		return err
 	}
 	return os.Rename(tmp, c.Path)
-}
-
-func Split(all []Todo, now time.Time) Lists {
-	y, m, d := now.Local().Date()
-	today := time.Date(y, m, d, 0, 0, 0, 0, time.Local)
-
-	var lists Lists
-	for _, todo := range all {
-		switch {
-		case todo.Due.Before(today):
-			lists.Overdue = append(lists.Overdue, todo)
-		case todo.Due.Equal(today):
-			lists.Today = append(lists.Today, todo)
-		}
-	}
-
-	sort.SliceStable(lists.Overdue, func(i, j int) bool {
-		return lists.Overdue[i].Due.Before(lists.Overdue[j].Due)
-	})
-	return lists
 }
 
 func oneLine(text string) string {

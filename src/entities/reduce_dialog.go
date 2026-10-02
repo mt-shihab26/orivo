@@ -9,13 +9,14 @@ import (
 )
 
 type ReduceDialog struct {
-	world  *core.World
-	open   bool
-	digits []int
+	world    *core.World
+	pomodoro *Pomodoro
+	open     bool
+	digits   []int
 }
 
-func NewReduceDialog(world *core.World) *ReduceDialog {
-	return &ReduceDialog{world: world}
+func NewReduceDialog(world *core.World, pomodoro *Pomodoro) *ReduceDialog {
+	return &ReduceDialog{world: world, pomodoro: pomodoro}
 }
 
 func (d *ReduceDialog) Close() {}
@@ -43,7 +44,7 @@ func (d *ReduceDialog) Update(dt float32) {
 			}
 		case key.Code == rl.KeyEnter || key.Code == rl.KeyKpEnter:
 			if len(d.digits) > 0 {
-				d.world.Timer.Reduce(d.amount())
+				d.pomodoro.Reduce(d.amount())
 			}
 			d.open = false
 		case key.Code == rl.KeyEscape:

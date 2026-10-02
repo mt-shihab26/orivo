@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mt-shihab26/orivo/src/entities"
 	"github.com/mt-shihab26/orivo/src/systems/paths"
 	"github.com/mt-shihab26/orivo/src/systems/todoist"
 	"github.com/mt-shihab26/orivo/src/systems/todos"
@@ -41,11 +42,11 @@ func (c *SyncTodoist) Run(args []string) error {
 		return err
 	}
 
-	lists := todos.Split(all, time.Now())
-	printTodos("Overdue", lists.Overdue, true)
-	printTodos("Today", lists.Today, false)
+	overdue, today := entities.SplitTodos(all, time.Now())
+	printTodos("Overdue", overdue, true)
+	printTodos("Today", today, false)
 
-	fmt.Printf("Cached %d todos in %s\n", len(lists.Overdue)+len(lists.Today), paths.TodoistCache())
+	fmt.Printf("Cached %d todos in %s\n", len(overdue)+len(today), paths.TodoistCache())
 	return nil
 }
 

@@ -7,12 +7,13 @@ import (
 )
 
 type TodoLabel struct {
-	world *core.World
+	world    *core.World
+	pomodoro *Pomodoro
 }
 
-func NewTodoLabel(world *core.World) *TodoLabel {
-	world.Fonts.Need(world.Timer.Snapshot().TodoText)
-	return &TodoLabel{world: world}
+func NewTodoLabel(world *core.World, pomodoro *Pomodoro) *TodoLabel {
+	world.Fonts.Need(pomodoro.TodoText)
+	return &TodoLabel{world: world, pomodoro: pomodoro}
 }
 
 func (l *TodoLabel) Close() {}
@@ -20,20 +21,20 @@ func (l *TodoLabel) Close() {}
 func (l *TodoLabel) Update(dt float32) {
 	for _, key := range l.world.Keys {
 		if key.Ch == 'T' {
-			l.world.Timer.SetTodo("", "")
+			l.pomodoro.SetTodo("", "")
 		}
 	}
 }
 
 func (l *TodoLabel) Draw() {
 	w := l.world
-	snap := w.Snap
+	pomodoro := l.pomodoro
 
 	text := "No todo selected  [t] pick"
-	if snap.TodoID != "" {
-		text = snap.TodoText
-		if snap.Stat.Sessions > 0 {
-			text += fmt.Sprintf("  ·  %d sessions  ·  %d min", snap.Stat.Sessions, snap.Stat.Secs/60)
+	if pomodoro.TodoID != "" {
+		text = pomodoro.TodoText
+		if stat := pomodoro.Stat(pomodoro.TodoID); stat.Sessions > 0 {
+			text += fmt.Sprintf("  ·  %d sessions  ·  %d min", stat.Sessions, stat.Secs/60)
 		}
 	}
 

@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/mt-shihab26/orivo/src/systems/phase"
 )
 
 func TestRoundTrip(t *testing.T) {
@@ -15,7 +13,7 @@ func TestRoundTrip(t *testing.T) {
 
 	s := Load(path)
 	s.SetTodo("abc", "Write report")
-	s.SetPhase(phase.LongBreak)
+	s.SetPhase("LongBreak")
 	s.SetRemaining("abc", 90*time.Second)
 	s.SetPhaseStartedAt("abc", started)
 	s.Save()
@@ -24,7 +22,7 @@ func TestRoundTrip(t *testing.T) {
 	if id, text := s.Todo(); id != "abc" || text != "Write report" {
 		t.Errorf("todo = %q %q", id, text)
 	}
-	if s.Phase() != phase.LongBreak {
+	if s.Phase() != "LongBreak" {
 		t.Errorf("phase = %v", s.Phase())
 	}
 	if d, ok := s.Remaining("abc"); !ok || d != 90*time.Second {
@@ -48,7 +46,7 @@ func TestLegacyStoreKeepsPhaseAndDropsOldTodos(t *testing.T) {
 	if id, _ := s.Todo(); id != "" {
 		t.Errorf("todo = %q, want none", id)
 	}
-	if s.Phase() != phase.Break {
+	if s.Phase() != "Break" {
 		t.Errorf("phase = %v, want Break", s.Phase())
 	}
 	if d, ok := s.Remaining(""); !ok || d != 2*time.Minute {

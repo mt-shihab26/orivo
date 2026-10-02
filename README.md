@@ -127,7 +127,9 @@ type Entity interface {
 }
 ```
 
-Entities share a `core.World`, which holds the timer, the todo source and the state of the current frame. The packages under `src/systems` are what runs behind it: the timer state machine, the store, the session log, the Todoist client and the todo cache.
+All the logic lives in the entities. `Pomodoro` is the timer itself: the phases, the countdown, the selected todo and the session history; the other entities draw it and act on it. `src/app/app.go` only wires the entities together and decides which one gets the keyboard. Entities share a `core.World`, which holds the config and the state of the current frame.
+
+The packages under `src/systems` are helpers for the outside world and hold no logic of their own: reading and writing the store, the session log and the todo cache, talking to Todoist, serving the status socket, and sending notifications.
 
 Each command is one file in `src/commands` implementing `core.Command`; `commands.go` routes the first argument to the command with that name:
 

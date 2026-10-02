@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/mt-shihab26/orivo/src/systems/logx"
-	"github.com/mt-shihab26/orivo/src/systems/phase"
 )
 
 const version = 2
@@ -18,7 +17,7 @@ type data struct {
 	Version        int                  `json:"version"`
 	TodoID         *string              `json:"timer_todo_id"`
 	TodoText       string               `json:"timer_todo_text,omitempty"`
-	Phase          phase.Phase          `json:"timer_cycle_phase"`
+	Phase          string               `json:"timer_cycle_phase"`
 	Remaining      map[string]int64     `json:"timer_remaining_millis"`
 	PhaseStartedAt map[string]time.Time `json:"timer_phase_started_at"`
 }
@@ -65,7 +64,6 @@ func Load(path string) *Store {
 func empty() data {
 	return data{
 		Version:        version,
-		Phase:          phase.Work,
 		Remaining:      map[string]int64{},
 		PhaseStartedAt: map[string]time.Time{},
 	}
@@ -75,7 +73,7 @@ func legacy(raw []byte) data {
 	d := empty()
 
 	var old struct {
-		Phase     phase.Phase      `json:"timer_cycle_phase"`
+		Phase     string           `json:"timer_cycle_phase"`
 		Remaining map[string]int64 `json:"timer_remaining_millis"`
 	}
 	if json.Unmarshal(raw, &old) != nil {
@@ -123,12 +121,12 @@ func (s *Store) SetTodo(id, text string) {
 	s.data.TodoText = text
 }
 
-func (s *Store) Phase() phase.Phase {
+func (s *Store) Phase() string {
 	return s.data.Phase
 }
 
-func (s *Store) SetPhase(p phase.Phase) {
-	s.data.Phase = p
+func (s *Store) SetPhase(name string) {
+	s.data.Phase = name
 }
 
 func (s *Store) Remaining(todoID string) (time.Duration, bool) {

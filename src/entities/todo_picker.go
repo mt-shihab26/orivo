@@ -3,22 +3,23 @@ package entities
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	"github.com/mt-shihab26/orivo/src/core"
-	"github.com/mt-shihab26/orivo/src/systems/sessions"
+	"github.com/mt-shihab26/orivo/src/systems/paths"
 	"github.com/mt-shihab26/orivo/src/systems/todos"
 )
 
 type TodoPicker struct {
-	world *core.World
-	open  bool
+	world    *core.World
+	pomodoro *Pomodoro
+	open     bool
 
 	todos      []todos.Todo
 	overdue    int
-	stats      map[string]sessions.Stat
 	err        error
 	cursor     int
 	selectedID string
@@ -35,8 +36,27 @@ type pickerRow struct {
 	index  int
 }
 
-func NewTodoPicker(world *core.World) *TodoPicker {
-	return &TodoPicker{world: world}
+func NewTodoPicker(world *core.World, pomodoro *Pomodoro) *TodoPicker {
+	return &TodoPicker{world: world, pomodoro: pomodoro}
+}
+
+func SplitTodos(all []todos.Todo, now time.Time) (overdue, today []todos.Todo) {
+	y, m, d := now.Local().Date()
+	start := time.Date(y, m, d, 0, 0, 0, 0, time.Local)
+
+	for _, todo := range all {
+		switch {
+		case todo.Due.Before(start):
+			overdue = append(overdue, todo)
+		case todo.Due.Equal(start):
+			today = append(today, todo)
+		}
+	}
+
+	sort.SliceStable(overdue, func(i, j int) bool {
+		return overdue[i].Due.Before(overdue[j].Due)
+	})
+	return overdue, today
 }
 
 func (p *TodoPicker) Close() {}
@@ -90,17 +110,17 @@ func (p *TodoPicker) updateMouse() {
 func (p *TodoPicker) show() {
 	w := p.world
 
-	lists, err := w.Todos.Load(time.Now())
-	p.todos = append(lists.Overdue, lists.Today...)
-	p.overdue = len(lists.Overdue)
+	all, err := todos.Cache{Path: paths.TodoistCache()}.Read()
+	overdue, today := SplitTodos(all, time.Now())
+
+	p.todos = append(overdue, today...)
+	p.overdue = len(overdue)
 	p.err = err
-	p.stats = map[string]sessions.Stat{}
-	p.selectedID = w.Timer.Snapshot().TodoID
+	p.selectedID = p.pomodoro.TodoID
 	p.cursor = 0
 	p.hits = nil
 
 	for i, todo := range p.todos {
-		p.stats[todo.ID] = w.Sessions.Stat(todo.ID)
 		w.Fonts.Need(todo.Text)
 		if todo.ID == p.selectedID {
 			p.cursor = i
@@ -121,7 +141,7 @@ func (p *TodoPicker) move(delta int) {
 func (p *TodoPicker) pick() {
 	if len(p.todos) > 0 {
 		todo := p.todos[p.cursor]
-		p.world.Timer.SetTodo(todo.ID, todo.Text)
+		p.pomodoro.SetTodo(todo.ID, todo.Text)
 	}
 	p.open = false
 }
@@ -220,7 +240,7 @@ func (p *TodoPicker) drawTodo(rect rl.Rectangle, index int) {
 	}
 
 	note := ""
-	if stat := p.stats[todo.ID]; stat.Sessions > 0 {
+	if stat := p.pomodoro.Stat(todo.ID); stat.Sessions > 0 {
 		note = fmt.Sprintf("%d× %dm", stat.Sessions, stat.Secs/60)
 	}
 	if index < p.overdue {
