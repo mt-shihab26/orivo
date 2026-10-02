@@ -128,7 +128,7 @@ orivo help               Show the list of commands
 Connect once, then sync whenever you want the picker to catch up with Todoist:
 
 ```sh
-$ orivo connect-todoist   # opens Todoist in your browser to sign in and approve read access
+$ orivo connect-todoist   # opens Todoist in your browser to sign in and approve access
 $ orivo sync-todoist      # fetches, caches and prints the todos labelled Work that are overdue or due today
 ```
 
@@ -142,6 +142,14 @@ $ orivo sync-todoist      # fetches, caches and prints the todos labelled Work t
 
 The picker (`t`) reads that file and lists the todos in two sections, **Overdue** and **Today**. Pressing `s` in the window runs the same sync in the background, so the picker shows whatever the last sync fetched, from either place.
 
+When a work session on a todo ends, orivo writes the progress to the bottom of that task's description in Todoist, below anything you wrote there, and replaces it on the next session instead of adding another line:
+
+```
+orivo: 4 sessions · 1h 40m
+```
+
+This happens in the background. If it fails (offline, or the sign-in expired), the update waits in `~/.local/state/orivo/todoist-outbox.txt` and is retried on the next sync. Writing descriptions needs read and write access to Todoist. If you connected before orivo asked for it, run `orivo connect-todoist` again; until then, syncs fail with an error that says so.
+
 ## Files
 
 Runtime state lives under `~/.local/state/orivo/`:
@@ -150,6 +158,7 @@ Runtime state lives under `~/.local/state/orivo/`:
 - `sessions.jsonl` → one line per completed session
 - `todoist.txt` → the cached Todoist todos (see above)
 - `todoist-auth.json` → the Todoist sign-in
+- `todoist-outbox.txt` → session counts waiting to be written to Todoist (see above)
 - `orivo.sock` → Unix socket that answers each connection with one JSON line describing the live timer (phase, running, remaining time, todo, sessions today), for bar widgets such as [omarchy-orivo-plugin](https://github.com/mt-shihab26/omarchy-orivo-plugin)
 - `orivo.log` → warnings and errors
 

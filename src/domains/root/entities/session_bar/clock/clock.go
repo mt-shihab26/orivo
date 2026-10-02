@@ -1,6 +1,7 @@
 package clock
 
 import (
+	"errors"
 	"fmt"
 	"image/color"
 	"time"
@@ -17,18 +18,20 @@ import (
 	"orivo/src/domains/root/entities/session_bar/clock/todo_label"
 	"orivo/src/systems/config"
 	"orivo/src/systems/logx"
+	"orivo/src/systems/todoist"
 )
 
 const saveEvery = 60
 
 type Clock struct {
-	cfg     config.Timer
-	fonts   *core.Fonts
-	store   *store.Store
-	history *sessions.History
-	server  *ipc.Server
-	now     func() time.Time
-	notify  func(summary, body string)
+	cfg      config.Timer
+	fonts    *core.Fonts
+	store    *store.Store
+	history  *sessions.History
+	server   *ipc.Server
+	now      func() time.Time
+	notify   func(summary, body string)
+	progress func(todoID, line string)
 
 	todo   *todo_label.TodoLabel
 	reduce *reduce_dialog.ReduceDialog
@@ -50,6 +53,7 @@ func New(cfg config.Timer, fonts *core.Fonts) *Clock {
 	c.server = ipc.Serve(config.Socket())
 	notify.LoadSound()
 	c.notify = notify.Send
+	c.progress = pushProgress
 	c.publish()
 	return c
 }
@@ -157,6 +161,10 @@ func (c *Clock) Update(dt float32) {
 		})
 		if err != nil {
 			logx.Error("failed to record session: %v", err)
+		}
+		if c.progress != nil && c.phase == phase.Work && c.todoID != "" {
+			stat := c.history.Stat(c.todoID)
+			c.progress(c.todoID, todoist.ProgressLine(stat.Sessions, stat.Secs))
 		}
 
 		switch {
@@ -337,6 +345,21 @@ func (c *Clock) publish() {
 		status.TodoText = &text
 	}
 	c.server.Publish(status)
+}
+
+// pushProgress queues the line and writes it to Todoist in the background;
+// what fails stays queued for the next sync.
+func pushProgress(todoID, line string) {
+	if err := (todoist.Outbox{Path: config.TodoistOutbox()}).Add(todoID, line); err != nil {
+		logx.Error("failed to queue Todoist progress: %v", err)
+		return
+	}
+	go func() {
+		err := todoist.PushProgress(config.TodoistAuth(), config.TodoistOutbox())
+		if err != nil && !errors.Is(err, todoist.ErrNotConnected) {
+			logx.Warn("failed to update Todoist progress: %v", err)
+		}
+	}()
 }
 
 func clockText(remaining time.Duration, showMillis bool) string {

@@ -165,6 +165,21 @@ func TestSessionsAreRecordedAgainstTheTodo(t *testing.T) {
 	}
 }
 
+func TestFinishedWorkSendsTheTodosProgress(t *testing.T) {
+	f := newFixture(t)
+	var sent []string
+	f.progress = func(todoID, line string) { sent = append(sent, todoID+" "+line) }
+
+	f.SetTodo("a", "Write report")
+	f.start()
+	f.wait(25 * time.Minute) // work ends
+	f.wait(5 * time.Minute)  // the break ends, and must not send
+
+	if len(sent) != 1 || sent[0] != "a orivo: 1 session · 25m" {
+		t.Fatalf("sent = %q", sent)
+	}
+}
+
 func TestStateSurvivesRestart(t *testing.T) {
 	f := newFixture(t)
 

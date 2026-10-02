@@ -19,7 +19,7 @@ import (
 
 const (
 	clientName = "orivo"
-	scope      = "data:read"
+	scope      = "data:read_write"
 	tokenEnv   = "TODOIST_API_TOKEN"
 	expirySlop = time.Minute
 )

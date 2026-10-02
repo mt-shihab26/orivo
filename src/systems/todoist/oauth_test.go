@@ -39,7 +39,7 @@ func TestRegisterAsksForAPublicClientWithRefresh(t *testing.T) {
 		if len(body.RedirectURIs) != 1 || body.RedirectURIs[0] != "http://localhost:1/callback" {
 			t.Errorf("redirect uris = %v", body.RedirectURIs)
 		}
-		if body.Scope != "data:read" || body.AuthMethod != "none" || len(body.GrantTypes) != 2 {
+		if body.Scope != "data:read_write" || body.AuthMethod != "none" || len(body.GrantTypes) != 2 {
 			t.Errorf("registration = %+v", body)
 		}
 		w.WriteHeader(http.StatusCreated)
@@ -67,7 +67,7 @@ func TestLoginURLCarriesStateAndChallenge(t *testing.T) {
 	for key, want := range map[string]string{
 		"client_id":             "tdd_abc",
 		"state":                 "xyz",
-		"scope":                 "data:read",
+		"scope":                 "data:read_write",
 		"redirect_uri":          "http://localhost:1/callback",
 		"code_challenge":        challenge,
 		"code_challenge_method": "S256",
