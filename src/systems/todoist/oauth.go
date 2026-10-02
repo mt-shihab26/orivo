@@ -11,9 +11,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
+
+	"orivo/src/systems/files"
 )
 
 const (
@@ -194,14 +195,7 @@ func SaveCredentials(path string, creds Credentials) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return err
-	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, raw, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	return files.WriteAtomic(path, raw)
 }
 
 func (o *OAuth) Token(path string) (string, error) {

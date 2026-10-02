@@ -18,9 +18,7 @@ const (
 	maxPages       = 50
 )
 
-var (
-	ErrTokenRejected = errors.New("Todoist rejected the token")
-)
+var ErrTokenRejected = errors.New("Todoist rejected the token")
 
 type Client struct {
 	Token   string

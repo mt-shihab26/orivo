@@ -19,49 +19,6 @@ type Session struct {
 	TodoText     string    `json:"todo_text,omitempty"`
 }
 
-func Read(path string) ([]Session, error) {
-	file, err := os.Open(path)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	var all []Session
-	scanner := bufio.NewScanner(file)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	for scanner.Scan() {
-		var s Session
-		if json.Unmarshal(scanner.Bytes(), &s) == nil {
-			all = append(all, s)
-		}
-	}
-	return all, scanner.Err()
-}
-
-func Append(path string, s Session) error {
-	s.StartedAt = s.StartedAt.Round(0)
-	s.EndedAt = s.EndedAt.Round(0)
-
-	line, err := json.Marshal(s)
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return err
-	}
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	_, err = file.Write(append(line, '\n'))
-	return err
-}
-
 type Stat struct {
 	Sessions int
 	Secs     int
@@ -76,16 +33,46 @@ type History struct {
 func Open(path string) (*History, error) {
 	h := &History{path: path, days: map[string]int{}, stats: map[string]Stat{}}
 
-	all, err := Read(path)
-	for _, s := range all {
-		h.count(s)
+	file, err := os.Open(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return h, nil
 	}
-	return h, err
+	if err != nil {
+		return h, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for scanner.Scan() {
+		var s Session
+		if json.Unmarshal(scanner.Bytes(), &s) == nil {
+			h.count(s)
+		}
+	}
+	return h, scanner.Err()
 }
 
 func (h *History) Record(s Session) error {
 	h.count(s)
-	return Append(h.path, s)
+	s.StartedAt = s.StartedAt.Round(0)
+	s.EndedAt = s.EndedAt.Round(0)
+
+	line, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(h.path), 0o700); err != nil {
+		return err
+	}
+	file, err := os.OpenFile(h.path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = file.Write(append(line, '\n'))
+	return err
 }
 
 func (h *History) CountOn(day time.Time) int {

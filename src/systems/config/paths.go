@@ -14,50 +14,27 @@ func UseDev() {
 }
 
 func ConfigPath() string {
-	return filepath.Join(configBase(), "config.toml")
+	return filepath.Join(dir(".config"), "config.toml")
 }
 
-func Log() string {
-	return filepath.Join(StateDir(), "orivo.log")
+func Log() string          { return state("orivo.log") }
+func Store() string        { return state("store.json") }
+func Sessions() string     { return state("sessions.jsonl") }
+func TodoistCache() string { return state("todoist.txt") }
+func TodoistAuth() string  { return state("todoist-auth.json") }
+func Socket() string       { return state("orivo.sock") }
+
+func state(name string) string {
+	return filepath.Join(dir(".local/state"), name)
 }
 
-func Store() string {
-	return filepath.Join(StateDir(), "store.json")
-}
-
-func Sessions() string {
-	return filepath.Join(StateDir(), "sessions.jsonl")
-}
-
-func TodoistCache() string {
-	return filepath.Join(StateDir(), "todoist.txt")
-}
-
-func TodoistAuth() string {
-	return filepath.Join(StateDir(), "todoist-auth.json")
-}
-
-func Socket() string {
-	return filepath.Join(StateDir(), "orivo.sock")
-}
-
-func StateDir() string {
+func dir(base string) string {
 	if dev {
 		return ".dev"
 	}
-	return filepath.Join(home(), ".local", "state", app)
-}
-
-func configBase() string {
-	if dev {
-		return ".dev"
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = "."
 	}
-	return filepath.Join(home(), ".config", app)
-}
-
-func home() string {
-	if h, err := os.UserHomeDir(); err == nil {
-		return h
-	}
-	return "."
+	return filepath.Join(home, base, app)
 }

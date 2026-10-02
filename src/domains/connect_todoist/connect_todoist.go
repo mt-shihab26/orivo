@@ -19,14 +19,11 @@ import (
 const loginTimeout = 5 * time.Minute
 
 func Run(pasteToken bool) error {
-	var creds todoist.Credentials
-	var err error
-
+	login := browserLogin
 	if pasteToken {
-		creds, err = readToken()
-	} else {
-		creds, err = browserLogin()
+		login = readToken
 	}
+	creds, err := login()
 	if err != nil {
 		return err
 	}

@@ -3,9 +3,9 @@ package store
 import (
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"time"
 
+	"orivo/src/systems/files"
 	"orivo/src/systems/logx"
 )
 
@@ -92,15 +92,8 @@ func (s *Store) Save() {
 		logx.Error("store: encode failed: %v", err)
 		return
 	}
-	_ = os.MkdirAll(filepath.Dir(s.path), 0o700)
-
-	tmp := s.path + ".tmp"
-	if err := os.WriteFile(tmp, raw, 0o600); err != nil {
+	if err := files.WriteAtomic(s.path, raw); err != nil {
 		logx.Error("store: write failed: %v", err)
-		return
-	}
-	if err := os.Rename(tmp, s.path); err != nil {
-		logx.Error("store: replace failed: %v", err)
 	}
 }
 

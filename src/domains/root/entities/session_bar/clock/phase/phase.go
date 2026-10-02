@@ -15,79 +15,46 @@ const (
 	LongBreak
 )
 
+var phases = [...]struct {
+	name, key, label string
+	summary, body    string
+	color            color.RGBA
+	duration         func(config.Timer) time.Duration
+}{
+	Work:      {"Work", "work", "Work Session", "Work Session Complete", "Time for a break!", color.RGBA{239, 83, 80, 255}, config.Timer.Work},
+	Break:     {"Break", "break", "Short Break", "Break Complete", "Ready to focus?", color.RGBA{102, 187, 106, 255}, config.Timer.Break},
+	LongBreak: {"LongBreak", "long_break", "Long Break", "Long Break Complete", "Ready to focus?", color.RGBA{38, 198, 218, 255}, config.Timer.LongBreak},
+}
+
 func Named(name string) Phase {
-	switch name {
-	case "Break":
-		return Break
-	case "LongBreak":
-		return LongBreak
-	default:
-		return Work
+	for p, info := range phases {
+		if info.name == name {
+			return Phase(p)
+		}
 	}
+	return Work
 }
 
 func (p Phase) Name() string {
-	switch p {
-	case Break:
-		return "Break"
-	case LongBreak:
-		return "LongBreak"
-	default:
-		return "Work"
-	}
+	return phases[p].name
 }
 
 func (p Phase) Label() string {
-	switch p {
-	case Break:
-		return "Short Break"
-	case LongBreak:
-		return "Long Break"
-	default:
-		return "Work Session"
-	}
+	return phases[p].label
 }
 
 func (p Phase) Key() string {
-	switch p {
-	case Break:
-		return "break"
-	case LongBreak:
-		return "long_break"
-	default:
-		return "work"
-	}
+	return phases[p].key
 }
 
 func (p Phase) Duration(cfg config.Timer) time.Duration {
-	switch p {
-	case Break:
-		return cfg.Break()
-	case LongBreak:
-		return cfg.LongBreak()
-	default:
-		return cfg.Work()
-	}
+	return phases[p].duration(cfg)
 }
 
 func (p Phase) Color() color.RGBA {
-	switch p {
-	case Break:
-		return color.RGBA{102, 187, 106, 255}
-	case LongBreak:
-		return color.RGBA{38, 198, 218, 255}
-	default:
-		return color.RGBA{239, 83, 80, 255}
-	}
+	return phases[p].color
 }
 
 func (p Phase) EndMessage() (summary, body string) {
-	switch p {
-	case Break:
-		return "Break Complete", "Ready to focus?"
-	case LongBreak:
-		return "Long Break Complete", "Ready to focus?"
-	default:
-		return "Work Session Complete", "Time for a break!"
-	}
+	return phases[p].summary, phases[p].body
 }

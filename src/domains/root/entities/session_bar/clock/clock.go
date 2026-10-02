@@ -117,12 +117,8 @@ func (c *Clock) Update(dt float32) {
 	}
 
 	if listening && rl.IsKeyPressed(rl.KeyR) {
-		c.remaining = c.total()
-		c.startedAt = time.Time{}
-		c.phaseStartedAt = time.Time{}
 		c.running = false
-		c.store.ClearRemaining(c.todoID)
-		c.store.ClearPhaseStartedAt(c.todoID)
+		c.rewind(now)
 		c.store.Save()
 	}
 
@@ -175,17 +171,7 @@ func (c *Clock) Update(dt float32) {
 			c.running = true
 		}
 
-		c.remaining = c.total()
-		c.startedAt = time.Time{}
-		c.phaseStartedAt = time.Time{}
-		c.store.ClearPhaseStartedAt(c.todoID)
-		if c.running {
-			c.startedAt = now
-			c.phaseStartedAt = now
-			c.store.SetPhaseStartedAt(c.todoID, now)
-		}
-
-		c.store.ClearRemaining(c.todoID)
+		c.rewind(now)
 		c.store.SetPhase(c.phase.Name())
 		c.store.Save()
 	}
@@ -300,6 +286,17 @@ func (c *Clock) Reduce(d time.Duration) {
 
 func (c *Clock) total() time.Duration {
 	return c.phase.Duration(c.cfg)
+}
+
+func (c *Clock) rewind(now time.Time) {
+	c.remaining = c.total()
+	c.startedAt, c.phaseStartedAt = time.Time{}, time.Time{}
+	c.store.ClearRemaining(c.todoID)
+	c.store.ClearPhaseStartedAt(c.todoID)
+	if c.running {
+		c.startedAt, c.phaseStartedAt = now, now
+		c.store.SetPhaseStartedAt(c.todoID, now)
+	}
 }
 
 func (c *Clock) stash() {

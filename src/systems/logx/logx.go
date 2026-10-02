@@ -16,7 +16,6 @@ var mu sync.Mutex
 
 func Error(format string, args ...any) { write("ERROR", format, args...) }
 func Warn(format string, args ...any)  { write("WARN", format, args...) }
-func Info(format string, args ...any)  { write("INFO", format, args...) }
 
 func write(level, format string, args ...any) {
 	mu.Lock()

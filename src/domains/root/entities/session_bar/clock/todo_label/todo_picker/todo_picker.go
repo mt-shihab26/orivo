@@ -200,8 +200,7 @@ func (p *TodoPicker) Draw() {
 }
 
 func (p *TodoPicker) drawTodo(rect rl.Rectangle, index int) {
-	screen := core.CurrentScreen()
-	s := screen.Scale
+	s := core.CurrentScreen().Scale
 	fonts := p.Fonts
 	accent := p.timer.Accent()
 

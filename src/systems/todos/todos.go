@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"time"
+
+	"orivo/src/systems/files"
 )
 
 var ErrNoCache = errors.New("no Todoist cache")
@@ -57,14 +58,7 @@ func (c Cache) Write(all []Todo) error {
 		fmt.Fprintf(&text, "%s\t%s\t%s\n", todo.Due.Format(time.DateOnly), todo.ID, oneLine(todo.Text))
 	}
 
-	if err := os.MkdirAll(filepath.Dir(c.Path), 0o700); err != nil {
-		return err
-	}
-	tmp := c.Path + ".tmp"
-	if err := os.WriteFile(tmp, []byte(text.String()), 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, c.Path)
+	return files.WriteAtomic(c.Path, []byte(text.String()))
 }
 
 func oneLine(text string) string {
@@ -84,8 +78,8 @@ func Split(all []Todo, now time.Time) (overdue, today []Todo) {
 		}
 	}
 
-	sort.SliceStable(overdue, func(i, j int) bool {
-		return overdue[i].Due.Before(overdue[j].Due)
+	slices.SortStableFunc(overdue, func(a, b Todo) int {
+		return a.Due.Compare(b.Due)
 	})
 	return overdue, today
 }
