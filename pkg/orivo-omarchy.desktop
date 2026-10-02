@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=Orivo
-Comment=Pomodoro timer for your Todoist todos
+Comment=A Pomodoro timer for the desktop, written in Go with raylib.
 Exec=orivo
 Icon=orivo
 Terminal=false
