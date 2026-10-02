@@ -11,5 +11,5 @@ Type=oneshot
 ExecStartPre=/usr/bin/bash -c 'until timeout 5 bash -c ": >/dev/tcp/api.todoist.com/443" 2>/dev/null; do sleep 10; done'
 # Fetch todos into the picker's cache.
 ExecStart=/usr/bin/orivo sync-todoist
-# Never time out while waiting for the internet.
+# Keep waiting however long the internet is down; never give up.
 TimeoutStartSec=infinity
