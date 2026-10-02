@@ -7,8 +7,7 @@ Documentation=https://github.com/mt-shihab26/orivo
 [Service]
 # Run once and exit.
 Type=oneshot
-# Wait until Todoist is reachable, checking every 10 seconds.
-# User units cannot use network-online.target.
+# Wait for the internet before syncing, checking every 10 seconds.
 ExecStartPre=/usr/bin/bash -c 'until timeout 5 bash -c ": >/dev/tcp/api.todoist.com/443" 2>/dev/null; do sleep 10; done'
 # Fetch todos into the picker's cache.
 ExecStart=/usr/bin/orivo sync-todoist
