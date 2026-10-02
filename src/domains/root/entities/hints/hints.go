@@ -19,6 +19,12 @@ func (h *Hints) Draw() {
 	s := screen.Scale
 	small := h.fonts.Small
 
-	text := "[Space] Toggle   [r] Reset   [n] Skip   [t] Todo   [T] Clear   [m] Millis   [d] Reduce"
-	small.DrawCentered(small.Fit(text, screen.Width-24*s), screen.Width/2, screen.Height-34*s, core.ColorDim)
+	lines := []string{
+		"[Space] Toggle   [r] Reset   [n] Skip   [m] Millis   [d] Reduce",
+		"[t] Todo   [T] Clear   [s] Sync",
+	}
+	for i, text := range lines {
+		y := screen.Height - 50*s + float32(i)*20*s
+		small.DrawCentered(small.Fit(text, screen.Width-24*s), screen.Width/2, y, core.ColorDim)
+	}
 }

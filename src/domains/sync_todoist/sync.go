@@ -11,7 +11,7 @@ import (
 )
 
 func Run() error {
-	token, err := todoist.NewOAuth().Token(paths.TodoistAuth())
+	all, err := todoist.Sync(paths.TodoistAuth(), paths.TodoistCache())
 	if errors.Is(err, todoist.ErrNotConnected) {
 		return errors.New("not connected to Todoist; run `orivo connect-todoist` first")
 	}
@@ -19,19 +19,7 @@ func Run() error {
 		return errors.New("the Todoist sign-in has expired; run `orivo connect-todoist` again")
 	}
 	if err != nil {
-		return fmt.Errorf("could not refresh the Todoist sign-in: %w", err)
-	}
-
-	all, err := todoist.NewClient(token).DueTodos()
-	if errors.Is(err, todoist.ErrTokenRejected) {
-		return errors.New("Todoist rejected the saved token; run `orivo connect-todoist` again")
-	}
-	if err != nil {
-		return fmt.Errorf("could not fetch todos: %w", err)
-	}
-
-	if err := (todos.Cache{Path: paths.TodoistCache()}).Write(all); err != nil {
-		return err
+		return fmt.Errorf("could not sync with Todoist: %w", err)
 	}
 
 	overdue, today := todos.Split(all, time.Now())

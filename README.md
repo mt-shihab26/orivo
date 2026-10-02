@@ -30,6 +30,7 @@ $ ./orivo
 | `n`       | Skip to the next phase                             |
 | `t`       | Pick a todo (overdue and due today)                |
 | `T`       | Clear the selected todo                            |
+| `s`       | Sync todos from Todoist                            |
 | `m`       | Toggle centiseconds on the clock                   |
 | `d`       | Reduce the remaining time (enter `mm:ss`)          |
 | `Ctrl+F`  | Toggle the FPS counter                             |
@@ -102,7 +103,7 @@ $ orivo sync-todoist      # fetches, caches and prints the todos labelled Work t
 2026-10-02	6X7rM8997g3RQmvh	Write the quarterly report
 ```
 
-The picker (`t`) reads that file and lists the todos in two sections, **Overdue** and **Today**. The window itself never talks to Todoist, so the picker shows whatever the last sync fetched.
+The picker (`t`) reads that file and lists the todos in two sections, **Overdue** and **Today**. Pressing `s` in the window runs the same sync in the background, so the picker shows whatever the last sync fetched, from either place.
 
 ## Files
 
