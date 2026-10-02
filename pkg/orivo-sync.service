@@ -1,16 +1,16 @@
 [Unit]
-Description=Sync orivo todos with Todoist
 # Name shown in status and the journal.
-Documentation=https://github.com/mt-shihab26/orivo
+Description=Sync orivo todos with Todoist
 # Where to read more.
+Documentation=https://github.com/mt-shihab26/orivo
 
 [Service]
-Type=oneshot
 # Run once and exit.
-ExecStartPre=/usr/bin/bash -c 'until timeout 5 bash -c ": >/dev/tcp/api.todoist.com/443" 2>/dev/null; do sleep 10; done'
+Type=oneshot
 # Wait until Todoist is reachable, checking every 10 seconds.
 # User units cannot use network-online.target.
-ExecStart=/usr/bin/orivo sync-todoist
+ExecStartPre=/usr/bin/bash -c 'until timeout 5 bash -c ": >/dev/tcp/api.todoist.com/443" 2>/dev/null; do sleep 10; done'
 # Fetch todos into the picker's cache.
-TimeoutStartSec=infinity
+ExecStart=/usr/bin/orivo sync-todoist
 # Never time out while waiting for the internet.
+TimeoutStartSec=infinity
