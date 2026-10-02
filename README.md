@@ -159,7 +159,7 @@ $ orivo sync-todoist      # fetches, caches and prints the todos labelled Work t
 
 The picker (`t`) reads that file and lists the todos in two sections, **Overdue** and **Today**. Pressing `s` in the window runs the same sync in the background, so the picker shows whatever the last sync fetched, from either place.
 
-When a work session on a todo ends, orivo writes a sentence with the time spent and the session count to the bottom of that task's description in Todoist, below anything you wrote there, and replaces it on the next session instead of adding another one:
+When a work session on a todo ends, orivo writes a sentence with the time spent and the session count today to the bottom of that task's description in Todoist, below anything you wrote there, and replaces it on the next session instead of adding another one. The counts come only from orivo's own session files and start from zero each day:
 
 ```
 Worked on this for 1 hour and 40 minutes across 4 sessions.
@@ -172,7 +172,7 @@ The update is queued in `~/.local/state/orivo/todoist-outbox.txt` and sent in th
 Runtime state lives under `~/.local/state/orivo/`:
 
 - `store.json` → the current phase, the selected todo, and the time left per todo
-- `sessions.jsonl` → one line per completed session
+- `sessions/YYYY-MM-DD.jsonl` → one line per completed session, one file per day it ended on; all days are kept
 - `todoist.txt` → the cached Todoist todos (see above)
 - `todoist-auth.json` → the Todoist sign-in
 - `todoist-outbox.txt` → session counts waiting to be written to Todoist (see above)

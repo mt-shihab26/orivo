@@ -171,7 +171,7 @@ func (c *Clock) Update(dt float32) {
 			logx.Error("failed to record session: %v", err)
 		}
 		if c.progress != nil && c.phase == phase.Work && c.todoID != "" {
-			stat := c.history.Stat(c.todoID)
+			stat := c.history.StatOn(now, c.todoID)
 			c.progress(c.todoID, todoist.ProgressLine(stat.Sessions, stat.Secs))
 			c.flushWanted = true
 		}
@@ -287,7 +287,7 @@ func (c *Clock) TodoText() string {
 }
 
 func (c *Clock) Stat(todoID string) sessions.Stat {
-	return c.history.Stat(todoID)
+	return c.history.StatOn(c.now(), todoID)
 }
 
 func (c *Clock) SetTodo(id, text string) {

@@ -19,7 +19,7 @@ func ConfigPath() string {
 
 func LogDir() string        { return state("logs") }
 func Store() string         { return state("store.json") }
-func Sessions() string      { return state("sessions.jsonl") }
+func Sessions() string      { return state("sessions") }
 func TodoistCache() string  { return state("todoist.txt") }
 func TodoistAuth() string   { return state("todoist-auth.json") }
 func TodoistOutbox() string { return state("todoist-outbox.txt") }

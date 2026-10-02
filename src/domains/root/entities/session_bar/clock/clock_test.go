@@ -28,7 +28,7 @@ func (f *fixture) open() {
 	cfg := config.Default()
 	cfg.Timer.LongBreakInterval = 2
 
-	f.Clock = newClock(cfg.Timer, nil, filepath.Join(f.dir, "store.json"), filepath.Join(f.dir, "sessions.jsonl"))
+	f.Clock = newClock(cfg.Timer, nil, filepath.Join(f.dir, "store.json"), filepath.Join(f.dir, "sessions"))
 	f.Clock.now = func() time.Time { return f.time }
 	f.Clock.notify = func(summary, _ string) { f.notified = append(f.notified, summary) }
 	logSync = func(string, ...any) {}
@@ -178,6 +178,39 @@ func TestFinishedWorkSendsTheTodosProgress(t *testing.T) {
 
 	if len(sent) != 1 || sent[0] != "a Worked on this for 25 minutes in 1 session." {
 		t.Fatalf("sent = %q", sent)
+	}
+}
+
+func TestEachDayStartsTheTodosProgressFromZero(t *testing.T) {
+	f := newFixture(t)
+	var sent []string
+	f.progress = func(_, line string) { sent = append(sent, line) }
+
+	f.SetTodo("a", "Write report")
+	f.start()
+	f.wait(25 * time.Minute)
+	f.wait(5 * time.Minute)
+	f.start()
+	f.wait(25 * time.Minute)
+
+	f.time = f.time.Add(24 * time.Hour)
+	f.open()
+	if f.SessionsToday() != 0 || f.Stat("a").Sessions != 0 {
+		t.Fatalf("next day: today=%d stat=%+v, want both zero", f.SessionsToday(), f.Stat("a"))
+	}
+
+	f.progress = func(_, line string) { sent = append(sent, line) }
+	f.phase = phase.Work
+	f.start()
+	f.wait(25 * time.Minute)
+
+	want := []string{
+		"Worked on this for 25 minutes in 1 session.",
+		"Worked on this for 50 minutes across 2 sessions.",
+		"Worked on this for 25 minutes in 1 session.",
+	}
+	if !slices.Equal(sent, want) {
+		t.Fatalf("sent = %q, want %q", sent, want)
 	}
 }
 
