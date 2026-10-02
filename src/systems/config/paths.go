@@ -17,7 +17,7 @@ func ConfigPath() string {
 	return filepath.Join(dir(".config"), "config.toml")
 }
 
-func LogDir() string        { return dir(".local/state") }
+func LogDir() string        { return state("logs") }
 func Store() string         { return state("store.json") }
 func Sessions() string      { return state("sessions.jsonl") }
 func TodoistCache() string  { return state("todoist.txt") }

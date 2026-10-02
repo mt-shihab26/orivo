@@ -59,14 +59,16 @@ func weekStart(t time.Time) time.Time {
 	return time.Date(y, m, d-back, 0, 0, 0, 0, time.Local)
 }
 
-// prune removes every log in dir but keep, including the single orivo.log
-// older versions wrote.
+// prune removes every log in dir but keep, and every log older versions wrote
+// straight into the state folder above it, including the single orivo.log.
 func prune(dir, keep string) {
-	old, _ := filepath.Glob(filepath.Join(dir, "orivo-*.log"))
-	old = append(old, filepath.Join(dir, "orivo.log"), filepath.Join(dir, "orivo.log.1"))
-	for _, path := range old {
-		if filepath.Base(path) != keep {
-			_ = os.Remove(path)
+	for _, d := range []string{dir, filepath.Dir(dir)} {
+		old, _ := filepath.Glob(filepath.Join(d, "orivo-*.log"))
+		old = append(old, filepath.Join(d, "orivo.log"), filepath.Join(d, "orivo.log.1"))
+		for _, path := range old {
+			if path != filepath.Join(dir, keep) {
+				_ = os.Remove(path)
+			}
 		}
 	}
 }
