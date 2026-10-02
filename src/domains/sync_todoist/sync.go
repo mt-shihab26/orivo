@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"time"
 
-	"orivo/src/systems/config/paths"
+	"orivo/src/systems/config"
 	"orivo/src/systems/todoist"
 	"orivo/src/systems/todos"
 )
 
 func Run() error {
-	all, err := todoist.Sync(paths.TodoistAuth(), paths.TodoistCache())
+	all, err := todoist.Sync(config.TodoistAuth(), config.TodoistCache())
 	// Not an error: the sync timer runs for every user, connected or not.
 	if errors.Is(err, todoist.ErrNotConnected) {
 		fmt.Println("Not connected to Todoist; run `orivo connect-todoist` first")
@@ -28,7 +28,7 @@ func Run() error {
 	printTodos("Overdue", overdue, true)
 	printTodos("Today", today, false)
 
-	fmt.Printf("Cached %d todos in %s\n", len(overdue)+len(today), paths.TodoistCache())
+	fmt.Printf("Cached %d todos in %s\n", len(overdue)+len(today), config.TodoistCache())
 	return nil
 }
 

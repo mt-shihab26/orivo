@@ -10,7 +10,7 @@ import (
 
 	"orivo/src/domains/root/core"
 	"orivo/src/domains/root/entities/dialog"
-	"orivo/src/systems/config/paths"
+	"orivo/src/systems/config"
 	"orivo/src/systems/sessions"
 	"orivo/src/systems/todos"
 )
@@ -59,7 +59,7 @@ func (p *TodoPicker) Update(dt float32) {
 			return
 		}
 
-		all, err := todos.Cache{Path: paths.TodoistCache()}.Read()
+		all, err := todos.Cache{Path: config.TodoistCache()}.Read()
 		overdue, today := todos.Split(all, time.Now())
 
 		p.todos = append(overdue, today...)

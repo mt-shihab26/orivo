@@ -10,7 +10,7 @@ import (
 
 	"orivo/src/domains/root/core"
 	"orivo/src/domains/root/entities/session_bar/clock/todo_label/todo_picker"
-	"orivo/src/systems/config/paths"
+	"orivo/src/systems/config"
 	"orivo/src/systems/sessions"
 	"orivo/src/systems/todoist"
 	"orivo/src/systems/todos"
@@ -54,7 +54,7 @@ func New(fonts *core.Fonts, timer Timer) *TodoLabel {
 }
 
 func syncTodoist() (int, error) {
-	all, err := todoist.Sync(paths.TodoistAuth(), paths.TodoistCache())
+	all, err := todoist.Sync(config.TodoistAuth(), config.TodoistCache())
 	if err != nil {
 		return 0, err
 	}

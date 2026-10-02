@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"orivo/src/systems/config/paths"
+	"orivo/src/systems/config"
 	"orivo/src/systems/todoist"
 )
 
@@ -39,7 +39,7 @@ func Run(pasteToken bool) error {
 		return fmt.Errorf("could not reach Todoist: %w", err)
 	}
 
-	if err := todoist.SaveCredentials(paths.TodoistAuth(), creds); err != nil {
+	if err := todoist.SaveCredentials(config.TodoistAuth(), creds); err != nil {
 		return err
 	}
 

@@ -6,7 +6,7 @@ import (
 	"slices"
 
 	"orivo/src/commands"
-	"orivo/src/systems/config/paths"
+	"orivo/src/systems/config"
 )
 
 var version = "dev"
@@ -15,7 +15,7 @@ func main() {
 	args := os.Args[1:]
 	if i := slices.Index(args, "--dev"); i >= 0 {
 		args = slices.Delete(args, i, i+1)
-		paths.UseDev()
+		config.UseDev()
 	}
 
 	if err := commands.Route(version, args); err != nil {

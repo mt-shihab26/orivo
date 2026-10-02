@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"orivo/src/systems/config/paths"
+	"orivo/src/systems/config"
 )
 
 const maxBytes = 5 * 1024 * 1024
@@ -22,7 +22,7 @@ func write(level, format string, args ...any) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	path := paths.Log()
+	path := config.Log()
 	_ = os.MkdirAll(filepath.Dir(path), 0o700)
 
 	if info, err := os.Stat(path); err == nil && info.Size() >= maxBytes {

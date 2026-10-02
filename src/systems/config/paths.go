@@ -1,4 +1,4 @@
-package paths
+package config
 
 import (
 	"os"
@@ -13,7 +13,7 @@ func UseDev() {
 	dev = true
 }
 
-func Config() string {
+func ConfigPath() string {
 	return filepath.Join(configBase(), "config.toml")
 }
 

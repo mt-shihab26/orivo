@@ -5,7 +5,6 @@ import (
 
 	"orivo/src/domains/root"
 	"orivo/src/systems/config"
-	"orivo/src/systems/config/paths"
 )
 
 type Root struct{}
@@ -19,9 +18,9 @@ func (c *Root) Summary() string {
 }
 
 func (c *Root) Run(args []string) error {
-	cfg, err := config.Load(paths.Config())
+	cfg, err := config.Load(config.ConfigPath())
 	if err != nil {
-		return fmt.Errorf("%s: %w", paths.Config(), err)
+		return fmt.Errorf("%s: %w", config.ConfigPath(), err)
 	}
 	a := root.New(cfg)
 	defer a.Close()

@@ -12,7 +12,6 @@ import (
 	"orivo/src/domains/root/entities/session_bar/clock/reduce_dialog"
 	"orivo/src/domains/root/entities/session_bar/clock/todo_label"
 	"orivo/src/systems/config"
-	"orivo/src/systems/config/paths"
 	"orivo/src/systems/ipc"
 	"orivo/src/systems/logx"
 	"orivo/src/systems/notify"
@@ -46,9 +45,9 @@ type Clock struct {
 }
 
 func New(cfg config.Timer, fonts *core.Fonts) *Clock {
-	c := newClock(cfg, fonts, paths.Store(), paths.Sessions())
+	c := newClock(cfg, fonts, config.Store(), config.Sessions())
 	fonts.Need(c.todoText)
-	c.server = ipc.Serve(paths.Socket())
+	c.server = ipc.Serve(config.Socket())
 	notify.LoadSound()
 	c.notify = notify.Send
 	c.publish()
