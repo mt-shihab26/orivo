@@ -171,6 +171,8 @@ func (c *Clock) Update(dt float32) {
 			c.running = true
 		}
 
+		// Every todo's saved time belonged to the phase that just ended.
+		c.store.ClearTimers()
 		c.rewind(now)
 		c.store.SetPhase(c.phase.Name())
 		c.store.Save()

@@ -186,3 +186,22 @@ func TestStateSurvivesRestart(t *testing.T) {
 		t.Fatalf("restored history: today=%d stat=%+v", f.SessionsToday(), f.Stat("a"))
 	}
 }
+
+func TestOtherTodosStartTheNextPhaseFresh(t *testing.T) {
+	f := newFixture(t)
+
+	f.SetTodo("a", "Write report")
+	f.start()
+	f.wait(5 * time.Minute)
+
+	f.SetTodo("b", "Review PR")
+	f.wait(25 * time.Minute)
+	if f.phase != phase.Break {
+		t.Fatalf("phase = %v, want the break to have started", f.phase)
+	}
+
+	f.SetTodo("a", "Write report")
+	if got := f.Remaining(); got != 5*time.Minute {
+		t.Fatalf("todo a remaining = %v, want a fresh 5m break", got)
+	}
+}

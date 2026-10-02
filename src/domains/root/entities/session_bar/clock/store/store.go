@@ -135,6 +135,11 @@ func (s *Store) ClearRemaining(todoID string) {
 	delete(s.data.Remaining, key(todoID))
 }
 
+func (s *Store) ClearTimers() {
+	clear(s.data.Remaining)
+	clear(s.data.PhaseStartedAt)
+}
+
 func (s *Store) PhaseStartedAt(todoID string) (time.Time, bool) {
 	t, ok := s.data.PhaseStartedAt[key(todoID)]
 	return t, ok
