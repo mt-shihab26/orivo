@@ -14,12 +14,15 @@ import (
 	"orivo/src/domains/root/entities/session_bar"
 	"orivo/src/domains/root/entities/top_bar"
 	"orivo/src/systems/config"
+	"orivo/src/systems/logx"
+	"orivo/src/systems/theme"
 )
 
 type App struct {
 	fonts    *core.Fonts
 	entities []core.Entity
 	quit     atomic.Bool
+	themes   *theme.Watcher
 }
 
 func New(cfg config.Config) *App {
@@ -34,6 +37,7 @@ func New(cfg config.Config) *App {
 	a := &App{
 		fonts: core.NewFonts(cfg.Font),
 	}
+	a.loadTheme()
 
 	a.entities = []core.Entity{
 		top_bar.New(a.fonts, cfg.ShowFPS, a.Quit),
@@ -45,7 +49,31 @@ func New(cfg config.Config) *App {
 	return a
 }
 
+// loadTheme uses the current Omarchy theme, falling back to orivo's own
+// colors, and follows theme switches while orivo runs. Without Omarchy it
+// changes nothing.
+func (a *App) loadTheme() {
+	dir := theme.OmarchyDir()
+
+	t, err := theme.Load(dir)
+	if err != nil {
+		logx.Warn("failed to read the Omarchy theme: %v", err)
+	}
+	core.ApplyTheme(t)
+
+	if _, err := os.Stat(dir); err != nil {
+		return
+	}
+	a.themes, err = theme.Watch(dir)
+	if err != nil {
+		logx.Warn("failed to watch the Omarchy theme: %v", err)
+	}
+}
+
 func (a *App) Close() {
+	if a.themes != nil {
+		a.themes.Close()
+	}
 	for _, entity := range slices.Backward(a.entities) {
 		entity.Close()
 	}
@@ -66,6 +94,16 @@ func (a *App) Run() {
 }
 
 func (a *App) Update(dt float32) {
+	if a.themes != nil {
+		select {
+		case t := <-a.themes.Themes:
+			core.ApplyTheme(t)
+		case err := <-a.themes.Errors:
+			logx.Warn("failed to read the Omarchy theme: %v", err)
+		default:
+		}
+	}
+
 	for _, entity := range a.entities {
 		entity.Update(dt)
 	}
