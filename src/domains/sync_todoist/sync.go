@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"orivo/src/domains/root/entities/session_bar/clock/todo_label/todo_picker"
 	"orivo/src/systems/paths"
 	"orivo/src/systems/todoist"
 	"orivo/src/systems/todos"
@@ -35,7 +34,7 @@ func Run() error {
 		return err
 	}
 
-	overdue, today := todo_picker.Split(all, time.Now())
+	overdue, today := todos.Split(all, time.Now())
 	printTodos("Overdue", overdue, true)
 	printTodos("Today", today, false)
 

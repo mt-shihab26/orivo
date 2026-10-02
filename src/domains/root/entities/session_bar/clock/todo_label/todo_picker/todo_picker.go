@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"image/color"
-	"sort"
 	"time"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -52,25 +51,6 @@ func New(fonts *core.Fonts, timer Timer) *TodoPicker {
 	}
 }
 
-func Split(all []todos.Todo, now time.Time) (overdue, today []todos.Todo) {
-	y, m, d := now.Local().Date()
-	start := time.Date(y, m, d, 0, 0, 0, 0, time.Local)
-
-	for _, todo := range all {
-		switch {
-		case todo.Due.Before(start):
-			overdue = append(overdue, todo)
-		case todo.Due.Equal(start):
-			today = append(today, todo)
-		}
-	}
-
-	sort.SliceStable(overdue, func(i, j int) bool {
-		return overdue[i].Due.Before(overdue[j].Due)
-	})
-	return overdue, today
-}
-
 func (p *TodoPicker) Update(dt float32) {
 	shift := rl.IsKeyDown(rl.KeyLeftShift) || rl.IsKeyDown(rl.KeyRightShift)
 
@@ -80,7 +60,7 @@ func (p *TodoPicker) Update(dt float32) {
 		}
 
 		all, err := todos.Cache{Path: paths.TodoistCache()}.Read()
-		overdue, today := Split(all, time.Now())
+		overdue, today := todos.Split(all, time.Now())
 
 		p.todos = append(overdue, today...)
 		p.overdue = len(overdue)

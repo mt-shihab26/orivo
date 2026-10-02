@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -68,4 +69,23 @@ func (c Cache) Write(all []Todo) error {
 
 func oneLine(text string) string {
 	return strings.Join(strings.Fields(text), " ")
+}
+
+func Split(all []Todo, now time.Time) (overdue, today []Todo) {
+	y, m, d := now.Local().Date()
+	start := time.Date(y, m, d, 0, 0, 0, 0, time.Local)
+
+	for _, todo := range all {
+		switch {
+		case todo.Due.Before(start):
+			overdue = append(overdue, todo)
+		case todo.Due.Equal(start):
+			today = append(today, todo)
+		}
+	}
+
+	sort.SliceStable(overdue, func(i, j int) bool {
+		return overdue[i].Due.Before(overdue[j].Due)
+	})
+	return overdue, today
 }
