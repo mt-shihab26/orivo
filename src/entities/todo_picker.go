@@ -247,8 +247,8 @@ func (p *TodoPicker) drawTodo(rect rl.Rectangle, index int) {
 func (p *TodoPicker) emptyMessage() (title, detail string) {
 	switch {
 	case errors.Is(p.err, todos.ErrNoCache):
-		return "No Todoist todos cached yet",
-			"Todos due today and overdue will show up here."
+		return "No todos synced yet",
+			"Run `orivo sync-todoist` to fetch them from Todoist."
 	case p.err != nil:
 		return "Could not read the Todoist cache", p.err.Error()
 	default:

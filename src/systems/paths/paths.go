@@ -30,7 +30,11 @@ func Sessions() string {
 }
 
 func TodoistCache() string {
-	return filepath.Join(StateDir(), "todoist.json")
+	return filepath.Join(StateDir(), "todoist.txt")
+}
+
+func TodoistToken() string {
+	return filepath.Join(StateDir(), "todoist.token")
 }
 
 func Socket() string {

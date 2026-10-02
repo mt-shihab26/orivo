@@ -75,15 +75,34 @@ A break starts by itself when a work session ends; the next work session waits f
 
 **Daily session goal** (`daily_session_goal`) sets how many work sessions you aim to complete each day. Progress is shown at the top of the window.
 
+## Commands
+
+```
+orivo                    Open the timer window
+orivo connect-todoist    Save your Todoist API token
+orivo sync-todoist       Fetch todos that are overdue or due today, and cache them
+orivo version            Print the version
+orivo help               Show the list of commands
+```
+
 ## Todos
 
-The picker (`t`) lists pending Todoist tasks in two sections, **Overdue** and **Today**, read from a cached task list at `~/.local/state/orivo/todoist.json`. Fetching that cache from Todoist is not implemented yet; until then the file can be written by hand or by a script. It holds Todoist tasks as Todoist's own API returns them — a JSON array, or an object with the tasks under `items` or `results`:
+Connect once, then sync whenever you want the picker to catch up with Todoist:
 
-```json
-[
-  { "id": "6X7rM8997g3RQmvh", "content": "Write the quarterly report", "due": { "date": "2026-10-02" } }
-]
+```sh
+$ orivo connect-todoist   # asks for the API token from Todoist: Settings > Integrations > Developer
+$ orivo sync-todoist      # fetches, caches and prints the todos that are overdue or due today
 ```
+
+`connect-todoist` checks the token with Todoist before saving it to `~/.local/state/orivo/todoist.token`. Setting `TODOIST_API_TOKEN` in the environment takes precedence over that file.
+
+`sync-todoist` writes the cache to `~/.local/state/orivo/todoist.txt`, one todo per line as the due date, the Todoist id and the text, separated by tabs:
+
+```
+2026-10-02	6X7rM8997g3RQmvh	Write the quarterly report
+```
+
+The picker (`t`) reads that file and lists the todos in two sections, **Overdue** and **Today**. The window itself never talks to Todoist, so the picker shows whatever the last sync fetched.
 
 ## Files
 
@@ -91,7 +110,8 @@ Runtime state lives under `~/.local/state/orivo/`:
 
 - `store.json` → the current phase, the selected todo, and the time left per todo
 - `sessions.jsonl` → one line per completed session
-- `todoist.json` → the cached Todoist tasks (see above)
+- `todoist.txt` → the cached Todoist todos (see above)
+- `todoist.token` → the Todoist API token
 - `orivo.sock` → Unix socket that answers each connection with one JSON line describing the live timer (phase, running, remaining time, todo, sessions today), for bar widgets such as [omarchy-orivo-plugin](https://github.com/mt-shihab26/omarchy-orivo-plugin)
 - `orivo.log` → warnings and errors
 
@@ -107,7 +127,17 @@ type Entity interface {
 }
 ```
 
-Entities share a `core.World`, which holds the timer, the todo source and the state of the current frame. The packages under `src/systems` are what runs behind it: the timer state machine, the store, the session log and the Todoist cache.
+Entities share a `core.World`, which holds the timer, the todo source and the state of the current frame. The packages under `src/systems` are what runs behind it: the timer state machine, the store, the session log, the Todoist client and the todo cache.
+
+Each command is one file in `src/commands` implementing `core.Command`; `commands.go` routes the first argument to the command with that name:
+
+```go
+type Command interface {
+	Name() string
+	Summary() string
+	Run(args []string) error
+}
+```
 
 ## Development
 
