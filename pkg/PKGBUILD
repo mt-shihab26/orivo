@@ -2,7 +2,7 @@
 pkgname=orivo
 pkgver=0.8.0
 pkgrel=1
-pkgdesc="A Pomodoro timer for your Todoist todos, with its own window and a CLI"
+pkgdesc="A Pomodoro timer for the desktop, written in Go with raylib."
 arch=('x86_64' 'aarch64')
 url="https://github.com/mt-shihab26/orivo"
 license=('MIT')
