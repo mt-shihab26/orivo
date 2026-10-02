@@ -33,22 +33,21 @@ func UnloadSound() {
 }
 
 func Send(summary, body string) {
-	show(summary, body)
+	go func() {
+		if err := Show(summary, body); err != nil {
+			logx.Error("failed to send notification: %v", err)
+		}
+	}()
 	if toneLoaded {
 		rl.PlaySound(tone)
 	}
 }
 
-func show(summary, body string) {
-	cmd := exec.Command("notify-send", "--app-name=orivo", "--icon=orivo",
+// Show sends a desktop notification and waits for notify-send to finish.
+func Show(summary, body string) error {
+	return exec.Command("notify-send", "--app-name=orivo", "--icon=orivo",
 		"--hint=string:sound-name:"+soundName,
-		"--", "orivo — "+summary, escape.Replace(body))
-
-	go func() {
-		if err := cmd.Run(); err != nil {
-			logx.Error("failed to send notification: %v", err)
-		}
-	}()
+		"--", "orivo — "+summary, escape.Replace(body)).Run()
 }
 
 func newTone() rl.Sound {
