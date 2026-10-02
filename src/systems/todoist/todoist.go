@@ -13,7 +13,7 @@ import (
 
 const (
 	defaultBaseURL = "https://api.todoist.com/api/v1"
-	dueQuery       = "today | overdue"
+	dueQuery       = "(today | overdue) & @Work"
 	pageSize       = "200"
 	maxPages       = 50
 )

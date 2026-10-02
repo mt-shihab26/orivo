@@ -271,6 +271,6 @@ func (p *TodoPicker) emptyMessage() (title, detail string) {
 	case p.err != nil:
 		return "Could not read the Todoist cache", p.err.Error()
 	default:
-		return "Nothing due", "No todos are overdue or due today."
+		return "Nothing due", "No Work todos are overdue or due today."
 	}
 }

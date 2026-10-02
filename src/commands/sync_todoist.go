@@ -9,7 +9,7 @@ func (c *SyncTodoist) Name() string {
 }
 
 func (c *SyncTodoist) Summary() string {
-	return "Fetch todos that are overdue or due today, and cache them"
+	return "Fetch Work todos that are overdue or due today, and cache them"
 }
 
 func (c *SyncTodoist) Run(args []string) error {

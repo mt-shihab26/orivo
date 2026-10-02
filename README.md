@@ -8,7 +8,7 @@
 
 A Pomodoro timer for the desktop, written in [Go](https://go.dev) with [raylib](https://www.raylib.com).
 
-Todos are not managed in orivo: the timer can be pointed at a todo from [Todoist](https://todoist.com) that is overdue or due today, and sessions are recorded against it.
+Todos are not managed in orivo: the timer can be pointed at a todo from [Todoist](https://todoist.com) that has the `Work` label and is overdue or due today, and sessions are recorded against it.
 
 ## Build
 
@@ -80,7 +80,7 @@ A break starts by itself when a work session ends; the next work session waits f
 ```
 orivo                    Open the timer window
 orivo connect-todoist    Sign in to Todoist in your browser
-orivo sync-todoist       Fetch todos that are overdue or due today, and cache them
+orivo sync-todoist       Fetch Work todos that are overdue or due today, and cache them
 orivo version            Print the version
 orivo help               Show the list of commands
 ```
@@ -91,7 +91,7 @@ Connect once, then sync whenever you want the picker to catch up with Todoist:
 
 ```sh
 $ orivo connect-todoist   # opens Todoist in your browser to sign in and approve read access
-$ orivo sync-todoist      # fetches, caches and prints the todos that are overdue or due today
+$ orivo sync-todoist      # fetches, caches and prints the todos labelled Work that are overdue or due today
 ```
 
 `connect-todoist` works like `gh auth login`: it opens the Todoist sign-in page, waits on a local port for the approval, and saves the result to `~/.local/state/orivo/todoist-auth.json`. Todoist access tokens last an hour, so `sync-todoist` renews the sign-in by itself when needed. If the browser route is not an option, `orivo connect-todoist --token` asks for a personal API token instead (Todoist: Settings > Integrations > Developer), and setting `TODOIST_API_TOKEN` in the environment takes precedence over the saved sign-in.

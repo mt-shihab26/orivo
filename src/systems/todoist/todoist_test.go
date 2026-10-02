@@ -20,7 +20,7 @@ func serve(t *testing.T, handler http.HandlerFunc) *Client {
 
 func TestDueTodosFollowsPagesAndMapsTasks(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/tasks/filter" || r.URL.Query().Get("query") != "today | overdue" {
+		if r.URL.Path != "/tasks/filter" || r.URL.Query().Get("query") != "(today | overdue) & @Work" {
 			t.Errorf("unexpected request %s", r.URL)
 		}
 		if got := r.Header.Get("Authorization"); got != "Bearer secret" {
