@@ -175,7 +175,7 @@ func TestFinishedWorkSendsTheTodosProgress(t *testing.T) {
 	f.wait(25 * time.Minute) // work ends
 	f.wait(5 * time.Minute)  // the break ends, and must not send
 
-	if len(sent) != 1 || sent[0] != "a orivo: 1 session · 25m" {
+	if len(sent) != 1 || sent[0] != "a Worked on this for 25 minutes in 1 session." {
 		t.Fatalf("sent = %q", sent)
 	}
 }

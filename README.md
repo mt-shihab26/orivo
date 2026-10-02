@@ -142,10 +142,10 @@ $ orivo sync-todoist      # fetches, caches and prints the todos labelled Work t
 
 The picker (`t`) reads that file and lists the todos in two sections, **Overdue** and **Today**. Pressing `s` in the window runs the same sync in the background, so the picker shows whatever the last sync fetched, from either place.
 
-When a work session on a todo ends, orivo writes the progress to the bottom of that task's description in Todoist, below anything you wrote there, and replaces it on the next session instead of adding another line:
+When a work session on a todo ends, orivo writes a sentence with the time spent and the session count to the bottom of that task's description in Todoist, below anything you wrote there, and replaces it on the next session instead of adding another one:
 
 ```
-orivo: 4 sessions · 1h 40m
+Worked on this for 1 hour and 40 minutes across 4 sessions.
 ```
 
 This happens in the background. If it fails (offline, or the sign-in expired), the update waits in `~/.local/state/orivo/todoist-outbox.txt` and is retried on the next sync. Writing descriptions needs read and write access to Todoist. If you connected before orivo asked for it, run `orivo connect-todoist` again; until then, syncs fail with an error that says so.

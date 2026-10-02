@@ -10,43 +10,56 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 
 	"orivo/src/systems/files"
 )
 
-const progressPrefix = "orivo:"
-
 var (
 	ErrReadOnly = errors.New("the Todoist sign-in can only read tasks")
 
 	errTaskGone = errors.New("the Todoist task no longer exists")
+
+	// Matches any sentence ProgressLine writes, so the old one is replaced.
+	progressLine = regexp.MustCompile(`^Worked on this for .+ (in 1 session|across \d+ sessions)\.$`)
 )
 
-// ProgressLine is the line orivo keeps in a task's description.
+// ProgressLine is the sentence orivo keeps in a task's description.
 func ProgressLine(sessions, secs int) string {
-	noun := "sessions"
 	if sessions == 1 {
-		noun = "session"
+		return fmt.Sprintf("Worked on this for %s in 1 session.", spent(secs))
 	}
-	return fmt.Sprintf("%s %d %s · %s", progressPrefix, sessions, noun, spent(secs))
+	return fmt.Sprintf("Worked on this for %s across %d sessions.", spent(secs), sessions)
 }
 
 func spent(secs int) string {
 	h, m := secs/3600, secs%3600/60
-	if h > 0 {
-		return fmt.Sprintf("%dh %dm", h, m)
+	switch {
+	case h > 0 && m > 0:
+		return plural(h, "hour") + " and " + plural(m, "minute")
+	case h > 0:
+		return plural(h, "hour")
+	case m > 0:
+		return plural(m, "minute")
 	}
-	return fmt.Sprintf("%dm", m)
+	return "less than a minute"
 }
 
-// MergeDescription drops orivo's old line from description and puts line at
-// the bottom, below the user's text.
+func plural(n int, unit string) string {
+	if n == 1 {
+		return "1 " + unit
+	}
+	return fmt.Sprintf("%d %ss", n, unit)
+}
+
+// MergeDescription drops orivo's old sentence from description and puts line
+// at the bottom, below the user's text.
 func MergeDescription(description, line string) string {
 	var kept []string
 	for _, l := range strings.Split(description, "\n") {
-		if !strings.HasPrefix(strings.TrimSpace(l), progressPrefix) {
+		if !progressLine.MatchString(strings.TrimSpace(l)) {
 			kept = append(kept, l)
 		}
 	}
