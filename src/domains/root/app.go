@@ -8,8 +8,8 @@ import (
 
 	"orivo/src/domains/root/core"
 	"orivo/src/domains/root/entities/hints"
-	"orivo/src/domains/root/entities/sessionbar"
-	"orivo/src/domains/root/entities/topbar"
+	"orivo/src/domains/root/entities/session_bar"
+	"orivo/src/domains/root/entities/top_bar"
 	"orivo/src/systems/config"
 	"orivo/src/systems/signals"
 )
@@ -34,9 +34,9 @@ func New(cfg config.Config) *App {
 	}
 
 	a.entities = []core.Entity{
-		topbar.New(a.fonts, cfg.ShowFPS, a.Quit),
+		top_bar.New(a.fonts, cfg.ShowFPS, a.Quit),
 		hints.New(a.fonts),
-		sessionbar.New(cfg.Timer, a.fonts),
+		session_bar.New(cfg.Timer, a.fonts),
 	}
 
 	signals.OnInterrupt(a.Quit)

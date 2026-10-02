@@ -8,8 +8,8 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	"orivo/src/domains/root/core"
-	"orivo/src/domains/root/entities/sessionbar/clock/reducedialog"
-	"orivo/src/domains/root/entities/sessionbar/clock/todolabel"
+	"orivo/src/domains/root/entities/session_bar/clock/reduce_dialog"
+	"orivo/src/domains/root/entities/session_bar/clock/todo_label"
 	"orivo/src/systems/config"
 	"orivo/src/systems/ipc"
 	"orivo/src/systems/logx"
@@ -31,8 +31,8 @@ type Clock struct {
 	now     func() time.Time
 	notify  func(summary, body string)
 
-	todo   *todolabel.TodoLabel
-	reduce *reducedialog.ReduceDialog
+	todo   *todo_label.TodoLabel
+	reduce *reduce_dialog.ReduceDialog
 
 	phase          phase.Phase
 	running        bool
@@ -73,8 +73,8 @@ func newClock(cfg config.Timer, fonts *core.Fonts, storePath, sessionsPath strin
 	c.todoID, c.todoText = c.store.Todo()
 	c.restore()
 
-	c.todo = todolabel.New(fonts, c)
-	c.reduce = reducedialog.New(fonts, c)
+	c.todo = todo_label.New(fonts, c)
+	c.reduce = reduce_dialog.New(fonts, c)
 	return c
 }
 

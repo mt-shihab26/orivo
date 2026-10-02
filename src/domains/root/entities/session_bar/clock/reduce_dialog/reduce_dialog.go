@@ -1,4 +1,4 @@
-package reducedialog
+package reduce_dialog
 
 import (
 	"image/color"

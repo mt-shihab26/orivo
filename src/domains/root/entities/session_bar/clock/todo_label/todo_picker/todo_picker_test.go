@@ -1,4 +1,4 @@
-package todopicker
+package todo_picker
 
 import (
 	"slices"

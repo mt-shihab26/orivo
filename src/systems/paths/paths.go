@@ -33,8 +33,8 @@ func TodoistCache() string {
 	return filepath.Join(StateDir(), "todoist.txt")
 }
 
-func TodoistToken() string {
-	return filepath.Join(StateDir(), "todoist.token")
+func TodoistAuth() string {
+	return filepath.Join(StateDir(), "todoist-auth.json")
 }
 
 func Socket() string {

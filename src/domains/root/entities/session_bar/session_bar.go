@@ -1,4 +1,4 @@
-package sessionbar
+package session_bar
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	"orivo/src/domains/root/core"
-	"orivo/src/domains/root/entities/sessionbar/clock"
+	"orivo/src/domains/root/entities/session_bar/clock"
 	"orivo/src/systems/config"
 )
 

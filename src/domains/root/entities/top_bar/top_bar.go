@@ -1,4 +1,4 @@
-package topbar
+package top_bar
 
 import (
 	"fmt"

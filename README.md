@@ -79,7 +79,7 @@ A break starts by itself when a work session ends; the next work session waits f
 
 ```
 orivo                    Open the timer window
-orivo connect-todoist    Save your Todoist API token
+orivo connect-todoist    Sign in to Todoist in your browser
 orivo sync-todoist       Fetch todos that are overdue or due today, and cache them
 orivo version            Print the version
 orivo help               Show the list of commands
@@ -90,11 +90,11 @@ orivo help               Show the list of commands
 Connect once, then sync whenever you want the picker to catch up with Todoist:
 
 ```sh
-$ orivo connect-todoist   # asks for the API token from Todoist: Settings > Integrations > Developer
+$ orivo connect-todoist   # opens Todoist in your browser to sign in and approve read access
 $ orivo sync-todoist      # fetches, caches and prints the todos that are overdue or due today
 ```
 
-`connect-todoist` checks the token with Todoist before saving it to `~/.local/state/orivo/todoist.token`. Setting `TODOIST_API_TOKEN` in the environment takes precedence over that file.
+`connect-todoist` works like `gh auth login`: it opens the Todoist sign-in page, waits on a local port for the approval, and saves the result to `~/.local/state/orivo/todoist-auth.json`. Todoist access tokens last an hour, so `sync-todoist` renews the sign-in by itself when needed. If the browser route is not an option, `orivo connect-todoist --token` asks for a personal API token instead (Todoist: Settings > Integrations > Developer), and setting `TODOIST_API_TOKEN` in the environment takes precedence over the saved sign-in.
 
 `sync-todoist` writes the cache to `~/.local/state/orivo/todoist.txt`, one todo per line as the due date, the Todoist id and the text, separated by tabs:
 
@@ -111,7 +111,7 @@ Runtime state lives under `~/.local/state/orivo/`:
 - `store.json` → the current phase, the selected todo, and the time left per todo
 - `sessions.jsonl` → one line per completed session
 - `todoist.txt` → the cached Todoist todos (see above)
-- `todoist.token` → the Todoist API token
+- `todoist-auth.json` → the Todoist sign-in
 - `orivo.sock` → Unix socket that answers each connection with one JSON line describing the live timer (phase, running, remaining time, todo, sessions today), for bar widgets such as [omarchy-orivo-plugin](https://github.com/mt-shihab26/omarchy-orivo-plugin)
 - `orivo.log` → warnings and errors
 
@@ -134,21 +134,21 @@ src/domains/root/
 ├─ app.go
 ├─ core/                      the entity contract, fonts and screen helpers
 └─ entities/
-   ├─ topbar/
+   ├─ top_bar/
    ├─ hints/
    ├─ dialog/                    the base both dialogs embed
-   └─ sessionbar/
+   └─ session_bar/
       └─ clock/
-         ├─ todolabel/
-         │  └─ todopicker/       embeds dialog
-         └─ reducedialog/        embeds dialog
+         ├─ todo_label/
+         │  └─ todo_picker/      embeds dialog
+         └─ reduce_dialog/       embeds dialog
 ```
 
 `Clock` is the timer: it handles Space, `r`, `n` and `m`, counts down, rolls from one phase to the next, records sessions and saves. `Dialog` is the base both dialogs embed; it owns open and closed, Esc to dismiss, and the backdrop, panel, title and hint. Keys follow the tree: a parent reads its own keys only while none of its dialogs is open, and stops updating the other branch meanwhile, so nothing behind an open dialog reacts. `app.go` only opens the window, creates the top-level entities and runs the loop.
 
 The packages under `src/systems` are helpers the entities call: the phase names, durations and colors, the session history, the store, the todo cache, the Todoist client, the status socket, notifications and signal handling.
 
-Each command is one file in `src/commands` implementing the `Command` interface from `command.go`; `commands.go` routes the first argument to the command with that name:
+Each command is one file in `src/commands` implementing the `Command` interface, and only routes: its logic lives in a folder of its own under `src/domains` (`root`, `connect_todoist`, `sync_todoist`). `commands.go` routes the first argument to the command with that name:
 
 ```go
 type Command interface {

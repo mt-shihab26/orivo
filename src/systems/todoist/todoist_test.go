@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"testing"
 	"time"
 )
@@ -87,25 +86,5 @@ func TestUserReturnsTheAccountName(t *testing.T) {
 	name, err := client.User()
 	if err != nil || name != "Shihab" {
 		t.Fatalf("name = %q, err = %v", name, err)
-	}
-}
-
-func TestTokenIsSavedAndLoaded(t *testing.T) {
-	t.Setenv(tokenEnv, "")
-	path := filepath.Join(t.TempDir(), "todoist.token")
-
-	if _, err := LoadToken(path); !errors.Is(err, ErrNotConnected) {
-		t.Fatalf("err = %v, want ErrNotConnected", err)
-	}
-	if err := SaveToken(path, "abc123"); err != nil {
-		t.Fatal(err)
-	}
-	if token, err := LoadToken(path); err != nil || token != "abc123" {
-		t.Fatalf("token = %q, err = %v", token, err)
-	}
-
-	t.Setenv(tokenEnv, "from-env")
-	if token, _ := LoadToken(path); token != "from-env" {
-		t.Fatalf("token = %q, want the environment's", token)
 	}
 }

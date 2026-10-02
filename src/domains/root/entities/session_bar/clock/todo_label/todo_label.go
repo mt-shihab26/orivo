@@ -1,4 +1,4 @@
-package todolabel
+package todo_label
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	"orivo/src/domains/root/core"
-	"orivo/src/domains/root/entities/sessionbar/clock/todolabel/todopicker"
+	"orivo/src/domains/root/entities/session_bar/clock/todo_label/todo_picker"
 	"orivo/src/systems/sessions"
 )
 
@@ -22,11 +22,11 @@ type Timer interface {
 type TodoLabel struct {
 	fonts  *core.Fonts
 	timer  Timer
-	picker *todopicker.TodoPicker
+	picker *todo_picker.TodoPicker
 }
 
 func New(fonts *core.Fonts, timer Timer) *TodoLabel {
-	return &TodoLabel{fonts: fonts, timer: timer, picker: todopicker.New(fonts, timer)}
+	return &TodoLabel{fonts: fonts, timer: timer, picker: todo_picker.New(fonts, timer)}
 }
 
 func (l *TodoLabel) Close() {

@@ -4,12 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"orivo/src/systems/todos"
@@ -20,11 +16,9 @@ const (
 	dueQuery       = "today | overdue"
 	pageSize       = "200"
 	maxPages       = 50
-	tokenEnv       = "TODOIST_API_TOKEN"
 )
 
 var (
-	ErrNotConnected  = errors.New("not connected to Todoist")
 	ErrTokenRejected = errors.New("Todoist rejected the token")
 )
 
@@ -137,34 +131,4 @@ func dueDay(date string) (time.Time, bool) {
 	}
 	t, err := time.ParseInLocation(time.DateOnly, date[:len(time.DateOnly)], time.Local)
 	return t, err == nil
-}
-
-func LoadToken(path string) (string, error) {
-	if token := strings.TrimSpace(os.Getenv(tokenEnv)); token != "" {
-		return token, nil
-	}
-
-	raw, err := os.ReadFile(path)
-	if errors.Is(err, fs.ErrNotExist) {
-		return "", ErrNotConnected
-	}
-	if err != nil {
-		return "", err
-	}
-	token := strings.TrimSpace(string(raw))
-	if token == "" {
-		return "", ErrNotConnected
-	}
-	return token, nil
-}
-
-func SaveToken(path, token string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return err
-	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, []byte(token+"\n"), 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
 }
