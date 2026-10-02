@@ -33,8 +33,7 @@ func Serve(path string) *Server {
 	_ = os.MkdirAll(dir, 0o700)
 	_ = os.Chmod(dir, 0o700)
 
-	if conn, err := net.Dial("unix", path); err == nil {
-		conn.Close()
+	if Running(path) {
 		logx.Warn("ipc: another orivo instance already serves %s; skipping IPC", path)
 		return server
 	}
@@ -67,6 +66,16 @@ func Serve(path string) *Server {
 		}
 	}()
 	return server
+}
+
+// Running reports whether another orivo window is serving the socket.
+func Running(path string) bool {
+	conn, err := net.Dial("unix", path)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
 }
 
 func (s *Server) Publish(status Status) {
