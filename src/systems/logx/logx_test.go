@@ -30,21 +30,28 @@ func TestWeeksStartOnSaturday(t *testing.T) {
 }
 
 func TestPruneKeepsOnlyTheCurrentWeek(t *testing.T) {
-	dir := t.TempDir()
-	for _, name := range []string{"orivo-2026-09-19.log", "orivo-2026-09-26.log", "orivo.log", "orivo.log.1", "store.json"} {
-		if err := os.WriteFile(filepath.Join(dir, name), nil, 0o600); err != nil {
+	state := t.TempDir()
+	dir := filepath.Join(state, "logs")
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"logs/orivo-2026-09-19.log", "logs/orivo-2026-09-26.log", "orivo-2026-09-26.log", "orivo.log", "orivo.log.1", "store.json"} {
+		if err := os.WriteFile(filepath.Join(state, name), nil, 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	prune(dir, "orivo-2026-09-26.log")
 
-	entries, _ := os.ReadDir(dir)
 	var left []string
-	for _, e := range entries {
-		left = append(left, e.Name())
-	}
-	if want := []string{"orivo-2026-09-26.log", "store.json"}; !slices.Equal(left, want) {
+	filepath.WalkDir(state, func(path string, e os.DirEntry, err error) error {
+		if err == nil && !e.IsDir() {
+			rel, _ := filepath.Rel(state, path)
+			left = append(left, rel)
+		}
+		return nil
+	})
+	if want := []string{"logs/orivo-2026-09-26.log", "store.json"}; !slices.Equal(left, want) {
 		t.Fatalf("left = %v, want %v", left, want)
 	}
 }

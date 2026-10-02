@@ -159,25 +159,25 @@ $ orivo sync-todoist      # fetches, caches and prints the todos labelled Work t
 
 The picker (`t`) reads that file and lists the todos in two sections, **Overdue** and **Today**. Pressing `s` in the window runs the same sync in the background, so the picker shows whatever the last sync fetched, from either place.
 
-When a work session on a todo ends, orivo writes a sentence with the time spent and the session count to the bottom of that task's description in Todoist, below anything you wrote there, and replaces it on the next session instead of adding another one:
+When a work session on a todo ends, orivo puts today's session count and minutes in brackets at the end of that task's title in Todoist, and replaces them on the next session instead of adding more. It uses the title because a recurring task loses its description when completed. The counts come only from orivo's own session files and start from zero each day, so the first session on a new day overwrites whatever a recurring task carried over from the day before, and the brackets are stripped from the titles orivo syncs down. A sentence older versions left in the description is cleared out on the next update:
 
 ```
-Worked on this for 1 hour and 40 minutes across 4 sessions.
+Write the quarterly report (4, 100 min)
 ```
 
-The update is queued in `~/.local/state/orivo/todoist-outbox.txt` and sent in the background right away, together with anything else queued. To go easy on Todoist, sends are at least a minute apart: a session that ends sooner after the last send waits out the rest of that minute. If a send fails (offline, or the sign-in expired), the updates stay queued for the next session or sync. Every request orivo makes to Todoist is written to the log (see Files) with its answer and how long it took, and each background sync with the time since the last one. Writing descriptions needs read and write access to Todoist. If you connected before orivo asked for it, run `orivo connect-todoist` again; until then, syncs fail with an error that says so.
+The update is queued in `~/.local/state/orivo/todoist-outbox.txt` and sent in the background right away, together with anything else queued. To go easy on Todoist, sends are at least a minute apart: a session that ends sooner after the last send waits out the rest of that minute. If a send fails (offline, or the sign-in expired), the updates stay queued for the next session or sync. Every request orivo makes to Todoist is written to the log (see Files) with its answer and how long it took, and each background sync with the time since the last one. Writing titles needs read and write access to Todoist. If you connected before orivo asked for it, run `orivo connect-todoist` again; until then, syncs fail with an error that says so.
 
 ## Files
 
 Runtime state lives under `~/.local/state/orivo/`:
 
 - `store.json` → the current phase, the selected todo, and the time left per todo
-- `sessions.jsonl` → one line per completed session
+- `sessions/YYYY-MM-DD.jsonl` → one line per completed session, one file per day it ended on; all days are kept
 - `todoist.txt` → the cached Todoist todos (see above)
 - `todoist-auth.json` → the Todoist sign-in
 - `todoist-outbox.txt` → session counts waiting to be written to Todoist (see above)
 - `orivo.sock` → Unix socket that answers each connection with one JSON line describing the live timer (phase, running, remaining time, todo, sessions today), for bar widgets such as [omarchy-orivo-plugin](https://github.com/mt-shihab26/omarchy-orivo-plugin)
-- `orivo-YYYY-MM-DD.log` → warnings, errors and every request sent to Todoist, one file per week named after the Saturday it starts on; only the current week is kept
+- `logs/orivo-YYYY-MM-DD.log` → warnings, errors and every request sent to Todoist, one file per week named after the Saturday it starts on; only the current week is kept
 
 ## Structure
 

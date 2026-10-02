@@ -80,7 +80,7 @@ func (c *Client) DueTodos() ([]todos.Todo, error) {
 				continue
 			}
 			if due, ok := dueDay(t.Due.Date); ok {
-				all = append(all, todos.Todo{ID: t.ID, Text: t.Content, Due: due})
+				all = append(all, todos.Todo{ID: t.ID, Text: StripTitle(t.Content), Due: due})
 			}
 		}
 

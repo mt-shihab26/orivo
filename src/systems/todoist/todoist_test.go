@@ -29,7 +29,7 @@ func TestDueTodosFollowsPagesAndMapsTasks(t *testing.T) {
 
 		if r.URL.Query().Get("cursor") == "" {
 			w.Write([]byte(`{"next_cursor": "page2", "results": [
-				{"id": "a", "content": "dated",   "due": {"date": "2026-10-02"}},
+				{"id": "a", "content": "dated (3, 75 min)", "due": {"date": "2026-10-02"}},
 				{"id": "b", "content": "timed",   "due": {"date": "2026-10-01T15:00:00"}},
 				{"id": "c", "content": "done",    "due": {"date": "2026-10-02"}, "checked": true},
 				{"id": "d", "content": "no date", "due": null}

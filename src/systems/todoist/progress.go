@@ -24,73 +24,71 @@ var (
 
 	errTaskGone = errors.New("the Todoist task no longer exists")
 
-	// Matches any sentence ProgressLine writes, so the old one is replaced.
+	// Matches the tags ProgressTag writes at the end of a title, and the
+	// wordier ones it wrote before, so the old ones are replaced.
+	progressTag = regexp.MustCompile(`(\s*\(\d+( sessions?)?, \d+ min\))+$`)
+
+	// Matches the sentence older versions kept in the description, so it is
+	// cleared out.
 	progressLine = regexp.MustCompile(`^Worked on this for .+ (in 1 session|across \d+ sessions)\.$`)
 )
 
-// ProgressLine is the sentence orivo keeps in a task's description.
-func ProgressLine(sessions, secs int) string {
-	if sessions == 1 {
-		return fmt.Sprintf("Worked on this for %s in 1 session.", spent(secs))
-	}
-	return fmt.Sprintf("Worked on this for %s across %d sessions.", spent(secs), sessions)
+// ProgressTag is what orivo keeps at the end of a task's title. Recurring
+// tasks lose their description when completed, but keep their title.
+func ProgressTag(sessions, secs int) string {
+	return fmt.Sprintf("(%d, %d min)", sessions, secs/60)
 }
 
-func spent(secs int) string {
-	h, m := secs/3600, secs%3600/60
-	switch {
-	case h > 0 && m > 0:
-		return plural(h, "hour") + " and " + plural(m, "minute")
-	case h > 0:
-		return plural(h, "hour")
-	case m > 0:
-		return plural(m, "minute")
-	}
-	return "less than a minute"
+// StripTitle drops orivo's tag from title, so the counts Todoist holds are
+// never read back.
+func StripTitle(title string) string {
+	return strings.TrimRight(progressTag.ReplaceAllString(title, ""), " \t")
 }
 
-func plural(n int, unit string) string {
-	if n == 1 {
-		return "1 " + unit
+// MergeTitle replaces orivo's old tag at the end of title with tag.
+func MergeTitle(title, tag string) string {
+	if text := StripTitle(title); text != "" {
+		return text + " " + tag
 	}
-	return fmt.Sprintf("%d %ss", n, unit)
+	return tag
 }
 
-// MergeDescription drops orivo's old sentence from description and puts line
-// at the bottom, below the user's text.
-func MergeDescription(description, line string) string {
+// cleanDescription drops the sentence older versions wrote to description.
+func cleanDescription(description string) string {
 	var kept []string
 	for _, l := range strings.Split(description, "\n") {
 		if !progressLine.MatchString(strings.TrimSpace(l)) {
 			kept = append(kept, l)
 		}
 	}
-
-	text := strings.TrimRight(strings.Join(kept, "\n"), " \t\r\n")
-	if text == "" {
-		return line
+	if len(kept) == len(strings.Split(description, "\n")) {
+		return description
 	}
-	return text + "\n\n" + line
+	return strings.TrimRight(strings.Join(kept, "\n"), " \t\r\n")
 }
 
-// SetProgress puts each task's line in its description, with one request to
-// read them and one to write them however many tasks there are. It returns
-// the tasks that are settled: written, already up to date, or gone.
-func (c *Client) SetProgress(lines map[string]string) ([]string, error) {
-	descriptions, err := c.descriptions(slices.Sorted(maps.Keys(lines)))
+type taskText struct {
+	ID          string `json:"id"`
+	Content     string `json:"content"`
+	Description string `json:"description"`
+}
+
+// SetProgress puts each task's tag in its title, with one request to read
+// them and one to write them however many tasks there are. It returns the
+// tasks that are settled: written, already up to date, or gone.
+func (c *Client) SetProgress(tags map[string]string) ([]string, error) {
+	ids := slices.Sorted(maps.Keys(tags))
+	found, err := c.texts(ids)
 	if err != nil {
 		return nil, err
 	}
 
 	var done []string
 	var commands []command
-	for _, id := range slices.Sorted(maps.Keys(lines)) {
-		description, ok := descriptions[id]
+	for _, id := range ids {
+		t, ok := found[id]
 		if !ok {
-			// Not active any more; a task completed since still takes the line.
-			var t struct {
-				Description string `json:"description"`
-			}
+			// Not active any more; a task completed since still takes the tag.
 			err := c.get("/tasks/"+url.PathEscape(id), nil, &t)
 			if errors.Is(err, errTaskGone) {
 				done = append(done, id)
@@ -99,19 +97,20 @@ func (c *Client) SetProgress(lines map[string]string) ([]string, error) {
 			if err != nil {
 				return done, err
 			}
-			description = t.Description
 		}
 
-		merged := MergeDescription(description, lines[id])
-		if merged == description {
+		args := map[string]string{"id": id}
+		if title := MergeTitle(t.Content, tags[id]); title != t.Content {
+			args["content"] = title
+		}
+		if description := cleanDescription(t.Description); description != t.Description {
+			args["description"] = description
+		}
+		if len(args) == 1 {
 			done = append(done, id)
 			continue
 		}
-		commands = append(commands, command{
-			Type: "item_update",
-			UUID: randomString(),
-			Args: map[string]string{"id": id, "description": merged},
-		})
+		commands = append(commands, command{Type: "item_update", UUID: randomString(), Args: args})
 	}
 	if len(commands) == 0 {
 		return done, nil
@@ -133,9 +132,9 @@ func (c *Client) SetProgress(lines map[string]string) ([]string, error) {
 	return done, failed
 }
 
-// descriptions fetches the descriptions of the active tasks among ids.
-func (c *Client) descriptions(ids []string) (map[string]string, error) {
-	found := map[string]string{}
+// texts fetches the titles and descriptions of the active tasks among ids.
+func (c *Client) texts(ids []string) (map[string]taskText, error) {
+	found := map[string]taskText{}
 	cursor := ""
 
 	for range maxPages {
@@ -145,17 +144,14 @@ func (c *Client) descriptions(ids []string) (map[string]string, error) {
 		}
 
 		var page struct {
-			Results []struct {
-				ID          string `json:"id"`
-				Description string `json:"description"`
-			} `json:"results"`
-			NextCursor string `json:"next_cursor"`
+			Results    []taskText `json:"results"`
+			NextCursor string     `json:"next_cursor"`
 		}
 		if err := c.get("/tasks", query, &page); err != nil {
 			return nil, err
 		}
 		for _, t := range page.Results {
-			found[t.ID] = t.Description
+			found[t.ID] = t
 		}
 
 		cursor = page.NextCursor
@@ -240,8 +236,8 @@ func (c *Client) sync(commands []command) (map[string]error, error) {
 	return statuses, nil
 }
 
-// Outbox holds the progress lines not yet written to Todoist, one per task,
-// as the task id and the line separated by a tab.
+// Outbox holds the progress tags not yet written to Todoist, one per task,
+// as the task id and the tag separated by a tab.
 type Outbox struct {
 	Path string
 }
@@ -250,7 +246,7 @@ type Outbox struct {
 // thread does not wait on a flush in the background.
 var outboxMu sync.Mutex
 
-func (o Outbox) Add(taskID, line string) error {
+func (o Outbox) Add(taskID, tag string) error {
 	outboxMu.Lock()
 	defer outboxMu.Unlock()
 
@@ -258,11 +254,11 @@ func (o Outbox) Add(taskID, line string) error {
 	if err != nil {
 		return err
 	}
-	pending[taskID] = line
+	pending[taskID] = tag
 	return o.write(pending)
 }
 
-// Flush writes every pending line to Todoist in one batch and keeps those
+// Flush writes every pending tag to Todoist in one batch and keeps those
 // that failed.
 func (o Outbox) Flush(client *Client) error {
 	outboxMu.Lock()
@@ -277,7 +273,7 @@ func (o Outbox) Flush(client *Client) error {
 	outboxMu.Lock()
 	defer outboxMu.Unlock()
 
-	// Lines added while the batch was out are newer, so they stay.
+	// Tags added while the batch was out are newer, so they stay.
 	now, err := o.read()
 	if err != nil {
 		return err
@@ -307,8 +303,9 @@ func (o Outbox) read() (map[string]string, error) {
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		if id, line, ok := strings.Cut(scanner.Text(), "\t"); ok && id != "" {
-			pending[id] = line
+		// Sentences older versions queued for the description are dropped.
+		if id, tag, ok := strings.Cut(scanner.Text(), "\t"); ok && id != "" && progressTag.MatchString(tag) {
+			pending[id] = tag
 		}
 	}
 	return pending, scanner.Err()
@@ -323,8 +320,8 @@ func (o Outbox) write(pending map[string]string) error {
 	}
 
 	var text strings.Builder
-	for id, line := range pending {
-		fmt.Fprintf(&text, "%s\t%s\n", id, line)
+	for id, tag := range pending {
+		fmt.Fprintf(&text, "%s\t%s\n", id, tag)
 	}
 	return files.WriteAtomic(o.Path, []byte(text.String()))
 }
