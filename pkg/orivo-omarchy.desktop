@@ -1,11 +1,10 @@
 [Desktop Entry]
 Name=Orivo
-Comment=Terminal-based Todos + Pomodoro timer
-Exec=omarchy-launch-terminal --app-id=TUI.tile -- orivo
+Comment=Pomodoro timer for your Todoist todos
+Exec=orivo
 Icon=orivo
 Terminal=false
 Type=Application
-Categories=Utility;Productivity;
-Keywords=todo;pomodoro;timer;tui;productivity;
-StartupWMClass=TUI.tile
+Categories=Utility;
+Keywords=todo;pomodoro;timer;todoist;productivity;
 StartupNotify=false

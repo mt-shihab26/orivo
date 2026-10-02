@@ -4,68 +4,39 @@
 
 # orivo
 
-[![License](https://img.shields.io/crates/l/orivo)](https://github.com/mt-shihab26/orivo/blob/main/LICENSE)
-[![Build](https://github.com/mt-shihab26/orivo/actions/workflows/build.yml/badge.svg)](https://github.com/mt-shihab26/orivo/actions/workflows/build.yml)
 [![Tests](https://github.com/mt-shihab26/orivo/actions/workflows/test.yml/badge.svg)](https://github.com/mt-shihab26/orivo/actions/workflows/test.yml)
-[![Crates.io](https://img.shields.io/crates/v/orivo)](https://crates.io/crates/orivo)
-[![docs.rs](https://img.shields.io/docsrs/orivo)](https://docs.rs/orivo)
 
-A terminal-based (TUI) Todos + Pomodoro timer written in [Rust](https://www.rust-lang.org)
+A Pomodoro timer for the desktop, written in [Go](https://go.dev) with [raylib](https://www.raylib.com).
 
-## Installation
+Todos are not managed in orivo: the timer can be pointed at a todo from [Todoist](https://todoist.com) that has the `Work` label and is overdue or due today, and sessions are recorded against it.
 
-### [Omarchy](https://omarchy.org)
+## Build
 
-<!-- ```sh -->
-<!-- omarchy pkg add orivo -->
-<!-- ``` -->
+Requires Go and a C compiler (raylib is compiled from source through cgo), plus the usual OpenGL and X11/Wayland development headers.
 
 ```sh
-git clone --depth 1 https://github.com/mt-shihab26/orivo.git /tmp/orivo
-cd /tmp/orivo/pkg
-makepkg -si
+$ git clone https://github.com/mt-shihab26/orivo.git
+$ cd orivo
+$ go build -o orivo .
+$ ./orivo
 ```
 
-Installs the AUR package (see [`PKGBUILD`](pkg/PKGBUILD)), which places `orivo` on `/usr/bin`, registers a desktop entry that launches it via `omarchy-launch-terminal` — so it opens in whatever terminal you've configured as default — and ships an `orivo-sync.timer` user unit that's enabled automatically on install to run `orivo sync` hourly (see [Automatic sync](#automatic-sync)).
+## Keys
 
-Usage (app launcher):
+| Key       | Action                                             |
+| --------- | -------------------------------------------------- |
+| `Space`   | Start / pause                                      |
+| `r`       | Reset the current phase                            |
+| `n`       | Skip to the next phase                             |
+| `t`       | Pick a todo (overdue and due today)                |
+| `T`       | Clear the selected todo                            |
+| `s`       | Sync todos from Todoist                            |
+| `m`       | Toggle centiseconds on the clock                   |
+| `d`       | Reduce the remaining time (enter `mm:ss`)          |
+| `Ctrl+F`  | Toggle the FPS counter                             |
+| `Ctrl+Q`  | Quit                                               |
 
-1. Press `SUPER + ALT + SPACE` to open the app launcher
-2. Search for orivo
-
-Usage (terminal):
-
-```sh
-$ orivo
-```
-
-Uninstall (also disables the `orivo-sync.timer` unit):
-
-```sh
-omarchy pkg drop orivo
-```
-
-#### Bar widget
-
-[omarchy-orivo-plugin](https://github.com/mt-shihab26/omarchy-orivo-plugin)
-adds an Omarchy bar widget showing the current session (Work/Break/Long
-Break) and countdown, e.g. `W 24:59`. It reads orivo's live IPC socket
-(`~/.local/state/orivo/orivo.sock`) when orivo is open, falling back to
-the last-saved state otherwise.
-
-### Cargo (any OS, builds from source)
-
-**Requires sqlite3** — install it for your OS and ensure it's on your `PATH` before building.
-
-```sh
-$ cargo install orivo
-```
-
-Run from any terminal:
-
-```sh
-$ orivo
-```
+In the todo picker, `j`/`k` or the arrow keys (or the mouse wheel) move, `Enter` or a click selects, and `Esc` cancels.
 
 ## Configuration
 
@@ -74,7 +45,8 @@ Config file location: `~/.config/orivo/config.toml`
 ```toml
 # Orivo configuration
 
-show_fps = false # show the FPS counter in the TUI header on startup
+show_fps = false # show the FPS counter on startup
+font     = ""    # path to a .ttf/.otf font; empty uses the system monospace font
 
 # Pomodoro timer settings — controls session lengths and when long breaks are triggered.
 [timer]
@@ -84,16 +56,7 @@ break_duration      = 5       # short break length in minutes          (min: 1, 
 long_break_duration = 15      # long break length in minutes           (min: 1, max: 60)
 long_break_interval = 4       # work sessions before a long break      (min: 1, max: 10)
 daily_session_goal  = 16      # target work sessions to complete today (min: 1, max: 24)
-
-# `orivo sync` settings — see the Sync section below.
-[sync]
-repo_name = "Todos" # name of the GitHub repo (under your account) synced with
-
 ```
-
-### Root Options
-
-- `show_fps` → show the FPS counter when the TUI starts. You can still toggle it at runtime with `Ctrl+F`.
 
 ### Timer (`[timer]`)
 
@@ -103,57 +66,126 @@ The [Pomodoro technique](https://en.wikipedia.org/wiki/Pomodoro_Technique) break
 - **Short break** → rest between sessions (default: 5 min)
 - **Long break** → rest after completing a full cycle (default: 15 min)
 
-A full cycle = `work_duration` × `long_break_interval` work sessions. After that many sessions, a long break is triggered instead of a short one.
+After every `long_break_interval` work sessions, a long break is triggered instead of a short one.
 
 ```
 work → break → work → break → work → break → work → LONG BREAK  (cycle of 4)
 ```
 
-**Daily session goal** (`daily_session_goal`) sets how many work sessions you aim to complete each day. Progress is shown as a session tracker in the timer tab. Once the goal is reached, the tracker fills completely.
+A break starts by itself when a work session ends; the next work session waits for you to start it.
 
-- Default: `16` sessions
-- Range: `1` – `24` sessions
+**Daily session goal** (`daily_session_goal`) sets how many work sessions you aim to complete each day. Progress is shown at the top of the window.
 
-## Sync
+## Commands
 
-orivo can sync its local database with a private GitHub repo, WhatsApp-style: a single gzip-compressed snapshot, overwritten in place each time.
-
-**Requires the [github cli](https://cli.github.com) (`gh`), signed in** — run `gh auth login` once before your first sync.
-
-```sh
-$ orivo sync
+```
+orivo                    Open the timer window
+orivo connect-todoist    Sign in to Todoist in your browser
+orivo sync-todoist       Fetch Work todos that are overdue or due today, and cache them
+orivo version            Print the version
+orivo help               Show the list of commands
 ```
 
-The first run creates a private repo under your GitHub account (named `Todos` by default — see `[sync] repo_name` in Configuration) via `gh repo create`, and uploads the database to it. Later runs compare the local database and the repo against the last synced snapshot: pulls if only the repo changed (e.g. you synced from another machine), pushes if only the local database changed, does nothing if neither did, and asks which side to keep if both did.
+## Todos
 
-See [`docs/sync.md`](docs/sync.md) for the full mechanics (change detection, push/pull, conflict handling, error cases).
-
-### Automatic sync
-
-The Arch package installs a `orivo-sync.timer` user unit that runs `orivo sync` once an hour, and enables and starts it automatically on install (no manual `systemctl` step needed) via the package's post-install hook. Disable it if you'd rather sync manually:
+Connect once, then sync whenever you want the picker to catch up with Todoist:
 
 ```sh
-$ systemctl --user disable --now orivo-sync.timer
+$ orivo connect-todoist   # opens Todoist in your browser to sign in and approve read access
+$ orivo sync-todoist      # fetches, caches and prints the todos labelled Work that are overdue or due today
 ```
 
-If both sides have changed since the last sync when the timer fires, `orivo sync` has no terminal to prompt on, so it just cancels that run instead of guessing — nothing is overwritten. Run `orivo sync` yourself to resolve it.
+`connect-todoist` works like `gh auth login`: it opens the Todoist sign-in page, waits on a local port for the approval, and saves the result to `~/.local/state/orivo/todoist-auth.json`. Todoist access tokens last an hour, so `sync-todoist` renews the sign-in by itself when needed. If the browser route is not an option, `orivo connect-todoist --token` asks for a personal API token instead (Todoist: Settings > Integrations > Developer), and setting `TODOIST_API_TOKEN` in the environment takes precedence over the saved sign-in.
+
+`sync-todoist` writes the cache to `~/.local/state/orivo/todoist.txt`, one todo per line as the due date, the Todoist id and the text, separated by tabs:
+
+```
+2026-10-02	6X7rM8997g3RQmvh	Write the quarterly report
+```
+
+The picker (`t`) reads that file and lists the todos in two sections, **Overdue** and **Today**. Pressing `s` in the window runs the same sync in the background, so the picker shows whatever the last sync fetched, from either place.
+
+## Files
+
+Runtime state lives under `~/.local/state/orivo/`:
+
+- `store.json` → the current phase, the selected todo, and the time left per todo
+- `sessions.jsonl` → one line per completed session
+- `todoist.txt` → the cached Todoist todos (see above)
+- `todoist-auth.json` → the Todoist sign-in
+- `orivo.sock` → Unix socket that answers each connection with one JSON line describing the live timer (phase, running, remaining time, todo, sessions today), for bar widgets such as [omarchy-orivo-plugin](https://github.com/mt-shihab26/omarchy-orivo-plugin)
+- `orivo.log` → warnings and errors
+
+## Structure
+
+The window is built like a game. All of it lives in `src/domains/root`: `app.go` runs the loop, and everything in it is an entity under `entities/` (the clock, the session bar, the todo picker, …). Every entity is created by its package's `New` function and implements the same three methods, defined in `src/domains/root/core`:
+
+```go
+type Entity interface {
+	Close()
+	Update(dt float32)
+	Draw()
+}
+```
+
+An entity is something that is drawn, and each one keeps its own logic and key handling in its `Update`, reading the keyboard straight from raylib. Entities form a tree: a parent creates, updates, draws and closes its children, and the folders mirror it. Each entity is its own package, nested under its parent.
+
+```
+src/domains/root/
+├─ app.go
+├─ core/                      the entity contract, fonts and screen helpers
+└─ entities/
+   ├─ top_bar/
+   ├─ hints/
+   ├─ dialog/                    the base both dialogs embed
+   └─ session_bar/
+      └─ clock/
+         ├─ todo_label/
+         │  └─ todo_picker/      embeds dialog
+         └─ reduce_dialog/       embeds dialog
+```
+
+`Clock` is the timer: it handles Space, `r`, `n` and `m`, counts down, rolls from one phase to the next, records sessions and saves. `Dialog` is the base both dialogs embed; it owns open and closed, Esc to dismiss, and the backdrop, panel, title and hint. Keys follow the tree: a parent reads its own keys only while none of its dialogs is open, and stops updating the other branch meanwhile, so nothing behind an open dialog reacts. `app.go` only opens the window, creates the top-level entities and runs the loop.
+
+The packages under `src/systems` are helpers the entities call: the phase names, durations and colors, the session history, the store, the todo cache, the Todoist client, the status socket, notifications and signal handling.
+
+Each command is one file in `src/commands` implementing the `Command` interface, and only routes: its logic lives in a folder of its own under `src/domains` (`root`, `connect_todoist`, `sync_todoist`). `commands.go` routes the first argument to the command with that name:
+
+```go
+type Command interface {
+	Name() string
+	Summary() string
+	Run(args []string) error
+}
+```
 
 ## Development
 
 ```sh
-$ git clone https://github.com/mt-shihab26/orivo.git
-$ cd orivo
+$ ./dev.sh           # build and run with config and state under ./.dev instead of the system paths
+$ go test ./...     # run the test suite
+$ gofmt -l .        # check formatting
+$ go vet ./...      # lint
 ```
 
-```sh
-$ cargo run
-```
+## Releasing
 
-Debug builds keep config, database, and log files under `./.dev/` instead of the real system paths, so you can inspect or wipe local state freely.
+Releases go out from `main`. The version comes from the git tag and is passed to the binary at build time with `-ldflags "-X main.version=..."`, so you don't edit a version anywhere in the source.
 
-```sh
-$ cargo run seed    # reset the local database and fill it with sample todos/sessions
-$ cargo test        # run the test suite
-$ cargo fmt          # format code
-$ cargo clippy       # lint
-```
+1. Open a pull request into `main` titled `Release vX.Y.Z`. The Test and Format workflows run on it.
+2. Merge it after CI passes.
+3. Create the release and its tag on `main`:
+
+   ```sh
+   $ gh release create vX.Y.Z --target main --generate-notes
+   ```
+
+Create the release with `gh release create` rather than pushing a bare tag. The workflow uploads into an existing release, so it fails if the release isn't there yet.
+
+The new `vX.Y.Z` tag starts the Build workflow (`.github/workflows/build.yml`), which:
+
+- builds `orivo-vX.Y.Z-linux-x86_64` and `orivo-vX.Y.Z-linux-aarch64`, each on its own runner
+- uploads both binaries to the release, along with `orivo-omarchy.desktop`, `orivo.svg` and `SHA256SUMS.txt`
+- sets `pkgver` in `pkg/PKGBUILD`, refreshes its checksums and `pkg/.SRCINFO`, and pushes that commit to `main`
+
+After a release, pull `main` so you have the PKGBUILD bump locally.

@@ -1,11 +1,17 @@
 [Unit]
-Description=Run orivo sync every hour
+# Name shown in list-timers and the journal.
+Description=Sync orivo todos with Todoist once a day
+# Where to read more.
 Documentation=https://github.com/mt-shihab26/orivo
 
 [Timer]
-OnCalendar=hourly
-RandomizedDelaySec=5m
+# Sync 1 minute after the day starts.
+OnCalendar=*-*-* 00:01:00
+# Run a missed sync once the PC is back on.
 Persistent=true
+# Fire on time, not up to a minute late.
+AccuracySec=1s
 
 [Install]
+# Start with the user's timers at login.
 WantedBy=timers.target
