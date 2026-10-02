@@ -5,203 +5,53 @@ on:
     tags:
       - "v*.*.*"
 
-# Least privilege by default: only the jobs that actually push commits or
-# upload release assets opt into write access below. In particular it keeps
-# publish-crate, which holds CARGO_REGISTRY_TOKEN, on a read-only repo token.
+# Least privilege by default: only the jobs that upload release assets or
+# push commits opt into write access below.
 permissions:
   contents: read
 
 jobs:
-  bump-cargo-version:
-    name: Bump Cargo Version to Tag
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
-
-      - name: Set Cargo version to match tag
-        shell: bash
-        run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          sed -i "0,/^version = \".*\"\$/s//version = \"$TAG_VERSION\"/" Cargo.toml
-          cargo update -p orivo --precise "$TAG_VERSION"
-
-      # ${{ }} values are substituted into the script before the shell sees
-      # them, so they go through env instead of being interpolated inline.
-      - name: Commit and push
-        env:
-          ACTOR: ${{ github.actor }}
-          ACTOR_ID: ${{ github.actor_id }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Cargo.toml Cargo.lock
-          if ! git diff --cached --quiet; then
-            git commit --author="$ACTOR <$ACTOR_ID+$ACTOR@users.noreply.github.com>" -m "bump version to ${GITHUB_REF_NAME#v}"
-            git push origin HEAD:main
-          fi
-
   build-binaries:
-    name: Build ${{ matrix.target }}
-    needs: bump-cargo-version
+    name: Build linux-${{ matrix.arch_tag }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Linux x86_64
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-            os_tag: linux
+          - os: ubuntu-latest
             arch_tag: x86_64
-            use_cross: false
-            binary_name: orivo
-            asset_suffix: ""
-
-          # Linux aarch64
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
-            os_tag: linux
+          # raylib is compiled by cgo, so each arch builds on its own runner
+          # instead of cross-compiling.
+          - os: ubuntu-24.04-arm
             arch_tag: aarch64
-            use_cross: true
-            binary_name: orivo
-            asset_suffix: ""
-
-          # macOS x86_64 (Intel)
-          # - target: x86_64-apple-darwin
-          #   os: macos-latest
-          #   os_tag: macos
-          #   arch_tag: x86_64
-          #   use_cross: false
-          #   binary_name: orivo
-          #   asset_suffix: ""
-
-          # macOS aarch64 (Apple Silicon)
-          # - target: aarch64-apple-darwin
-          #   os: macos-latest
-          #   os_tag: macos
-          #   arch_tag: aarch64
-          #   use_cross: false
-          #   binary_name: orivo
-          #   asset_suffix: ""
-
-          # Windows x86_64
-          # - target: x86_64-pc-windows-msvc
-          #   os: windows-latest
-          #   os_tag: windows
-          #   arch_tag: x86_64
-          #   use_cross: false
-          #   binary_name: orivo.exe
-          #   asset_suffix: ".exe"
-
-          # Windows aarch64
-          # - target: aarch64-pc-windows-msvc
-          #   os: windows-11-arm
-          #   os_tag: windows
-          #   arch_tag: aarch64
-          #   use_cross: false
-          #   binary_name: orivo.exe
-          #   asset_suffix: ".exe"
 
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          ref: main
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
-        with:
-          targets: ${{ matrix.target }}
+      # raylib is compiled from source by cgo and needs the windowing headers.
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev libxi-dev libxcursor-dev libxrandr-dev \
+            libxinerama-dev libwayland-dev libxkbcommon-dev
 
-      - name: Cache Cargo registry
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.target }}-cargo-
-
-      # Linux native deps (sqlite3 required by sqlx-sqlite, alsa required by rodio)
-      - name: Install system dependencies (Linux native)
-        if: matrix.os == 'ubuntu-latest' && matrix.use_cross == false
-        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libasound2-dev
-
-      - name: Install cross
-        if: matrix.use_cross == true
-        uses: taiki-e/install-action@c3ec0de9ae7f1019cea21aa96aa0a895b9552063 # v2
-        with:
-          tool: cross
-
-      - name: Build (cross)
-        if: matrix.use_cross == true
-        run: cross build --release --target ${{ matrix.target }}
-
-      - name: Build (cargo)
-        if: matrix.use_cross == false
-        run: cargo build --release --target ${{ matrix.target }}
-
-      - name: Prepare binary
+      - name: Build
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME}"
-          BINARY_ASSET="orivo-${VERSION}-${{ matrix.os_tag }}-${{ matrix.arch_tag }}${{ matrix.asset_suffix }}"
-          cp "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" "$BINARY_ASSET"
-          if [ "${{ matrix.os_tag }}" != "windows" ]; then
-            chmod +x "$BINARY_ASSET"
-          fi
+          BINARY_ASSET="orivo-${GITHUB_REF_NAME}-linux-${{ matrix.arch_tag }}"
+          go build -trimpath -ldflags "-s -w -X main.version=${GITHUB_REF_NAME#v}" -o "$BINARY_ASSET" .
           echo "BINARY_ASSET=$BINARY_ASSET" >> "$GITHUB_ENV"
 
       - name: Upload artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: orivo-${{ matrix.os_tag }}-${{ matrix.arch_tag }}
+          name: orivo-linux-${{ matrix.arch_tag }}
           path: ${{ env.BINARY_ASSET }}
-
-  publish-crate:
-    name: Publish to crates.io
-    needs: bump-cargo-version
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          ref: main
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
-
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libasound2-dev
-
-      - name: Publish to crates.io
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: |
-          set +e
-          output=$(cargo publish 2>&1)
-          status=$?
-          echo "$output"
-          if [ $status -ne 0 ] && echo "$output" | grep -q "already exists on crates.io index"; then
-            echo "Version already published — treating as success."
-            exit 0
-          fi
-          exit $status
 
   update-release:
     name: Update GitHub Release
-    needs: [build-binaries, publish-crate]
+    needs: build-binaries
     runs-on: ubuntu-latest
     permissions:
       contents: write
