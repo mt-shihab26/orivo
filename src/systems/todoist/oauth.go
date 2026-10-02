@@ -111,11 +111,17 @@ func (o *OAuth) Exchange(clientID, redirectURI, code, verifier string) (Credenti
 }
 
 func (o *OAuth) Refresh(creds Credentials) (Credentials, error) {
-	return o.token(creds.ClientID, url.Values{
+	refreshed, err := o.token(creds.ClientID, url.Values{
 		"grant_type":    {"refresh_token"},
 		"client_id":     {creds.ClientID},
 		"refresh_token": {creds.RefreshToken},
 	})
+	// A refresh reply may leave the refresh token out, meaning the old one
+	// still works.
+	if err == nil && refreshed.RefreshToken == "" {
+		refreshed.RefreshToken = creds.RefreshToken
+	}
+	return refreshed, err
 }
 
 func (o *OAuth) token(clientID string, form url.Values) (Credentials, error) {

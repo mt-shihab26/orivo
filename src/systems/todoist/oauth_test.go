@@ -170,3 +170,14 @@ func TestPastedTokenNeverExpiresAndEnvironmentWins(t *testing.T) {
 		t.Fatalf("token = %q, want the environment's", token)
 	}
 }
+
+func TestRefreshKeepsTheRefreshTokenWhenNoneIsIssued(t *testing.T) {
+	oauth := fakeOAuth(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"access_token": "access-2", "expires_in": 3600}`))
+	})
+
+	creds, err := oauth.Refresh(Credentials{ClientID: "tdd_abc", AccessToken: "access-1", RefreshToken: "refresh-1"})
+	if err != nil || creds.AccessToken != "access-2" || creds.RefreshToken != "refresh-1" {
+		t.Fatalf("creds = %+v, err = %v", creds, err)
+	}
+}
