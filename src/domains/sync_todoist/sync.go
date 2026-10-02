@@ -29,6 +29,14 @@ func Run() error {
 	printTodos("Today", today, false)
 
 	fmt.Printf("Cached %d todos in %s\n", len(overdue)+len(today), config.TodoistCache())
+
+	err = todoist.PushProgress(config.TodoistAuth(), config.TodoistOutbox())
+	if errors.Is(err, todoist.ErrReadOnly) {
+		return errors.New("the Todoist sign-in can't update task descriptions; run `orivo connect-todoist` again")
+	}
+	if err != nil {
+		return fmt.Errorf("could not update session counts in Todoist: %w", err)
+	}
 	return nil
 }
 

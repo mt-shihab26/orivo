@@ -1,8 +1,10 @@
 package clock
 
 import (
+	"errors"
 	"fmt"
 	"image/color"
+	"sync/atomic"
 	"time"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -17,18 +19,24 @@ import (
 	"orivo/src/domains/root/entities/session_bar/clock/todo_label"
 	"orivo/src/systems/config"
 	"orivo/src/systems/logx"
+	"orivo/src/systems/todoist"
 )
 
-const saveEvery = 60
+const (
+	saveEvery = 60
+	flushGap  = time.Minute
+)
 
 type Clock struct {
-	cfg     config.Timer
-	fonts   *core.Fonts
-	store   *store.Store
-	history *sessions.History
-	server  *ipc.Server
-	now     func() time.Time
-	notify  func(summary, body string)
+	cfg      config.Timer
+	fonts    *core.Fonts
+	store    *store.Store
+	history  *sessions.History
+	server   *ipc.Server
+	now      func() time.Time
+	notify   func(summary, body string)
+	progress func(todoID, line string)
+	flush    func() bool
 
 	todo   *todo_label.TodoLabel
 	reduce *reduce_dialog.ReduceDialog
@@ -42,6 +50,8 @@ type Clock struct {
 	startedAt      time.Time
 	phaseStartedAt time.Time
 	sinceSave      float32
+	flushWanted    bool
+	lastFlush      time.Time
 }
 
 func New(cfg config.Timer, fonts *core.Fonts) *Clock {
@@ -50,6 +60,8 @@ func New(cfg config.Timer, fonts *core.Fonts) *Clock {
 	c.server = ipc.Serve(config.Socket())
 	notify.LoadSound()
 	c.notify = notify.Send
+	c.progress = queueProgress
+	c.flush = flushProgress
 	c.publish()
 	return c
 }
@@ -158,6 +170,11 @@ func (c *Clock) Update(dt float32) {
 		if err != nil {
 			logx.Error("failed to record session: %v", err)
 		}
+		if c.progress != nil && c.phase == phase.Work && c.todoID != "" {
+			stat := c.history.Stat(c.todoID)
+			c.progress(c.todoID, todoist.ProgressLine(stat.Sessions, stat.Secs))
+			c.flushWanted = true
+		}
 
 		switch {
 		case c.phase != phase.Work:
@@ -182,6 +199,20 @@ func (c *Clock) Update(dt float32) {
 	if c.sinceSave >= saveEvery {
 		c.sinceSave = 0
 		c.save()
+	}
+
+	// Send at once, but never sooner than flushGap after the last send, so
+	// sessions ending close together do not hammer Todoist.
+	if c.flushWanted && c.flush != nil && (c.lastFlush.IsZero() || now.Sub(c.lastFlush) >= flushGap) {
+		if c.flush() {
+			gap := "first sync"
+			if !c.lastFlush.IsZero() {
+				gap = now.Sub(c.lastFlush).Round(time.Second).String() + " since the last sync"
+			}
+			logSync("todoist: syncing session progress in the background (%s)", gap)
+			c.flushWanted = false
+			c.lastFlush = now
+		}
 	}
 
 	c.publish()
@@ -337,6 +368,36 @@ func (c *Clock) publish() {
 		status.TodoText = &text
 	}
 	c.server.Publish(status)
+}
+
+// queueProgress only writes the line to the outbox; flushProgress sends it
+// with whatever else is queued.
+func queueProgress(todoID, line string) {
+	if err := (todoist.Outbox{Path: config.TodoistOutbox()}).Add(todoID, line); err != nil {
+		logx.Error("failed to queue Todoist progress: %v", err)
+	}
+}
+
+var flushing atomic.Bool
+
+// logSync is swapped out in tests so they do not write to the real log.
+var logSync = logx.Info
+
+// flushProgress sends the outbox to Todoist in the background. It reports
+// false when the last flush is still out, so the caller tries again later;
+// what fails stays queued for the next session or sync.
+func flushProgress() bool {
+	if !flushing.CompareAndSwap(false, true) {
+		return false
+	}
+	go func() {
+		defer flushing.Store(false)
+		err := todoist.PushProgress(config.TodoistAuth(), config.TodoistOutbox())
+		if err != nil && !errors.Is(err, todoist.ErrNotConnected) {
+			logx.Warn("failed to update Todoist progress: %v", err)
+		}
+	}()
+	return true
 }
 
 func clockText(remaining time.Duration, showMillis bool) string {

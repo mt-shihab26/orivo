@@ -58,6 +58,9 @@ func syncTodoist() (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	if err := todoist.PushProgress(config.TodoistAuth(), config.TodoistOutbox()); err != nil {
+		return 0, err
+	}
 	overdue, today := todos.Split(all, time.Now())
 	return len(overdue) + len(today), nil
 }
@@ -78,6 +81,8 @@ func (l *TodoLabel) Update(dt float32) {
 			l.status = "Not connected to Todoist — run `orivo connect-todoist`"
 		case errors.Is(result.err, todoist.ErrTokenRejected):
 			l.status = "Todoist sign-in expired — run `orivo connect-todoist`"
+		case errors.Is(result.err, todoist.ErrReadOnly):
+			l.status = "Todoist sign-in is read-only — run `orivo connect-todoist`"
 		case result.err != nil:
 			l.status = "Sync failed: " + result.err.Error()
 		case result.count == 1:

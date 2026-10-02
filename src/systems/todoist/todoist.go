@@ -30,7 +30,7 @@ func NewClient(token string) *Client {
 	return &Client{
 		Token:   token,
 		BaseURL: defaultBaseURL,
-		HTTP:    &http.Client{Timeout: 20 * time.Second},
+		HTTP:    newHTTP(),
 	}
 }
 
@@ -113,6 +113,8 @@ func (c *Client) get(path string, query url.Values, out any) error {
 	switch {
 	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden:
 		return ErrTokenRejected
+	case resp.StatusCode == http.StatusNotFound:
+		return errTaskGone
 	case resp.StatusCode != http.StatusOK:
 		return fmt.Errorf("Todoist answered %s", resp.Status)
 	}
