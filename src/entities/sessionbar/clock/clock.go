@@ -9,8 +9,8 @@ import (
 
 	"github.com/mt-shihab26/orivo/src/config"
 	"github.com/mt-shihab26/orivo/src/core"
-	"github.com/mt-shihab26/orivo/src/entities/clock/reducedialog"
-	"github.com/mt-shihab26/orivo/src/entities/clock/todolabel"
+	"github.com/mt-shihab26/orivo/src/entities/sessionbar/clock/reducedialog"
+	"github.com/mt-shihab26/orivo/src/entities/sessionbar/clock/todolabel"
 	"github.com/mt-shihab26/orivo/src/systems/ipc"
 	"github.com/mt-shihab26/orivo/src/systems/logx"
 	"github.com/mt-shihab26/orivo/src/systems/notify"

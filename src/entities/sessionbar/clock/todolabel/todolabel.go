@@ -7,7 +7,7 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	"github.com/mt-shihab26/orivo/src/core"
-	"github.com/mt-shihab26/orivo/src/entities/clock/todolabel/todopicker"
+	"github.com/mt-shihab26/orivo/src/entities/sessionbar/clock/todolabel/todopicker"
 	"github.com/mt-shihab26/orivo/src/systems/sessions"
 )
 

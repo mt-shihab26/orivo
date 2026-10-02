@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mt-shihab26/orivo/src/entities/clock/todolabel/todopicker"
+	"github.com/mt-shihab26/orivo/src/entities/sessionbar/clock/todolabel/todopicker"
 	"github.com/mt-shihab26/orivo/src/systems/paths"
 	"github.com/mt-shihab26/orivo/src/systems/todoist"
 	"github.com/mt-shihab26/orivo/src/systems/todos"

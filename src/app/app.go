@@ -8,7 +8,6 @@ import (
 
 	"github.com/mt-shihab26/orivo/src/config"
 	"github.com/mt-shihab26/orivo/src/core"
-	"github.com/mt-shihab26/orivo/src/entities/clock"
 	"github.com/mt-shihab26/orivo/src/entities/hints"
 	"github.com/mt-shihab26/orivo/src/entities/sessionbar"
 	"github.com/mt-shihab26/orivo/src/entities/topbar"
@@ -34,13 +33,10 @@ func New(cfg config.Config) *App {
 		fonts: core.NewFonts(cfg.Font),
 	}
 
-	timer := clock.New(cfg.Timer, a.fonts)
-
 	a.entities = []core.Entity{
 		topbar.New(a.fonts, cfg.ShowFPS, a.Quit),
-		sessionbar.New(a.fonts, timer),
 		hints.New(a.fonts),
-		timer,
+		sessionbar.New(cfg.Timer, a.fonts),
 	}
 
 	signals.OnInterrupt(a.Quit)

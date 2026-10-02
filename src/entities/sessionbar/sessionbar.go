@@ -5,8 +5,9 @@ import (
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 
+	"github.com/mt-shihab26/orivo/src/config"
 	"github.com/mt-shihab26/orivo/src/core"
-	"github.com/mt-shihab26/orivo/src/entities/clock"
+	"github.com/mt-shihab26/orivo/src/entities/sessionbar/clock"
 )
 
 type SessionBar struct {
@@ -14,13 +15,17 @@ type SessionBar struct {
 	clock *clock.Clock
 }
 
-func New(fonts *core.Fonts, clock *clock.Clock) *SessionBar {
-	return &SessionBar{fonts: fonts, clock: clock}
+func New(cfg config.Timer, fonts *core.Fonts) *SessionBar {
+	return &SessionBar{fonts: fonts, clock: clock.New(cfg, fonts)}
 }
 
-func (b *SessionBar) Close() {}
+func (b *SessionBar) Close() {
+	b.clock.Close()
+}
 
-func (b *SessionBar) Update(dt float32) {}
+func (b *SessionBar) Update(dt float32) {
+	b.clock.Update(dt)
+}
 
 func (b *SessionBar) Draw() {
 	screen := core.CurrentScreen()
@@ -40,4 +45,6 @@ func (b *SessionBar) Draw() {
 		bar.Width = max(bar.Width*ratio, bar.Height)
 		rl.DrawRectangleRounded(bar, 1, 6, accent)
 	}
+
+	b.clock.Draw()
 }

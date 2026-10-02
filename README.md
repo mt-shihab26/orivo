@@ -132,13 +132,13 @@ An entity is something that is drawn, and each one keeps its own logic and key h
 ```
 src/entities/
 ├─ topbar/
-├─ sessionbar/
 ├─ hints/
-├─ dialog/                 the base both dialogs embed
-└─ clock/
-   ├─ todolabel/
-   │  └─ todopicker/       embeds dialog
-   └─ reducedialog/        embeds dialog
+├─ dialog/                    the base both dialogs embed
+└─ sessionbar/
+   └─ clock/
+      ├─ todolabel/
+      │  └─ todopicker/       embeds dialog
+      └─ reducedialog/        embeds dialog
 ```
 
 `Clock` is the timer: it handles Space, `r`, `n` and `m`, counts down, rolls from one phase to the next, records sessions and saves. `Dialog` is the base both dialogs embed; it owns open and closed, Esc to dismiss, and the backdrop, panel, title and hint. Keys follow the tree: a parent reads its own keys only while none of its dialogs is open, and stops updating the other branch meanwhile, so nothing behind an open dialog reacts. `src/app/app.go` only opens the window, creates the top-level entities and runs the loop.
