@@ -1,6 +1,6 @@
 # Orivo configuration
 
-show_fps = true # show the FPS counter in the TUI header on startup
+show_fps = true # show the FPS counter on startup
 
 # Pomodoro timer settings — controls session lengths and when long breaks are triggered.
 [timer]
@@ -10,7 +10,3 @@ break_duration      = 1       # short break length in minutes          (min: 1, 
 long_break_duration = 1      # long break length in minutes           (min: 1, max: 60)
 long_break_interval = 4       # work sessions before a long break      (min: 1, max: 10)
 daily_session_goal  = 16      # target work sessions to complete today (min: 1, max: 24)
-
-# `orivo sync` settings — see the Sync section below.
-[sync]
-repo_name = "Todos-dev" # name of the GitHub repo (under your account) synced with
