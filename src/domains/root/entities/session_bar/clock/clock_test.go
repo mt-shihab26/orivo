@@ -205,3 +205,27 @@ func TestOtherTodosStartTheNextPhaseFresh(t *testing.T) {
 		t.Fatalf("todo a remaining = %v, want a fresh 5m break", got)
 	}
 }
+
+func TestSkippingWorkDoesNotCountAsASession(t *testing.T) {
+	f := newFixture(t)
+
+	f.SetTodo("a", "Write report")
+	f.start()
+	f.wait(time.Minute)
+	f.skip(f.time)
+
+	if f.phase != phase.Break || !f.running || f.Remaining() != 5*time.Minute {
+		t.Fatalf("after skip: phase=%v running=%v remaining=%v", f.phase, f.running, f.Remaining())
+	}
+	if f.SessionsToday() != 0 || f.Stat("a").Sessions != 0 {
+		t.Fatalf("skip was recorded: today=%d stat=%+v", f.SessionsToday(), f.Stat("a"))
+	}
+	if len(f.notified) != 0 {
+		t.Fatalf("skip notified %v", f.notified)
+	}
+
+	f.skip(f.time)
+	if f.phase != phase.Work || f.running {
+		t.Fatalf("after skipping the break: phase=%v running=%v", f.phase, f.running)
+	}
+}

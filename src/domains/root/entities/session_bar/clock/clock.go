@@ -86,7 +86,6 @@ func (c *Clock) Close() {
 
 func (c *Clock) Update(dt float32) {
 	now := c.now()
-	ended := false
 
 	if !c.todo.DialogOpen() {
 		c.reduce.Update(dt)
@@ -122,60 +121,16 @@ func (c *Clock) Update(dt float32) {
 		c.store.Save()
 	}
 
-	if listening && rl.IsKeyPressed(rl.KeyN) {
-		ended = true
-	}
+	skipped := listening && rl.IsKeyPressed(rl.KeyN)
 
 	if listening && rl.IsKeyPressed(rl.KeyM) {
 		c.showMillis = !c.showMillis
 	}
 
 	if c.running && c.Remaining() == 0 {
-		ended = true
-	}
-
-	if ended {
-		if c.notify != nil {
-			summary, body := c.phase.EndMessage()
-			if c.todoText != "" {
-				body = c.todoText + " — " + body
-			}
-			c.notify(summary, body)
-		}
-
-		started := c.phaseStartedAt
-		if started.IsZero() {
-			started = now
-		}
-		err := c.history.Record(sessions.Session{
-			Phase:        c.phase.Key(),
-			DurationSecs: int(c.total().Seconds()),
-			StartedAt:    started,
-			EndedAt:      now,
-			TodoID:       c.todoID,
-			TodoText:     c.todoText,
-		})
-		if err != nil {
-			logx.Error("failed to record session: %v", err)
-		}
-
-		switch {
-		case c.phase != phase.Work:
-			c.phase = phase.Work
-			c.running = false
-		case c.SessionsToday()%c.cfg.Interval() == 0:
-			c.phase = phase.LongBreak
-			c.running = true
-		default:
-			c.phase = phase.Break
-			c.running = true
-		}
-
-		// Every todo's saved time belonged to the phase that just ended.
-		c.store.ClearTimers()
-		c.rewind(now)
-		c.store.SetPhase(c.phase.Name())
-		c.store.Save()
+		c.finish(now)
+	} else if skipped {
+		c.skip(now)
 	}
 
 	c.sinceSave += dt
@@ -283,6 +238,62 @@ func (c *Clock) Reduce(d time.Duration) {
 		c.startedAt = c.now()
 	}
 	c.store.SetRemaining(c.todoID, c.remaining)
+	c.store.Save()
+}
+
+func (c *Clock) finish(now time.Time) {
+	if c.notify != nil {
+		summary, body := c.phase.EndMessage()
+		if c.todoText != "" {
+			body = c.todoText + " — " + body
+		}
+		c.notify(summary, body)
+	}
+
+	started := c.phaseStartedAt
+	if started.IsZero() {
+		started = now
+	}
+	err := c.history.Record(sessions.Session{
+		Phase:        c.phase.Key(),
+		DurationSecs: int(c.total().Seconds()),
+		StartedAt:    started,
+		EndedAt:      now,
+		TodoID:       c.todoID,
+		TodoText:     c.todoText,
+	})
+	if err != nil {
+		logx.Error("failed to record session: %v", err)
+	}
+
+	switch {
+	case c.phase != phase.Work:
+		c.advance(now, phase.Work)
+	case c.SessionsToday()%c.cfg.Interval() == 0:
+		c.advance(now, phase.LongBreak)
+	default:
+		c.advance(now, phase.Break)
+	}
+}
+
+// skip moves on without recording the phase, so it never counts toward the
+// daily goal or the long break.
+func (c *Clock) skip(now time.Time) {
+	if c.phase == phase.Work {
+		c.advance(now, phase.Break)
+	} else {
+		c.advance(now, phase.Work)
+	}
+}
+
+func (c *Clock) advance(now time.Time, next phase.Phase) {
+	c.phase = next
+	c.running = next != phase.Work
+
+	// Every todo's saved time belonged to the phase that just ended.
+	c.store.ClearTimers()
+	c.rewind(now)
+	c.store.SetPhase(c.phase.Name())
 	c.store.Save()
 }
 
