@@ -70,14 +70,9 @@ func (a *App) Run() {
 }
 
 func (a *App) Update(dt float32) {
-	keys := core.ReadKeys()
-	modal := a.openModal()
+	a.input.Read()
 
 	for _, entity := range a.entities {
-		a.input.Keys = nil
-		if modal == nil || entity == modal {
-			a.input.Keys = keys
-		}
 		entity.Update(dt)
 	}
 }
@@ -92,13 +87,4 @@ func (a *App) Draw() {
 	for _, entity := range a.entities {
 		entity.Draw()
 	}
-}
-
-func (a *App) openModal() core.Entity {
-	for _, entity := range a.entities {
-		if modal, ok := entity.(core.Modal); ok && modal.IsOpen() {
-			return entity
-		}
-	}
-	return nil
 }

@@ -13,14 +13,40 @@ type Key struct {
 }
 
 type Input struct {
-	Keys []Key
+	Keys     []Key
+	owner    any
+	released bool
+}
+
+func (in *Input) Read() {
+	if in.released {
+		in.owner = nil
+		in.released = false
+	}
+	in.Keys = readKeys()
+}
+
+func (in *Input) KeysFor(entity any) []Key {
+	if in.owner != nil && in.owner != entity {
+		return nil
+	}
+	return in.Keys
+}
+
+func (in *Input) Capture(entity any) {
+	in.owner = entity
+	in.released = false
+}
+
+func (in *Input) Release() {
+	in.released = true
 }
 
 var controlKeys = []int32{
 	rl.KeyEnter, rl.KeyKpEnter, rl.KeyEscape, rl.KeyBackspace, rl.KeyUp, rl.KeyDown,
 }
 
-func ReadKeys() []Key {
+func readKeys() []Key {
 	var keys []Key
 	ctrl := rl.IsKeyDown(rl.KeyLeftControl) || rl.IsKeyDown(rl.KeyRightControl)
 

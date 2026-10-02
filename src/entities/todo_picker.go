@@ -62,38 +62,59 @@ func SplitTodos(all []todos.Todo, now time.Time) (overdue, today []todos.Todo) {
 
 func (p *TodoPicker) Close() {}
 
-func (p *TodoPicker) IsOpen() bool {
-	return p.open
-}
-
 func (p *TodoPicker) Update(dt float32) {
-	for _, key := range p.input.Keys {
+	move, picked, cancelled := 0, false, false
+
+	for _, key := range p.input.KeysFor(p) {
 		switch {
 		case !p.open:
-			if key.Ch == 't' {
-				p.show()
+			if key.Ch != 't' {
+				continue
 			}
+			all, err := todos.Cache{Path: paths.TodoistCache()}.Read()
+			overdue, today := SplitTodos(all, time.Now())
+
+			p.todos = append(overdue, today...)
+			p.overdue = len(overdue)
+			p.err = err
+			p.selectedID = p.clock.TodoID()
+			p.cursor = 0
+			p.hits = nil
+
+			for i, todo := range p.todos {
+				p.fonts.Need(todo.Text)
+				if todo.ID == p.selectedID {
+					p.cursor = i
+				}
+			}
+			if err != nil {
+				p.fonts.Need(err.Error())
+			}
+			p.open = true
+			p.input.Capture(p)
+
 		case key.Ch == 'j' || key.Code == rl.KeyDown:
-			p.move(1)
+			move++
 		case key.Ch == 'k' || key.Code == rl.KeyUp:
-			p.move(-1)
+			move--
 		case key.Code == rl.KeyEnter || key.Code == rl.KeyKpEnter:
-			p.pick()
+			picked = true
 		case key.Code == rl.KeyEscape:
-			p.open = false
+			cancelled = true
 		}
 	}
 
-	if p.open {
-		p.updateMouse()
+	if !p.open {
+		return
 	}
-}
 
-func (p *TodoPicker) updateMouse() {
 	if wheel := rl.GetMouseWheelMove(); wheel > 0 {
-		p.move(-1)
+		move--
 	} else if wheel < 0 {
-		p.move(1)
+		move++
+	}
+	if len(p.todos) > 0 {
+		p.cursor = min(max(p.cursor+move, 0), len(p.todos)-1)
 	}
 
 	if rl.IsMouseButtonPressed(rl.MouseButtonLeft) {
@@ -101,48 +122,19 @@ func (p *TodoPicker) updateMouse() {
 		for _, hit := range p.hits {
 			if rl.CheckCollisionPointRec(pos, hit.rect) {
 				p.cursor = hit.index
-				p.pick()
-				return
+				picked = true
 			}
 		}
 	}
-}
 
-func (p *TodoPicker) show() {
-	all, err := todos.Cache{Path: paths.TodoistCache()}.Read()
-	overdue, today := SplitTodos(all, time.Now())
-
-	p.todos = append(overdue, today...)
-	p.overdue = len(overdue)
-	p.err = err
-	p.selectedID = p.clock.TodoID()
-	p.cursor = 0
-	p.hits = nil
-
-	for i, todo := range p.todos {
-		p.fonts.Need(todo.Text)
-		if todo.ID == p.selectedID {
-			p.cursor = i
-		}
-	}
-	if err != nil {
-		p.fonts.Need(err.Error())
-	}
-	p.open = true
-}
-
-func (p *TodoPicker) move(delta int) {
-	if len(p.todos) > 0 {
-		p.cursor = min(max(p.cursor+delta, 0), len(p.todos)-1)
-	}
-}
-
-func (p *TodoPicker) pick() {
-	if len(p.todos) > 0 {
+	if picked && len(p.todos) > 0 {
 		todo := p.todos[p.cursor]
 		p.clock.SetTodo(todo.ID, todo.Text)
 	}
-	p.open = false
+	if picked || cancelled {
+		p.open = false
+		p.input.Release()
+	}
 }
 
 func (p *TodoPicker) rows() []pickerRow {

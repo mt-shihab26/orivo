@@ -127,7 +127,7 @@ type Entity interface {
 }
 ```
 
-An entity is something that is drawn, and each one keeps its own logic and key handling in its `Update`. `Clock` is the timer: it handles Space, `r`, `n` and `m`, counts down, rolls from one phase to the next, records sessions and saves. The todo picker and the reduce dialog handle their own keys and act on the clock. `src/app/app.go` only opens the window, creates the entities with what each one needs (the fonts, the key input, the clock, a config value), runs the loop, and decides which entity gets the keyboard each frame.
+An entity is something that is drawn, and each one keeps its own logic and key handling in its `Update`. `Clock` is the timer: it handles Space, `r`, `n` and `m`, counts down, rolls from one phase to the next, records sessions and saves. The todo picker and the reduce dialog handle their own keys and act on the clock; while one is open it captures the keyboard, so the others receive no keys. `src/app/app.go` only opens the window, creates the entities with what each one needs (the fonts, the key input, the clock, a config value) and runs the loop.
 
 The packages under `src/systems` are helpers the entities call: the phase names, durations and colors, the session history, the store, the todo cache, the Todoist client, the status socket, notifications and signal handling.
 

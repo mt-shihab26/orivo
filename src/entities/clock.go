@@ -77,21 +77,99 @@ func (c *Clock) Close() {
 }
 
 func (c *Clock) Update(dt float32) {
-	for _, key := range c.input.Keys {
+	now := c.now()
+	ended := false
+
+	for _, key := range c.input.KeysFor(c) {
 		switch key.Ch {
 		case ' ':
-			c.toggle()
+			if c.running {
+				c.remaining = c.Remaining()
+				c.startedAt = time.Time{}
+				c.running = false
+				c.store.SetRemaining(c.todoID, c.remaining)
+				c.store.Save()
+				continue
+			}
+			if c.phaseStartedAt.IsZero() {
+				c.phaseStartedAt = now
+				c.store.SetPhaseStartedAt(c.todoID, now)
+				c.store.Save()
+			}
+			c.startedAt = now
+			c.running = true
+
 		case 'r':
-			c.reset()
+			c.remaining = c.total()
+			c.startedAt = time.Time{}
+			c.phaseStartedAt = time.Time{}
+			c.running = false
+			c.store.ClearRemaining(c.todoID)
+			c.store.ClearPhaseStartedAt(c.todoID)
+			c.store.Save()
+
 		case 'n':
-			c.advance()
+			ended = true
+
 		case 'm':
 			c.showMillis = !c.showMillis
 		}
 	}
 
 	if c.running && c.Remaining() == 0 {
-		c.advance()
+		ended = true
+	}
+
+	if ended {
+		if c.notify != nil {
+			summary, body := c.phase.EndMessage()
+			if c.todoText != "" {
+				body = c.todoText + " — " + body
+			}
+			c.notify(summary, body)
+		}
+
+		started := c.phaseStartedAt
+		if started.IsZero() {
+			started = now
+		}
+		err := c.history.Record(sessions.Session{
+			Phase:        c.phase.Key(),
+			DurationSecs: int(c.total().Seconds()),
+			StartedAt:    started,
+			EndedAt:      now,
+			TodoID:       c.todoID,
+			TodoText:     c.todoText,
+		})
+		if err != nil {
+			logx.Error("failed to record session: %v", err)
+		}
+
+		switch {
+		case c.phase != phase.Work:
+			c.phase = phase.Work
+			c.running = false
+		case c.SessionsToday()%c.cfg.Interval() == 0:
+			c.phase = phase.LongBreak
+			c.running = true
+		default:
+			c.phase = phase.Break
+			c.running = true
+		}
+
+		c.remaining = c.total()
+		c.startedAt = time.Time{}
+		c.phaseStartedAt = time.Time{}
+		c.store.ClearPhaseStartedAt(c.todoID)
+		if c.running {
+			c.startedAt = now
+			c.phaseStartedAt = now
+			c.store.SetPhaseStartedAt(c.todoID, now)
+		}
+
+		c.store.ClearRemaining(c.todoID)
+		c.store.SetPhase(c.phase.Name())
+		c.store.Save()
 	}
 
 	c.sinceSave += dt
@@ -201,93 +279,6 @@ func (c *Clock) Reduce(d time.Duration) {
 
 func (c *Clock) total() time.Duration {
 	return c.phase.Duration(c.cfg)
-}
-
-func (c *Clock) toggle() {
-	if c.running {
-		c.remaining = c.Remaining()
-		c.startedAt = time.Time{}
-		c.running = false
-		c.store.SetRemaining(c.todoID, c.remaining)
-		c.store.Save()
-		return
-	}
-
-	if c.phaseStartedAt.IsZero() {
-		c.phaseStartedAt = c.now()
-		c.store.SetPhaseStartedAt(c.todoID, c.phaseStartedAt)
-		c.store.Save()
-	}
-	c.startedAt = c.now()
-	c.running = true
-}
-
-func (c *Clock) reset() {
-	c.remaining = c.total()
-	c.startedAt = time.Time{}
-	c.phaseStartedAt = time.Time{}
-	c.running = false
-	c.store.ClearRemaining(c.todoID)
-	c.store.ClearPhaseStartedAt(c.todoID)
-	c.store.Save()
-}
-
-func (c *Clock) advance() {
-	c.announce()
-
-	now := c.now()
-	started := c.phaseStartedAt
-	if started.IsZero() {
-		started = now
-	}
-	c.store.ClearPhaseStartedAt(c.todoID)
-
-	err := c.history.Record(sessions.Session{
-		Phase:        c.phase.Key(),
-		DurationSecs: int(c.total().Seconds()),
-		StartedAt:    started,
-		EndedAt:      now,
-		TodoID:       c.todoID,
-		TodoText:     c.todoText,
-	})
-	if err != nil {
-		logx.Error("failed to record session: %v", err)
-	}
-
-	if c.phase == phase.Work {
-		c.phase = phase.Break
-		if c.SessionsToday()%c.cfg.Interval() == 0 {
-			c.phase = phase.LongBreak
-		}
-		c.running = true
-	} else {
-		c.phase = phase.Work
-		c.running = false
-	}
-
-	c.remaining = c.total()
-	c.startedAt = time.Time{}
-	c.phaseStartedAt = time.Time{}
-	if c.running {
-		c.startedAt = now
-		c.phaseStartedAt = now
-		c.store.SetPhaseStartedAt(c.todoID, now)
-	}
-
-	c.store.ClearRemaining(c.todoID)
-	c.store.SetPhase(c.phase.Name())
-	c.store.Save()
-}
-
-func (c *Clock) announce() {
-	if c.notify == nil {
-		return
-	}
-	summary, body := c.phase.EndMessage()
-	if c.todoText != "" {
-		body = c.todoText + " — " + body
-	}
-	c.notify(summary, body)
 }
 
 func (c *Clock) stash() {

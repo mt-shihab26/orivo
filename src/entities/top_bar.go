@@ -22,7 +22,7 @@ func NewTopBar(input *core.Input, fonts *core.Fonts, showFPS bool, quit func()) 
 func (t *TopBar) Close() {}
 
 func (t *TopBar) Update(dt float32) {
-	for _, key := range t.input.Keys {
+	for _, key := range t.input.KeysFor(t) {
 		switch {
 		case key.Ctrl && (key.Code == rl.KeyQ || key.Code == rl.KeyC):
 			t.quit()

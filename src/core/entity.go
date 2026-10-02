@@ -5,8 +5,3 @@ type Entity interface {
 	Update(dt float32)
 	Draw()
 }
-
-type Modal interface {
-	Entity
-	IsOpen() bool
-}

@@ -22,46 +22,45 @@ func NewReduceDialog(input *core.Input, fonts *core.Fonts, clock *Clock) *Reduce
 
 func (d *ReduceDialog) Close() {}
 
-func (d *ReduceDialog) IsOpen() bool {
-	return d.open
-}
-
 func (d *ReduceDialog) Update(dt float32) {
-	for _, key := range d.input.Keys {
+	for _, key := range d.input.KeysFor(d) {
 		switch {
 		case !d.open:
 			if key.Ch == 'd' {
 				d.open = true
 				d.digits = nil
+				d.input.Capture(d)
 			}
+
 		case key.Ch >= '0' && key.Ch <= '9':
 			digit := int(key.Ch - '0')
 			if len(d.digits) < 4 && (len(d.digits) != 2 || digit <= 5) {
 				d.digits = append(d.digits, digit)
 			}
+
 		case key.Code == rl.KeyBackspace:
 			if len(d.digits) > 0 {
 				d.digits = d.digits[:len(d.digits)-1]
 			}
+
 		case key.Code == rl.KeyEnter || key.Code == rl.KeyKpEnter:
 			if len(d.digits) > 0 {
-				d.clock.Reduce(d.amount())
+				padded := [4]time.Duration{}
+				for i, digit := range d.digits {
+					padded[i] = time.Duration(digit)
+				}
+				minutes := padded[0]*10 + padded[1]
+				seconds := padded[2]*10 + padded[3]
+				d.clock.Reduce(minutes*time.Minute + seconds*time.Second)
 			}
 			d.open = false
+			d.input.Release()
+
 		case key.Code == rl.KeyEscape:
 			d.open = false
+			d.input.Release()
 		}
 	}
-}
-
-func (d *ReduceDialog) amount() time.Duration {
-	digit := func(i int) time.Duration {
-		if i < len(d.digits) {
-			return time.Duration(d.digits[i])
-		}
-		return 0
-	}
-	return (digit(0)*10+digit(1))*time.Minute + (digit(2)*10+digit(3))*time.Second
 }
 
 func (d *ReduceDialog) Draw() {

@@ -20,7 +20,7 @@ func NewTodoLabel(input *core.Input, fonts *core.Fonts, clock *Clock) *TodoLabel
 func (l *TodoLabel) Close() {}
 
 func (l *TodoLabel) Update(dt float32) {
-	for _, key := range l.input.Keys {
+	for _, key := range l.input.KeysFor(l) {
 		if key.Ch == 'T' {
 			l.clock.SetTodo("", "")
 		}
