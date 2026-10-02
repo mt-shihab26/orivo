@@ -23,7 +23,6 @@ func (c *Root) Run(args []string) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", paths.Config(), err)
 	}
-
 	a := app.New(cfg)
 	defer a.Close()
 	a.Run()

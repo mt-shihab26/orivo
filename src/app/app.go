@@ -34,7 +34,6 @@ func New(cfg config.Config) *App {
 		world: world,
 		entities: []core.Entity{
 			pomodoro,
-			entities.NewBell(world, pomodoro),
 			entities.NewTopBar(world),
 			entities.NewSessionBar(world, pomodoro),
 			entities.NewClock(world, pomodoro),

@@ -8,6 +8,7 @@ import (
 	"github.com/mt-shihab26/orivo/src/core"
 	"github.com/mt-shihab26/orivo/src/systems/ipc"
 	"github.com/mt-shihab26/orivo/src/systems/logx"
+	"github.com/mt-shihab26/orivo/src/systems/notify"
 	"github.com/mt-shihab26/orivo/src/systems/paths"
 	"github.com/mt-shihab26/orivo/src/systems/sessions"
 	"github.com/mt-shihab26/orivo/src/systems/store"
@@ -119,6 +120,8 @@ type Pomodoro struct {
 func NewPomodoro(world *core.World) *Pomodoro {
 	p := newPomodoro(world, paths.Store(), paths.Sessions())
 	p.server = ipc.Serve(paths.Socket())
+	notify.LoadSound()
+	p.OnPhaseEnd = notify.Send
 	p.publish()
 	return p
 }
@@ -150,6 +153,7 @@ func newPomodoro(world *core.World, storePath, sessionsPath string) *Pomodoro {
 }
 
 func (p *Pomodoro) Close() {
+	notify.UnloadSound()
 	p.save()
 }
 
