@@ -1,5 +1,3 @@
-// Package sessions records completed timer sessions and answers the few
-// questions the timer asks about them.
 package sessions
 
 import (
@@ -21,27 +19,21 @@ type Session struct {
 	StartedAt    time.Time `json:"started_at"`
 	EndedAt      time.Time `json:"ended_at"`
 	TodoID       string    `json:"todo_id,omitempty"`
-	// TodoText is a snapshot, so history stays readable after the todo is
-	// completed or deleted in Todoist.
-	TodoText string `json:"todo_text,omitempty"`
+	TodoText     string    `json:"todo_text,omitempty"`
 }
 
-// Stat aggregates the completed work sessions of one todo.
 type Stat struct {
 	Sessions int
 	Secs     int
 }
 
-// Log is an append-only JSON-lines file of sessions, indexed in memory.
 type Log struct {
 	mu    sync.Mutex
 	path  string
 	stats map[string]Stat
-	// Completed work sessions per local day (YYYY-MM-DD).
-	days map[string]int
+	days  map[string]int
 }
 
-// Open reads the log at path; a missing file is an empty log.
 func Open(path string) (*Log, error) {
 	l := &Log{path: path, stats: map[string]Stat{}, days: map[string]int{}}
 
@@ -58,7 +50,6 @@ func Open(path string) (*Log, error) {
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for scanner.Scan() {
 		var s Session
-		// A torn or hand-edited line should not cost the rest of the history.
 		if json.Unmarshal(scanner.Bytes(), &s) == nil {
 			l.index(s)
 		}
@@ -66,7 +57,6 @@ func Open(path string) (*Log, error) {
 	return l, scanner.Err()
 }
 
-// Record appends a session to the log.
 func (l *Log) Record(s Session) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -92,14 +82,12 @@ func (l *Log) Record(s Session) error {
 	return err
 }
 
-// CountToday returns the number of work sessions that ended on now's local day.
 func (l *Log) CountToday(now time.Time) int {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return l.days[day(now)]
 }
 
-// Stat returns the work session totals for the given todo.
 func (l *Log) Stat(todoID string) Stat {
 	l.mu.Lock()
 	defer l.mu.Unlock()

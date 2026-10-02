@@ -1,5 +1,3 @@
-// orivo is a Pomodoro timer in a raylib window. The first argument selects a
-// command; with none, the timer window opens.
 package main
 
 import (
@@ -9,7 +7,9 @@ import (
 	"slices"
 	"syscall"
 
+	"github.com/mt-shihab26/orivo/src/app"
 	"github.com/mt-shihab26/orivo/src/config"
+	"github.com/mt-shihab26/orivo/src/core"
 	"github.com/mt-shihab26/orivo/src/ipc"
 	"github.com/mt-shihab26/orivo/src/logx"
 	"github.com/mt-shihab26/orivo/src/paths"
@@ -17,10 +17,8 @@ import (
 	"github.com/mt-shihab26/orivo/src/store"
 	"github.com/mt-shihab26/orivo/src/timer"
 	"github.com/mt-shihab26/orivo/src/todos"
-	"github.com/mt-shihab26/orivo/src/ui"
 )
 
-// version is set at build time with -ldflags "-X main.version=...".
 var version = "dev"
 
 const usage = `Usage: orivo [--dev] [command]
@@ -73,25 +71,24 @@ func run() error {
 		logx.Error("failed to read %s: %v", paths.Sessions(), err)
 	}
 
-	state := timer.New(cfg.Timer, store.Load(paths.Store()), log)
-	// Whatever way the window goes away, keep the time that was left.
-	defer state.Save()
+	world := &core.World{
+		Config:   cfg,
+		Timer:    timer.New(cfg.Timer, store.Load(paths.Store()), log),
+		Todos:    todos.FileCache{Path: paths.TodoistCache()},
+		Sessions: log,
+	}
 
-	stop := make(chan struct{})
-	defer close(stop)
-	go state.Run(stop)
-
-	ipc.Serve(paths.Socket(), state)
-
-	app := ui.New(cfg, state, todos.FileCache{Path: paths.TodoistCache()}, log)
+	ipc.Serve(paths.Socket(), world.Timer)
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-signals
-		app.Quit()
+		world.Quit()
 	}()
 
-	app.Run()
+	a := app.New(world)
+	defer a.Close()
+	a.Run()
 	return nil
 }

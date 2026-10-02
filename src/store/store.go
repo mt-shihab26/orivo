@@ -1,4 +1,3 @@
-// Package store persists the timer's runtime state across restarts.
 package store
 
 import (
@@ -11,21 +10,16 @@ import (
 	"github.com/mt-shihab26/orivo/src/phase"
 )
 
-// version marks files written by this app. Files without it come from the
-// old terminal app, whose todo ids referred to its own database.
 const version = 2
 
-// noTodo keys the per-todo maps when no todo is selected.
 const noTodo = "none"
 
 type data struct {
-	Version  int         `json:"version"`
-	TodoID   *string     `json:"timer_todo_id"`
-	TodoText string      `json:"timer_todo_text,omitempty"`
-	Phase    phase.Phase `json:"timer_cycle_phase"`
-	// Remaining milliseconds per todo id.
-	Remaining map[string]int64 `json:"timer_remaining_millis"`
-	// When the current phase was first started, per todo id.
+	Version        int                  `json:"version"`
+	TodoID         *string              `json:"timer_todo_id"`
+	TodoText       string               `json:"timer_todo_text,omitempty"`
+	Phase          phase.Phase          `json:"timer_cycle_phase"`
+	Remaining      map[string]int64     `json:"timer_remaining_millis"`
 	PhaseStartedAt map[string]time.Time `json:"timer_phase_started_at"`
 }
 
@@ -34,8 +28,6 @@ type Store struct {
 	data data
 }
 
-// Load reads the store at path, returning an empty one if the file is
-// missing or unreadable.
 func Load(path string) *Store {
 	s := &Store{path: path, data: empty()}
 
@@ -79,8 +71,6 @@ func empty() data {
 	}
 }
 
-// legacy carries over what still means something from a store written by the
-// terminal app: the phase and the time left with no todo selected.
 func legacy(raw []byte) data {
 	d := empty()
 
@@ -98,7 +88,6 @@ func legacy(raw []byte) data {
 	return d
 }
 
-// Save writes the store to disk, replacing the file atomically.
 func (s *Store) Save() {
 	raw, err := json.Marshal(s.data)
 	if err != nil {
@@ -117,7 +106,6 @@ func (s *Store) Save() {
 	}
 }
 
-// Todo returns the selected todo's id and text; the id is empty when none is.
 func (s *Store) Todo() (id, text string) {
 	if s.data.TodoID == nil {
 		return "", ""
@@ -162,7 +150,6 @@ func (s *Store) PhaseStartedAt(todoID string) (time.Time, bool) {
 }
 
 func (s *Store) SetPhaseStartedAt(todoID string, t time.Time) {
-	// Round drops the monotonic reading, which has no meaning once persisted.
 	s.data.PhaseStartedAt[key(todoID)] = t.Round(0)
 }
 

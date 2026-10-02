@@ -35,8 +35,6 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
-// A store left behind by the terminal app refers to todos from its own
-// database; only the phase and the no-todo time carry over.
 func TestLegacyStoreKeepsPhaseAndDropsOldTodos(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "store.json")
 	old := `{"timer_todo_id":49,"timer_cycle_phase":"Break",

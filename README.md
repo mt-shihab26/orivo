@@ -95,6 +95,20 @@ Runtime state lives under `~/.local/state/orivo/`:
 - `orivo.sock` → Unix socket that answers each connection with one JSON line describing the live timer (phase, running, remaining time, todo, sessions today), for bar widgets such as [omarchy-orivo-plugin](https://github.com/mt-shihab26/omarchy-orivo-plugin)
 - `orivo.log` → warnings and errors
 
+## Structure
+
+The window is built like a game: `src/app` runs the loop, and everything in it is an entity from `src/entities` (the clock, the session bar, the todo picker, …). Every entity is created by its `New` function and implements the same three methods, defined in `src/core`:
+
+```go
+type Entity interface {
+	Close()
+	Update(dt float32)
+	Draw()
+}
+```
+
+Entities share a `core.World`, which holds the timer, the todo source and the state of the current frame. The remaining packages under `src/` are the data behind it: the timer state machine, the store, the session log and the Todoist cache.
+
 ## Development
 
 ```sh

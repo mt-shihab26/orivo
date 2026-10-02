@@ -1,4 +1,3 @@
-// Package logx appends timestamped lines to the app log file.
 package logx
 
 import (
@@ -11,7 +10,6 @@ import (
 	"github.com/mt-shihab26/orivo/src/paths"
 )
 
-// maxBytes is the size at which the log is rotated.
 const maxBytes = 5 * 1024 * 1024
 
 var mu sync.Mutex
@@ -27,8 +25,6 @@ func write(level, format string, args ...any) {
 	path := paths.Log()
 	_ = os.MkdirAll(filepath.Dir(path), 0o700)
 
-	// Keep one previous log around, so rotating never loses the most recent
-	// history outright.
 	if info, err := os.Stat(path); err == nil && info.Size() >= maxBytes {
 		_ = os.Rename(path, path+".1")
 	}

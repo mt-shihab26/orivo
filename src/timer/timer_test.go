@@ -11,12 +11,10 @@ import (
 	"github.com/mt-shihab26/orivo/src/store"
 )
 
-// fixture is a timer on a hand-wound clock, backed by files in a temp dir.
 type fixture struct {
 	*State
-	dir   string
-	clock time.Time
-	// Notification summaries, in the order they were sent.
+	dir      string
+	clock    time.Time
 	notified []string
 }
 
@@ -27,7 +25,6 @@ func newFixture(t *testing.T) *fixture {
 	return f
 }
 
-// open (re)creates the timer from what is on disk, as a restart would.
 func (f *fixture) open(t *testing.T) {
 	t.Helper()
 	log, err := sessions.Open(filepath.Join(f.dir, "sessions.jsonl"))
@@ -99,12 +96,12 @@ func TestWorkRollsIntoBreakThenWaitsForWork(t *testing.T) {
 func TestLongBreakFollowsEveryIntervalOfWork(t *testing.T) {
 	f := newFixture(t)
 
-	f.Skip() // work 1 -> break
+	f.Skip()
 	if got := f.Snapshot().Phase; got != phase.Break {
 		t.Fatalf("after 1 session: %v", got)
 	}
-	f.Skip() // break -> work
-	f.Skip() // work 2 -> long break
+	f.Skip()
+	f.Skip()
 	if got := f.Snapshot().Phase; got != phase.LongBreak {
 		t.Fatalf("after 2 sessions: %v", got)
 	}
@@ -161,7 +158,7 @@ func TestStateSurvivesRestart(t *testing.T) {
 
 	f.SetTodo("a", "Write report")
 	f.Toggle()
-	f.wait(25 * time.Minute) // into the break
+	f.wait(25 * time.Minute)
 	f.wait(2 * time.Minute)
 	f.Save()
 

@@ -1,4 +1,3 @@
-// Package phase defines the phases of the pomodoro cycle.
 package phase
 
 import (
@@ -13,7 +12,6 @@ type Phase int
 const (
 	Work Phase = iota
 	Break
-	// LongBreak is the longer rest after a full interval of work sessions.
 	LongBreak
 )
 
@@ -28,7 +26,6 @@ func (p Phase) Label() string {
 	}
 }
 
-// Key is the identifier used in the session log and over IPC.
 func (p Phase) Key() string {
 	switch p {
 	case Break:
@@ -40,7 +37,6 @@ func (p Phase) Key() string {
 	}
 }
 
-// Duration is the configured length of the phase.
 func (p Phase) Duration(cfg config.Timer) time.Duration {
 	switch p {
 	case Break:
@@ -52,8 +48,6 @@ func (p Phase) Duration(cfg config.Timer) time.Duration {
 	}
 }
 
-// MarshalText writes the name store.json has always used for the phase, which
-// external readers of that file (e.g. the bar widget) depend on.
 func (p Phase) MarshalText() ([]byte, error) {
 	switch p {
 	case Break:
