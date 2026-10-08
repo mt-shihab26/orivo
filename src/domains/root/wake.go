@@ -17,16 +17,28 @@ static void disableLibdecor(void) {
 */
 import "C"
 
-import "sync/atomic"
+import "sync"
 
-// Set while the window is open; posting an event before or after that
-// would reach a GLFW that is not running.
-var windowOpen atomic.Bool
+// Posting an event before the window opens or after it closes would reach a
+// GLFW that is not running. The lock makes closing wait for a post already
+// under way, so none slips in between the check and the call.
+var (
+	glfw       sync.Mutex
+	windowOpen bool
+)
 
 func wake() {
-	if windowOpen.Load() {
+	glfw.Lock()
+	defer glfw.Unlock()
+	if windowOpen {
 		C.glfwPostEmptyEvent()
 	}
+}
+
+func setWindowOpen(open bool) {
+	glfw.Lock()
+	defer glfw.Unlock()
+	windowOpen = open
 }
 
 // disableLibdecor keeps GLFW from loading libdecor, whose GTK plugin takes

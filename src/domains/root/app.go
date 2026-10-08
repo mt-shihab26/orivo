@@ -46,7 +46,7 @@ func New(cfg config.Config) *App {
 	rl.SetExitKey(0)
 	// PollInputEvents and EndDrawing wait for input; wake ends the wait early.
 	rl.EnableEventWaiting()
-	windowOpen.Store(true)
+	setWindowOpen(true)
 	core.Wake = wake
 
 	a := &App{
@@ -93,7 +93,7 @@ func (a *App) Close() {
 		entity.Close()
 	}
 	a.fonts.Close()
-	windowOpen.Store(false)
+	setWindowOpen(false)
 	rl.CloseWindow()
 }
 
