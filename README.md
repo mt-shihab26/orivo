@@ -157,7 +157,7 @@ $ orivo sync-todoist      # fetches, caches and prints the todos labelled Work t
 2026-10-02	6X7rM8997g3RQmvh	Write the quarterly report
 ```
 
-The picker (`t`) reads that file and lists the todos in two sections, **Overdue** and **Today**. Pressing `s` in the window runs the same sync in the background, so the picker shows whatever the last sync fetched, from either place.
+The picker (`t`) reads that file and lists the todos in two sections, **Overdue** and **Today**, below a **None** row that clears the selected todo. Pressing `s` in the window runs the same sync in the background, so the picker shows whatever the last sync fetched, from either place.
 
 When a work session on a todo ends, orivo puts today's session count and minutes in brackets at the end of that task's title in Todoist, and replaces them on the next session instead of adding more. It uses the title because a recurring task loses its description when completed. The counts come only from orivo's own session files and start from zero each day, so the first session on a new day overwrites whatever a recurring task carried over from the day before, and the brackets are stripped from the titles orivo syncs down. A sync also clears the brackets from every due task with no session today, so a recurring task completed yesterday, or one you have not started yet today, does not show an old count. A sentence older versions left in the description is cleared out on the next update:
 
