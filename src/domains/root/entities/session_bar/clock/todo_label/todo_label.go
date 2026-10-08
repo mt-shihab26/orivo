@@ -119,6 +119,7 @@ func (l *TodoLabel) Update(dt float32) {
 		go func() {
 			count, err := l.sync()
 			l.results <- syncResult{count: count, err: err}
+			core.Wake()
 		}()
 	}
 }

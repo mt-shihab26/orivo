@@ -2,6 +2,7 @@ package session_bar
 
 import (
 	"fmt"
+	"time"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 
@@ -51,4 +52,8 @@ func (b *SessionBar) Draw() {
 
 func (b *SessionBar) Changed() bool {
 	return b.clock.Changed()
+}
+
+func (b *SessionBar) Next() time.Duration {
+	return b.clock.Next()
 }

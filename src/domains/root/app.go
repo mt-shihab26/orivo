@@ -19,10 +19,7 @@ import (
 	"orivo/src/systems/theme"
 )
 
-const (
-	frame     = time.Second / 60
-	heartbeat = time.Second
-)
+const heartbeat = time.Second
 
 type App struct {
 	fonts    *core.Fonts
@@ -38,12 +35,19 @@ type App struct {
 
 func New(cfg config.Config) *App {
 	rl.SetTraceLogLevel(rl.LogWarning)
+	// Hyprland draws no title bars, so libdecor would only cost time and memory.
+	if os.Getenv("HYPRLAND_INSTANCE_SIGNATURE") != "" {
+		disableLibdecor()
+	}
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagMsaa4xHint)
 	rl.InitWindow(core.BaseWidth, core.BaseHeight, "Orivo")
 	rl.SetWindowMinSize(420, 360)
 	rl.SetTargetFPS(60)
 	rl.SetExitKey(0)
-	rl.InitAudioDevice()
+	// PollInputEvents and EndDrawing wait for input; wake ends the wait early.
+	rl.EnableEventWaiting()
+	windowOpen.Store(true)
+	core.Wake = wake
 
 	a := &App{
 		fonts: core.NewFonts(cfg.Font),
@@ -89,18 +93,19 @@ func (a *App) Close() {
 		entity.Close()
 	}
 	a.fonts.Close()
-	rl.CloseAudioDevice()
+	windowOpen.Store(false)
 	rl.CloseWindow()
 }
 
 func (a *App) Quit() {
 	a.quit.Store(true)
+	wake()
 }
 
-// Run updates 60 times a second but draws only when something on screen may
+// Run sleeps until there is input, until an entity is due to change on its
+// own, or for a second at most, and draws only when something on screen may
 // have changed: on input, when an entity says it changed, and at least once
-// a second for anything else. A paused timer then costs a fraction of the
-// CPU it took to draw every frame.
+// a second for anything else. A paused timer then costs almost no CPU.
 func (a *App) Run() {
 	last := time.Now()
 	var drawn time.Time
@@ -112,17 +117,32 @@ func (a *App) Run() {
 			a.fps, a.draws, a.second = a.draws, 0, now
 		}
 
+		alarm := time.AfterFunc(a.next(), wake)
 		if a.dirty || input() || a.changed() || now.Sub(drawn) >= heartbeat {
-			// EndDrawing polls the input and waits out the rest of the frame.
+			// EndDrawing waits out the rest of the frame, then for input.
 			a.Draw()
 			a.dirty = false
 			drawn = now
 			a.draws++
-			continue
+		} else {
+			rl.PollInputEvents()
 		}
-		time.Sleep(frame)
-		rl.PollInputEvents()
+		alarm.Stop()
 	}
+}
+
+// next returns how long the window may wait for input: until the soonest
+// entity is due to change, and never longer than a second.
+func (a *App) next() time.Duration {
+	wait := heartbeat
+	for _, entity := range a.entities {
+		if t, ok := entity.(core.Ticker); ok {
+			if next := t.Next(); next > 0 {
+				wait = min(wait, next)
+			}
+		}
+	}
+	return wait
 }
 
 func (a *App) changed() bool {
