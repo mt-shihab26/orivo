@@ -12,10 +12,12 @@ type TopBar struct {
 	fonts   *core.Fonts
 	quit    func()
 	showFPS bool
+	fps     func() int
+	drawn   int
 }
 
-func New(fonts *core.Fonts, showFPS bool, quit func()) *TopBar {
-	return &TopBar{fonts: fonts, quit: quit, showFPS: showFPS}
+func New(fonts *core.Fonts, showFPS bool, fps func() int, quit func()) *TopBar {
+	return &TopBar{fonts: fonts, quit: quit, showFPS: showFPS, fps: fps}
 }
 
 func (t *TopBar) Close() {}
@@ -39,7 +41,13 @@ func (t *TopBar) Draw() {
 
 	small.Draw("^q quit   ^f fps", 14*s, 12*s, core.ColorDim)
 	if t.showFPS {
-		fps := fmt.Sprintf("%d fps", rl.GetFPS())
+		t.drawn = t.fps()
+		fps := fmt.Sprintf("%d fps", t.drawn)
 		small.Draw(fps, screen.Width-14*s-small.Width(fps), 12*s, core.ColorDim)
 	}
+}
+
+// Changed redraws the shown FPS when the count changes.
+func (t *TopBar) Changed() bool {
+	return t.showFPS && t.fps() != t.drawn
 }

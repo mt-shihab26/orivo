@@ -52,6 +52,7 @@ type Clock struct {
 	sinceSave      float32
 	flushWanted    bool
 	lastFlush      time.Time
+	drawnText      string
 }
 
 func New(cfg config.Timer, fonts *core.Fonts) *Clock {
@@ -238,6 +239,7 @@ func (c *Clock) Draw() {
 	}
 
 	text := clockText(remaining, c.showMillis)
+	c.drawnText = text
 	inner := (radius - thickness) * 2 * 0.76
 	fonts.EnsureClock(min(inner/(0.6*float32(len(text))), radius*0.62))
 
@@ -407,4 +409,10 @@ func clockText(remaining time.Duration, showMillis bool) string {
 	}
 	secs := int64((remaining + time.Second - 1) / time.Second)
 	return fmt.Sprintf("%02d:%02d", secs/60, secs%60)
+}
+
+// Changed reports whether the clock looks different from its last Draw: a
+// running timer once a second, or every frame while it shows milliseconds.
+func (c *Clock) Changed() bool {
+	return clockText(c.Remaining(), c.showMillis) != c.drawnText || c.todo.Changed()
 }

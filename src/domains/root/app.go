@@ -6,6 +6,7 @@ import (
 	"slices"
 	"sync/atomic"
 	"syscall"
+	"time"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 
@@ -18,11 +19,21 @@ import (
 	"orivo/src/systems/theme"
 )
 
+const (
+	frame     = time.Second / 60
+	heartbeat = time.Second
+)
+
 type App struct {
 	fonts    *core.Fonts
 	entities []core.Entity
 	quit     atomic.Bool
 	themes   *theme.Watcher
+	dirty    bool
+
+	// Frames drawn in the last full second, and so far in this one.
+	fps, draws int
+	second     time.Time
 }
 
 func New(cfg config.Config) *App {
@@ -40,7 +51,7 @@ func New(cfg config.Config) *App {
 	a.loadTheme()
 
 	a.entities = []core.Entity{
-		top_bar.New(a.fonts, cfg.ShowFPS, a.Quit),
+		top_bar.New(a.fonts, cfg.ShowFPS, a.FPS, a.Quit),
 		hints.New(a.fonts),
 		session_bar.New(cfg.Timer, a.fonts),
 	}
@@ -86,11 +97,63 @@ func (a *App) Quit() {
 	a.quit.Store(true)
 }
 
+// Run updates 60 times a second but draws only when something on screen may
+// have changed: on input, when an entity says it changed, and at least once
+// a second for anything else. A paused timer then costs a fraction of the
+// CPU it took to draw every frame.
 func (a *App) Run() {
+	last := time.Now()
+	var drawn time.Time
 	for !rl.WindowShouldClose() && !a.quit.Load() {
-		a.Update(rl.GetFrameTime())
-		a.Draw()
+		now := time.Now()
+		a.Update(float32(now.Sub(last).Seconds()))
+		last = now
+		if now.Sub(a.second) >= time.Second {
+			a.fps, a.draws, a.second = a.draws, 0, now
+		}
+
+		if a.dirty || input() || a.changed() || now.Sub(drawn) >= heartbeat {
+			// EndDrawing polls the input and waits out the rest of the frame.
+			a.Draw()
+			a.dirty = false
+			drawn = now
+			a.draws++
+			continue
+		}
+		time.Sleep(frame)
+		rl.PollInputEvents()
 	}
+}
+
+func (a *App) changed() bool {
+	for _, entity := range a.entities {
+		if c, ok := entity.(core.Changer); ok && c.Changed() {
+			return true
+		}
+	}
+	return false
+}
+
+// input reports whether a key, mouse or window event came in since the last
+// poll. Keys held down count too, so repeats redraw.
+func input() bool {
+	if rl.IsWindowResized() || rl.GetKeyPressed() != 0 || rl.GetMouseWheelMove() != 0 {
+		return true
+	}
+	if delta := rl.GetMouseDelta(); delta.X != 0 || delta.Y != 0 {
+		return true
+	}
+	for button := rl.MouseButtonLeft; button <= rl.MouseButtonBack; button++ {
+		if rl.IsMouseButtonDown(button) || rl.IsMouseButtonReleased(button) {
+			return true
+		}
+	}
+	for key := int32(rl.KeySpace); key <= rl.KeyKbMenu; key++ {
+		if rl.IsKeyDown(key) || rl.IsKeyReleased(key) {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *App) Update(dt float32) {
@@ -98,6 +161,7 @@ func (a *App) Update(dt float32) {
 		select {
 		case t := <-a.themes.Themes:
 			core.ApplyTheme(t)
+			a.dirty = true
 		case err := <-a.themes.Errors:
 			logx.Warn("failed to read the Omarchy theme: %v", err)
 		default:
@@ -128,4 +192,10 @@ func onInterrupt(fn func()) {
 		<-received
 		fn()
 	}()
+}
+
+// FPS is how many frames were drawn in the last second. raylib's own count
+// times only the frames that are drawn, so it reads 60 however few there are.
+func (a *App) FPS() int {
+	return a.fps
 }

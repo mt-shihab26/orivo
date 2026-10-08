@@ -319,3 +319,30 @@ func TestOtherTodosStartTheNextPhaseFresh(t *testing.T) {
 		t.Fatalf("todo a remaining = %v, want a fresh 5m break", got)
 	}
 }
+
+func TestChangedOnlyWhenTheShownTimeMoves(t *testing.T) {
+	f := newFixture(t)
+	drawn := func() { f.drawnText = clockText(f.Remaining(), f.showMillis) }
+
+	drawn()
+	f.wait(time.Minute)
+	if f.Changed() {
+		t.Fatal("a paused clock asked to be drawn again")
+	}
+
+	f.start()
+	f.wait(400 * time.Millisecond)
+	if f.Changed() {
+		t.Fatal("asked to be drawn again within the same second")
+	}
+	f.wait(700 * time.Millisecond)
+	if !f.Changed() {
+		t.Fatal("the next second did not ask to be drawn")
+	}
+
+	drawn()
+	f.showMillis = true
+	if !f.Changed() {
+		t.Fatal("showing milliseconds did not ask to be drawn")
+	}
+}

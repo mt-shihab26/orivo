@@ -48,3 +48,7 @@ func (b *SessionBar) Draw() {
 
 	b.clock.Draw()
 }
+
+func (b *SessionBar) Changed() bool {
+	return b.clock.Changed()
+}

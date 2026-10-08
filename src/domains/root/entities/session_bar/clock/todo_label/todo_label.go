@@ -41,6 +41,7 @@ type TodoLabel struct {
 	syncing    bool
 	status     string
 	statusLeft float32
+	drawn      string
 }
 
 func New(fonts *core.Fonts, timer Timer) *TodoLabel {
@@ -134,6 +135,7 @@ func (l *TodoLabel) Draw() {
 			text += fmt.Sprintf("  ·  %d sessions  ·  %d min", stat.Sessions, stat.Secs/60)
 		}
 	}
+	l.drawn = l.status
 	if l.status != "" {
 		text = l.status
 	}
@@ -142,4 +144,10 @@ func (l *TodoLabel) Draw() {
 	body.DrawCentered(body.Fit(text, screen.Width-40*s), screen.Width/2, screen.Height-80*s, timer.Accent())
 
 	l.picker.Draw()
+}
+
+// Changed reports whether a sync status came in or ran out since the last
+// Draw.
+func (l *TodoLabel) Changed() bool {
+	return l.status != l.drawn
 }
