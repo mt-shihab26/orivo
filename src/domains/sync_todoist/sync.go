@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"time"
 
+	"orivo/src/domains/root/entities/session_bar/clock/sessions"
 	"orivo/src/systems/config"
 	"orivo/src/systems/todoist"
 	"orivo/src/systems/todos"
 )
 
 func Run() error {
-	all, err := todoist.Sync(config.TodoistAuth(), config.TodoistCache())
+	all, err := todoist.Sync(config.TodoistAuth(), config.TodoistCache(), config.TodoistOutbox(), sessions.WorkedToday(config.Sessions()))
 	// Not an error: the sync timer runs for every user, connected or not.
 	if errors.Is(err, todoist.ErrNotConnected) {
 		fmt.Println("Not connected to Todoist; run `orivo connect-todoist` first")
@@ -32,7 +33,7 @@ func Run() error {
 
 	err = todoist.PushProgress(config.TodoistAuth(), config.TodoistOutbox())
 	if errors.Is(err, todoist.ErrReadOnly) {
-		return errors.New("the Todoist sign-in can't update task descriptions; run `orivo connect-todoist` again")
+		return errors.New("the Todoist sign-in can't update task titles; run `orivo connect-todoist` again")
 	}
 	if err != nil {
 		return fmt.Errorf("could not update session counts in Todoist: %w", err)

@@ -54,7 +54,7 @@ func New(fonts *core.Fonts, timer Timer) *TodoLabel {
 }
 
 func syncTodoist() (int, error) {
-	all, err := todoist.Sync(config.TodoistAuth(), config.TodoistCache())
+	all, err := todoist.Sync(config.TodoistAuth(), config.TodoistCache(), config.TodoistOutbox(), sessions.WorkedToday(config.Sessions()))
 	if err != nil {
 		return 0, err
 	}

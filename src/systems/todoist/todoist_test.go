@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 	"time"
 )
@@ -41,7 +42,7 @@ func TestDueTodosFollowsPagesAndMapsTasks(t *testing.T) {
 		]}`))
 	})
 
-	got, err := client.DueTodos()
+	got, tagged, err := client.DueTodos()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,6 +55,9 @@ func TestDueTodosFollowsPagesAndMapsTasks(t *testing.T) {
 		{"a", "dated", 2, time.October},
 		{"b", "timed", 1, time.October},
 		{"e", "second page", 30, time.September},
+	}
+	if !slices.Equal(tagged, []string{"a"}) {
+		t.Errorf("tagged = %v, want [a]", tagged)
 	}
 	if len(got) != len(want) {
 		t.Fatalf("got %d todos, want %d: %v", len(got), len(want), got)

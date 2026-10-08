@@ -75,6 +75,16 @@ func (h *History) StatOn(day time.Time, todoID string) Stat {
 	return h.stats[todoID]
 }
 
+// WorkedToday reads today's file in dir afresh, so a sync in the background
+// shares nothing with the clock's own History.
+func WorkedToday(dir string) func(todoID string) bool {
+	h := &History{dir: dir}
+	now := time.Now()
+	return func(todoID string) bool {
+		return h.StatOn(now, todoID).Sessions > 0
+	}
+}
+
 // load reads day's file unless it is the one already counted.
 func (h *History) load(day string) {
 	if day == h.day {

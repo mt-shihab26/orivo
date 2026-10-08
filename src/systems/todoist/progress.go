@@ -45,12 +45,20 @@ func StripTitle(title string) string {
 	return strings.TrimRight(progressTag.ReplaceAllString(title, ""), " \t")
 }
 
-// MergeTitle replaces orivo's old tag at the end of title with tag.
+// MergeTitle replaces orivo's old tag at the end of title with tag. An empty
+// tag only drops the old one.
 func MergeTitle(title, tag string) string {
-	if text := StripTitle(title); text != "" {
-		return text + " " + tag
+	text := StripTitle(title)
+	switch {
+	// Todoist needs some title, so a bare tag stays.
+	case text == "" && tag == "":
+		return title
+	case text == "":
+		return tag
+	case tag == "":
+		return text
 	}
-	return tag
+	return text + " " + tag
 }
 
 // cleanDescription drops the sentence older versions wrote to description.
@@ -237,7 +245,8 @@ func (c *Client) sync(commands []command) (map[string]error, error) {
 }
 
 // Outbox holds the progress tags not yet written to Todoist, one per task,
-// as the task id and the tag separated by a tab.
+// as the task id and the tag separated by a tab. An empty tag clears the
+// task's old one.
 type Outbox struct {
 	Path string
 }
@@ -255,6 +264,27 @@ func (o Outbox) Add(taskID, tag string) error {
 		return err
 	}
 	pending[taskID] = tag
+	return o.write(pending)
+}
+
+// Clear queues the removal of each task's tag, unless a tag is already
+// queued for it; that one was added since, by a session that just ended.
+func (o Outbox) Clear(taskIDs []string) error {
+	if len(taskIDs) == 0 {
+		return nil
+	}
+	outboxMu.Lock()
+	defer outboxMu.Unlock()
+
+	pending, err := o.read()
+	if err != nil {
+		return err
+	}
+	for _, id := range taskIDs {
+		if _, ok := pending[id]; !ok {
+			pending[id] = ""
+		}
+	}
 	return o.write(pending)
 }
 
@@ -304,7 +334,7 @@ func (o Outbox) read() (map[string]string, error) {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		// Sentences older versions queued for the description are dropped.
-		if id, tag, ok := strings.Cut(scanner.Text(), "\t"); ok && id != "" && progressTag.MatchString(tag) {
+		if id, tag, ok := strings.Cut(scanner.Text(), "\t"); ok && id != "" && (tag == "" || progressTag.MatchString(tag)) {
 			pending[id] = tag
 		}
 	}
