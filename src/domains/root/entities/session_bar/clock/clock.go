@@ -52,13 +52,13 @@ type Clock struct {
 	sinceSave      float32
 	flushWanted    bool
 	lastFlush      time.Time
+	drawnText      string
 }
 
 func New(cfg config.Timer, fonts *core.Fonts) *Clock {
 	c := newClock(cfg, fonts, config.Store(), config.Sessions())
 	fonts.Need(c.todoText)
 	c.server = ipc.Serve(config.Socket())
-	notify.LoadSound()
 	c.notify = notify.Send
 	c.progress = queueProgress
 	c.flush = flushProgress
@@ -93,10 +93,11 @@ func (c *Clock) Close() {
 	c.reduce.Close()
 	c.todo.Close()
 	c.save()
-	notify.UnloadSound()
+	notify.Close()
 }
 
 func (c *Clock) Update(dt float32) {
+	notify.Release()
 	now := c.now()
 	ended := false
 
@@ -238,6 +239,7 @@ func (c *Clock) Draw() {
 	}
 
 	text := clockText(remaining, c.showMillis)
+	c.drawnText = text
 	inner := (radius - thickness) * 2 * 0.76
 	fonts.EnsureClock(min(inner/(0.6*float32(len(text))), radius*0.62))
 
@@ -407,4 +409,24 @@ func clockText(remaining time.Duration, showMillis bool) string {
 	}
 	secs := int64((remaining + time.Second - 1) / time.Second)
 	return fmt.Sprintf("%02d:%02d", secs/60, secs%60)
+}
+
+// Changed reports whether the clock looks different from its last Draw: a
+// running timer once a second, or every frame while it shows milliseconds.
+func (c *Clock) Changed() bool {
+	return clockText(c.Remaining(), c.showMillis) != c.drawnText || c.todo.Changed()
+}
+
+// Next returns how long until the clock looks different on its own: the next
+// second of a running timer, the next frame while it shows milliseconds, or
+// 0 while it is paused.
+func (c *Clock) Next() time.Duration {
+	switch {
+	case !c.running:
+		return 0
+	case c.showMillis:
+		return time.Second / 60
+	}
+	// The shown seconds round up, so they change as a whole second passes.
+	return c.Remaining()%time.Second + time.Millisecond
 }
