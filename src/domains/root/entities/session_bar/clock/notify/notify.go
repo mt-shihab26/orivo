@@ -5,6 +5,7 @@ import (
 	"math"
 	"os/exec"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -14,20 +15,15 @@ import (
 
 const soundName = "message-new-instant"
 
-// How long the audio device stays open after the tone starts. The tone lasts
-// a tenth of a second; an open device keeps a mixing thread busy.
-const audioOpenFor = 2 * time.Second
-
 var escape = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
 
-var (
-	tone     rl.Sound
-	openedAt time.Time
-)
+// Set while a tone plays, so tones never overlap.
+var playing atomic.Bool
 
-// Send shows a desktop notification and plays the tone. The audio device is
-// opened only for the tone, which costs a few milliseconds each time instead
-// of a busy thread all along. It must run on the render loop's goroutine.
+// Send shows a desktop notification and plays the tone, both in the
+// background. Opening the audio device takes tens of milliseconds, longer
+// when the sound server is slow, so the window never waits for it; the
+// tone's goroutine is the only one that touches audio.
 func Send(summary, body string) {
 	go func() {
 		if err := Show(summary, body); err != nil {
@@ -35,33 +31,32 @@ func Send(summary, body string) {
 		}
 	}()
 
+	if playing.CompareAndSwap(false, true) {
+		go func() {
+			defer playing.Store(false)
+			playTone()
+		}()
+	}
+}
+
+// playTone opens the audio device only for the tone, so no mixing thread
+// stays busy between phases.
+func playTone() {
+	rl.InitAudioDevice()
 	if !rl.IsAudioDeviceReady() {
-		rl.InitAudioDevice()
-		if !rl.IsAudioDeviceReady() {
-			return
-		}
-		tone = newTone()
+		logx.Warn("failed to open the audio device for the tone")
+		return
 	}
-	openedAt = time.Now()
+	defer rl.CloseAudioDevice()
+
+	tone := newTone()
+	defer rl.UnloadSound(tone)
 	rl.PlaySound(tone)
-}
-
-// Release closes the audio device once the tone is done. Call it every
-// update, from the render loop's goroutine.
-func Release() {
-	if openedAt.IsZero() || time.Since(openedAt) < audioOpenFor || rl.IsSoundPlaying(tone) {
-		return
+	for rl.IsSoundPlaying(tone) {
+		time.Sleep(10 * time.Millisecond)
 	}
-	Close()
-}
-
-func Close() {
-	if openedAt.IsZero() {
-		return
-	}
-	rl.UnloadSound(tone)
-	rl.CloseAudioDevice()
-	openedAt = time.Time{}
+	// Let the device play out what it has buffered before it closes.
+	time.Sleep(100 * time.Millisecond)
 }
 
 // Show sends a desktop notification and waits for notify-send to finish.

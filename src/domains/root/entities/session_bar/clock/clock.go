@@ -93,11 +93,9 @@ func (c *Clock) Close() {
 	c.reduce.Close()
 	c.todo.Close()
 	c.save()
-	notify.Close()
 }
 
 func (c *Clock) Update(dt float32) {
-	notify.Release()
 	now := c.now()
 	ended := false
 

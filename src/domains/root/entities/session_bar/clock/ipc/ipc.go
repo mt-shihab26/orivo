@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"orivo/src/systems/logx"
 )
@@ -22,8 +23,9 @@ type Status struct {
 }
 
 type Server struct {
-	mu     sync.Mutex
-	status Status
+	mu          sync.Mutex
+	status      Status
+	publishedAt time.Time
 }
 
 func Serve(path string) *Server {
@@ -84,17 +86,27 @@ func (s *Server) Publish(status Status) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.status = status
+	s.status, s.publishedAt = status, time.Now()
 }
 
 func (s *Server) respond(conn net.Conn) {
 	defer conn.Close()
 
 	s.mu.Lock()
-	status := s.status
+	status := s.status.at(s.publishedAt, time.Now())
 	s.mu.Unlock()
 
 	if err := json.NewEncoder(conn).Encode(status); err != nil {
 		logx.Warn("ipc: write failed: %v", err)
 	}
+}
+
+// at is status as of now. The window publishes only when it wakes, about
+// once a second while running, so a running timer's remaining time is
+// counted down from when it was published.
+func (s Status) at(published, now time.Time) Status {
+	if s.IsRunning {
+		s.RemainingMillis = max(s.RemainingMillis-now.Sub(published).Milliseconds(), 0)
+	}
+	return s
 }
