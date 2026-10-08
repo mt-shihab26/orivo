@@ -248,3 +248,44 @@ func TestOutboxDropsSentencesOlderVersionsQueued(t *testing.T) {
 		t.Fatalf("pending = %v, want only b's tag", pending)
 	}
 }
+
+func TestMergeTitleWithoutATagOnlyDropsTheOldOne(t *testing.T) {
+	for _, tc := range []struct {
+		name, title, want string
+	}{
+		{"drops", "Write report (1, 25 min)", "Write report"},
+		{"untagged", "Write report", "Write report"},
+		{"keeps a bare tag as the title", "(1, 25 min)", "(1, 25 min)"},
+	} {
+		if got := MergeTitle(tc.title, ""); got != tc.want {
+			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestOutboxClearDropsOldTagsButNotNewerOnes(t *testing.T) {
+	todoist := &fakeTodoist{active: map[string]taskText{
+		"a": {Content: "Draft (2, 50 min)"},
+		"b": {Content: "Review (3, 75 min)"},
+	}, completed: map[string]taskText{}}
+	outbox := Outbox{Path: filepath.Join(t.TempDir(), "todoist-outbox.txt")}
+
+	// A session on b ended while the sync was out.
+	outbox.Add("b", "(1, 25 min)")
+	if err := outbox.Clear([]string{"a", "b"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := outbox.Flush(todoist.client(t)); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := todoist.active["a"].Content; got != "Draft" {
+		t.Errorf("a = %q, want the tag gone", got)
+	}
+	if got := todoist.active["b"].Content; got != "Review (1, 25 min)" {
+		t.Errorf("b = %q, want today's tag", got)
+	}
+	if _, err := os.Stat(outbox.Path); !os.IsNotExist(err) {
+		t.Fatalf("outbox still exists after a full flush: %v", err)
+	}
+}

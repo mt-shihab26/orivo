@@ -57,8 +57,11 @@ func (c *Client) User() (string, error) {
 	return user.Email, nil
 }
 
-func (c *Client) DueTodos() ([]todos.Todo, error) {
+// DueTodos fetches the Work todos that are overdue or due today, and the ids
+// of those whose title carries orivo's tag.
+func (c *Client) DueTodos() ([]todos.Todo, []string, error) {
 	var all []todos.Todo
+	var tagged []string
 	cursor := ""
 
 	for range maxPages {
@@ -72,7 +75,7 @@ func (c *Client) DueTodos() ([]todos.Todo, error) {
 			NextCursor string `json:"next_cursor"`
 		}
 		if err := c.get("/tasks/filter", query, &page); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		for _, t := range page.Results {
@@ -81,15 +84,18 @@ func (c *Client) DueTodos() ([]todos.Todo, error) {
 			}
 			if due, ok := dueDay(t.Due.Date); ok {
 				all = append(all, todos.Todo{ID: t.ID, Text: StripTitle(t.Content), Due: due})
+				if progressTag.MatchString(t.Content) {
+					tagged = append(tagged, t.ID)
+				}
 			}
 		}
 
 		cursor = page.NextCursor
 		if cursor == "" {
-			return all, nil
+			return all, tagged, nil
 		}
 	}
-	return nil, errors.New("Todoist kept returning more pages than expected")
+	return nil, nil, errors.New("Todoist kept returning more pages than expected")
 }
 
 func (c *Client) get(path string, query url.Values, out any) error {

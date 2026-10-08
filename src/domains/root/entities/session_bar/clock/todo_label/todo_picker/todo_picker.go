@@ -62,11 +62,12 @@ func (p *TodoPicker) Update(dt float32) {
 		all, err := todos.Cache{Path: config.TodoistCache()}.Read()
 		overdue, today := todos.Split(all, time.Now())
 
-		p.todos = append(overdue, today...)
+		// The first row picks no todo at all.
+		p.todos = append(append([]todos.Todo{{Text: "None"}}, overdue...), today...)
 		p.overdue = len(overdue)
 		p.err = err
 		p.selectedID = p.timer.TodoID()
-		p.cursor = 0
+		p.cursor = min(1, len(p.todos)-1)
 		p.hits = nil
 
 		for i, todo := range p.todos {
@@ -103,9 +104,7 @@ func (p *TodoPicker) Update(dt float32) {
 	} else if wheel < 0 {
 		move++
 	}
-	if len(p.todos) > 0 {
-		p.cursor = min(max(p.cursor+move, 0), len(p.todos)-1)
-	}
+	p.cursor = min(max(p.cursor+move, 0), len(p.todos)-1)
 
 	picked := rl.IsKeyPressed(rl.KeyEnter) || rl.IsKeyPressed(rl.KeyKpEnter)
 	if rl.IsMouseButtonPressed(rl.MouseButtonLeft) {
@@ -118,11 +117,9 @@ func (p *TodoPicker) Update(dt float32) {
 		}
 	}
 
-	if picked && len(p.todos) > 0 {
+	if picked {
 		todo := p.todos[p.cursor]
 		p.timer.SetTodo(todo.ID, todo.Text)
-	}
-	if picked {
 		p.Hide()
 	}
 }
@@ -130,10 +127,10 @@ func (p *TodoPicker) Update(dt float32) {
 func (p *TodoPicker) rows() []pickerRow {
 	var rows []pickerRow
 	for i := range p.todos {
-		if i == 0 && p.overdue > 0 {
+		if i == 1 && p.overdue > 0 {
 			rows = append(rows, pickerRow{header: "Overdue"})
 		}
-		if i == p.overdue {
+		if i == p.overdue+1 {
 			rows = append(rows, pickerRow{header: "Today"})
 		}
 		rows = append(rows, pickerRow{index: i})
@@ -163,11 +160,11 @@ func (p *TodoPicker) Draw() {
 	}
 
 	p.hits = p.hits[:0]
-	if len(p.todos) == 0 {
+	// Only the None row; it stays above the reason there is nothing else.
+	if len(p.todos) == 1 {
 		title, detail := p.emptyMessage()
 		fonts.Body.DrawCentered(title, cx, list.Y+list.Height/2-24*s, core.ColorText)
 		fonts.Small.DrawCentered(fonts.Small.Fit(detail, list.Width), cx, list.Y+list.Height/2+8*s, core.ColorDim)
-		return
 	}
 
 	rows := p.rows()
@@ -221,7 +218,7 @@ func (p *TodoPicker) drawTodo(rect rl.Rectangle, index int) {
 	if stat := p.timer.Stat(todo.ID); stat.Sessions > 0 {
 		note = fmt.Sprintf("%d× %dm", stat.Sessions, stat.Secs/60)
 	}
-	if index < p.overdue {
+	if index >= 1 && index <= p.overdue {
 		if note != "" {
 			note += "  ·  "
 		}
