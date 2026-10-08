@@ -2,6 +2,7 @@ package connect_todoist
 
 import (
 	"bufio"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"net"
@@ -94,11 +95,16 @@ func waitForCode(listener net.Listener, state string) (string, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
 		query := r.URL.Query()
-		outcome := result{code: query.Get("code")}
 
+		// Not the reply to this sign-in, so it may not end it: any program
+		// on this machine can reach the port.
+		if subtle.ConstantTimeCompare([]byte(query.Get("state")), []byte(state)) != 1 {
+			http.Error(w, "This reply does not belong to the sign-in in progress.", http.StatusBadRequest)
+			return
+		}
+
+		outcome := result{code: query.Get("code")}
 		switch {
-		case query.Get("state") != state:
-			outcome = result{err: errors.New("the sign-in reply did not match this request; try again")}
 		case query.Get("error") != "":
 			outcome = result{err: fmt.Errorf("Todoist sign-in was not approved: %s", query.Get("error"))}
 		case outcome.code == "":
