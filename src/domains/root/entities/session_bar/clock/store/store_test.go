@@ -56,3 +56,24 @@ func TestLegacyStoreKeepsPhaseAndDropsOldTodos(t *testing.T) {
 		t.Error("remaining for old todo 49 was kept")
 	}
 }
+
+func TestSaveSkipsTheWriteWhenNothingChanged(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "store.json")
+	s := Load(path)
+	s.SetPhase("work")
+	s.Save()
+
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	s.Save()
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("unchanged store was written again: %v", err)
+	}
+
+	s.SetPhase("break")
+	s.Save()
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("changed store was not written: %v", err)
+	}
+}

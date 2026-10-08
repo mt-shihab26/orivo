@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"time"
@@ -25,6 +26,8 @@ type data struct {
 type Store struct {
 	path string
 	data data
+	// What the file holds, so Save skips writing the same bytes again.
+	saved []byte
 }
 
 func Load(path string) *Store {
@@ -92,9 +95,14 @@ func (s *Store) Save() {
 		logx.Error("store: encode failed: %v", err)
 		return
 	}
+	if bytes.Equal(raw, s.saved) {
+		return
+	}
 	if err := files.WriteAtomic(s.path, raw); err != nil {
 		logx.Error("store: write failed: %v", err)
+		return
 	}
+	s.saved = raw
 }
 
 func (s *Store) Todo() (id, text string) {
