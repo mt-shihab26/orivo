@@ -28,7 +28,7 @@ func (f *fixture) open() {
 	cfg := config.Default()
 	cfg.Timer.LongBreakInterval = 2
 
-	f.Clock = newClock(cfg.Timer, nil, filepath.Join(f.dir, "store.json"), filepath.Join(f.dir, "sessions"))
+	f.Clock = newClock(cfg.Timer, nil, filepath.Join(f.dir, "store.json"), filepath.Join(f.dir, "sessions"), filepath.Join(f.dir, "todoist.txt"))
 	f.Clock.now = func() time.Time { return f.time }
 	f.Clock.notify = func(summary, _ string) { f.notified = append(f.notified, summary) }
 	logSync = func(string, ...any) {}

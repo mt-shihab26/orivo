@@ -56,7 +56,7 @@ type Clock struct {
 }
 
 func New(cfg config.Timer, fonts *core.Fonts) *Clock {
-	c := newClock(cfg, fonts, config.Store(), config.Sessions())
+	c := newClock(cfg, fonts, config.Store(), config.Sessions(), config.TodoistCache())
 	fonts.Need(c.todoText)
 	c.server = ipc.Serve(config.Socket())
 	c.notify = notify.Send
@@ -66,7 +66,7 @@ func New(cfg config.Timer, fonts *core.Fonts) *Clock {
 	return c
 }
 
-func newClock(cfg config.Timer, fonts *core.Fonts, storePath, sessionsPath string) *Clock {
+func newClock(cfg config.Timer, fonts *core.Fonts, storePath, sessionsPath, cachePath string) *Clock {
 	history, err := sessions.Open(sessionsPath)
 	if err != nil {
 		logx.Error("failed to read %s: %v", sessionsPath, err)
@@ -84,7 +84,7 @@ func newClock(cfg config.Timer, fonts *core.Fonts, storePath, sessionsPath strin
 	c.todoID, c.todoText = c.store.Todo()
 	c.restore()
 
-	c.todo = todo_label.New(fonts, c)
+	c.todo = todo_label.New(fonts, c, cachePath)
 	c.reduce = reduce_dialog.New(fonts, c)
 	return c
 }
