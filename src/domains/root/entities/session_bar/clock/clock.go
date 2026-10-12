@@ -344,6 +344,13 @@ func (c *Clock) undo(now time.Time) {
 	}
 
 	c.phase = phase.Keyed(last.Phase)
+	if c.notify != nil {
+		body := "Back at its start, paused."
+		if last.TodoText != "" {
+			body = last.TodoText + " — " + body
+		}
+		c.notify(c.phase.Label()+" Undone", body)
+	}
 	c.running = false
 	c.store.ClearTimers()
 	c.rewind(now)

@@ -100,3 +100,20 @@ func TestSelectedTodoIsDroppedOnceSyncLeavesItOut(t *testing.T) {
 		t.Fatalf("todo = %q, want none after the sync left it out", timer.id)
 	}
 }
+
+func TestTodoPickedFromAStaleListIsDropped(t *testing.T) {
+	cache := todos.Cache{Path: filepath.Join(t.TempDir(), "todoist.txt")}
+	if err := cache.Write([]todos.Todo{{ID: "1", Text: "one", Due: time.Now()}}); err != nil {
+		t.Fatal(err)
+	}
+	timer := &pickedTimer{id: "1"}
+	label := New(core.NewFonts("unused"), timer, cache.Path)
+	label.Update(0)
+
+	// The cache has not changed since, but the pick has.
+	timer.id = "2"
+	label.Update(0)
+	if timer.id != "" {
+		t.Fatalf("todo = %q, want none for one the cache does not list", timer.id)
+	}
+}

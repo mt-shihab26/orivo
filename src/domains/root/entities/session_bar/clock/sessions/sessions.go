@@ -197,7 +197,10 @@ func (h *History) Undo(day time.Time) (last Session, ok bool, err error) {
 	lines := bytes.Split(bytes.TrimRight(raw, "\n"), []byte("\n"))
 	i := len(lines) - 1
 	for ; i >= 0; i-- {
-		if json.Unmarshal(lines[i], &last) == nil {
+		// A fresh value each time, so a broken line leaves nothing behind.
+		var s Session
+		if json.Unmarshal(lines[i], &s) == nil {
+			last = s
 			break
 		}
 	}

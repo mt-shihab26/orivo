@@ -45,8 +45,9 @@ type TodoLabel struct {
 	statusLeft float32
 	drawn      string
 
-	cache    string
-	cachedAt time.Time
+	cache     string
+	cachedAt  time.Time
+	checkedID string
 }
 
 func New(fonts *core.Fonts, timer Timer, cache string) *TodoLabel {
@@ -164,17 +165,18 @@ func (l *TodoLabel) Changed() bool {
 // dropMissing clears the selected todo once a sync, from here or from
 // `orivo sync-todoist`, has left it out of the cache: it was completed,
 // deleted or moved to a later day. It reads the cache only when the file
-// changed, and keeps the todo when there is no cache to tell.
+// changed or another todo was picked, as an open picker can still show one a
+// sync has dropped, and keeps the todo when there is no cache to tell.
 func (l *TodoLabel) dropMissing() {
 	id := l.timer.TodoID()
 	if id == "" {
 		return
 	}
 	info, err := os.Stat(l.cache)
-	if err != nil || info.ModTime().Equal(l.cachedAt) {
+	if err != nil || (info.ModTime().Equal(l.cachedAt) && id == l.checkedID) {
 		return
 	}
-	l.cachedAt = info.ModTime()
+	l.cachedAt, l.checkedID = info.ModTime(), id
 
 	all, err := todos.Cache{Path: l.cache}.Read()
 	if err != nil {

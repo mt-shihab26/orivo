@@ -376,6 +376,9 @@ func TestUndoTakesBackTheLastSession(t *testing.T) {
 	f.wait(time.Minute)
 
 	f.undo(f.time)
+	if want := []string{"Work Session Complete", "Work Session Undone"}; !slices.Equal(f.notified, want) {
+		t.Fatalf("notified = %q, want %q", f.notified, want)
+	}
 	if f.phase != phase.Work || f.running || f.Remaining() != 25*time.Minute {
 		t.Fatalf("after undo: phase=%v running=%v remaining=%v, want paused work at 25m", f.phase, f.running, f.Remaining())
 	}
