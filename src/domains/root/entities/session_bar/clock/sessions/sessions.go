@@ -8,8 +8,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
+	"orivo/src/systems/files"
 	"orivo/src/systems/logx"
 )
 
@@ -178,4 +180,39 @@ func migrate(dir string) error {
 
 func dayOf(t time.Time) string {
 	return t.Local().Format(time.DateOnly)
+}
+
+// Undo takes the last session recorded on day back out of its file and
+// returns it. ok is false when the day has none.
+func (h *History) Undo(day time.Time) (last Session, ok bool, err error) {
+	name := h.file(dayOf(day))
+	raw, err := os.ReadFile(name)
+	if errors.Is(err, fs.ErrNotExist) {
+		return Session{}, false, nil
+	}
+	if err != nil {
+		return Session{}, false, err
+	}
+
+	lines := bytes.Split(bytes.TrimRight(raw, "\n"), []byte("\n"))
+	i := len(lines) - 1
+	for ; i >= 0; i-- {
+		if json.Unmarshal(lines[i], &last) == nil {
+			break
+		}
+	}
+	if i < 0 {
+		return Session{}, false, nil
+	}
+
+	var kept []byte
+	for _, line := range slices.Delete(lines, i, i+1) {
+		kept = append(append(kept, line...), '\n')
+	}
+	if err := files.WriteAtomic(name, kept); err != nil {
+		return Session{}, false, err
+	}
+	// Count the day again from the file.
+	h.day = ""
+	return last, true, nil
 }

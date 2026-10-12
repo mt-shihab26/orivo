@@ -21,7 +21,7 @@ func (h *Hints) Draw() {
 
 	lines := []string{
 		"[Space] Toggle   [r] Reset   [n] Skip   [m] Millis   [d] Reduce",
-		"[t] Todo   [T] Clear   [s] Sync",
+		"[t] Todo   [T] Clear   [s] Sync   [u] Undo",
 	}
 	for i, text := range lines {
 		y := screen.Height - 50*s + float32(i)*20*s

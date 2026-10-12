@@ -133,6 +133,10 @@ func (c *Clock) Update(dt float32) {
 		c.store.Save()
 	}
 
+	if listening && rl.IsKeyPressed(rl.KeyU) {
+		c.undo(now)
+	}
+
 	if listening && rl.IsKeyPressed(rl.KeyN) {
 		ended = true
 	}
@@ -314,6 +318,36 @@ func (c *Clock) Reduce(d time.Duration) {
 		c.startedAt = c.now()
 	}
 	c.store.SetRemaining(c.todoID, c.remaining)
+	c.store.Save()
+}
+
+// undo takes back the last session recorded today and returns to its phase,
+// paused at full time, as if it had never ended.
+func (c *Clock) undo(now time.Time) {
+	last, ok, err := c.history.Undo(now)
+	if err != nil {
+		logx.Error("failed to undo the last session: %v", err)
+		return
+	}
+	if !ok {
+		return
+	}
+
+	if c.progress != nil && last.Phase == phase.Work.Key() && last.TodoID != "" {
+		// No tag at all once the todo has no session left today.
+		tag := ""
+		if stat := c.history.StatOn(now, last.TodoID); stat.Sessions > 0 {
+			tag = todoist.ProgressTag(stat.Sessions, stat.Secs)
+		}
+		c.progress(last.TodoID, tag)
+		c.flushWanted = true
+	}
+
+	c.phase = phase.Keyed(last.Phase)
+	c.running = false
+	c.store.ClearTimers()
+	c.rewind(now)
+	c.store.SetPhase(c.phase.Name())
 	c.store.Save()
 }
 

@@ -36,6 +36,15 @@ func Named(name string) Phase {
 	return Work
 }
 
+func Keyed(key string) Phase {
+	for p, info := range phases {
+		if info.key == key {
+			return Phase(p)
+		}
+	}
+	return Work
+}
+
 func (p Phase) Name() string {
 	return phases[p].name
 }
