@@ -56,7 +56,7 @@ type Clock struct {
 }
 
 func New(cfg config.Timer, fonts *core.Fonts) *Clock {
-	c := newClock(cfg, fonts, config.Store(), config.Sessions())
+	c := newClock(cfg, fonts, config.Store(), config.Sessions(), config.TodoistCache())
 	fonts.Need(c.todoText)
 	c.server = ipc.Serve(config.Socket())
 	c.notify = notify.Send
@@ -66,7 +66,7 @@ func New(cfg config.Timer, fonts *core.Fonts) *Clock {
 	return c
 }
 
-func newClock(cfg config.Timer, fonts *core.Fonts, storePath, sessionsPath string) *Clock {
+func newClock(cfg config.Timer, fonts *core.Fonts, storePath, sessionsPath, cachePath string) *Clock {
 	history, err := sessions.Open(sessionsPath)
 	if err != nil {
 		logx.Error("failed to read %s: %v", sessionsPath, err)
@@ -84,7 +84,7 @@ func newClock(cfg config.Timer, fonts *core.Fonts, storePath, sessionsPath strin
 	c.todoID, c.todoText = c.store.Todo()
 	c.restore()
 
-	c.todo = todo_label.New(fonts, c)
+	c.todo = todo_label.New(fonts, c, cachePath)
 	c.reduce = reduce_dialog.New(fonts, c)
 	return c
 }
@@ -131,6 +131,10 @@ func (c *Clock) Update(dt float32) {
 		c.running = false
 		c.rewind(now)
 		c.store.Save()
+	}
+
+	if listening && rl.IsKeyPressed(rl.KeyU) {
+		c.undo(now)
 	}
 
 	if listening && rl.IsKeyPressed(rl.KeyN) {
@@ -314,6 +318,43 @@ func (c *Clock) Reduce(d time.Duration) {
 		c.startedAt = c.now()
 	}
 	c.store.SetRemaining(c.todoID, c.remaining)
+	c.store.Save()
+}
+
+// undo takes back the last session recorded today and returns to its phase,
+// paused at full time, as if it had never ended.
+func (c *Clock) undo(now time.Time) {
+	last, ok, err := c.history.Undo(now)
+	if err != nil {
+		logx.Error("failed to undo the last session: %v", err)
+		return
+	}
+	if !ok {
+		return
+	}
+
+	if c.progress != nil && last.Phase == phase.Work.Key() && last.TodoID != "" {
+		// No tag at all once the todo has no session left today.
+		tag := ""
+		if stat := c.history.StatOn(now, last.TodoID); stat.Sessions > 0 {
+			tag = todoist.ProgressTag(stat.Sessions, stat.Secs)
+		}
+		c.progress(last.TodoID, tag)
+		c.flushWanted = true
+	}
+
+	c.phase = phase.Keyed(last.Phase)
+	if c.notify != nil {
+		body := "Back at its start, paused."
+		if last.TodoText != "" {
+			body = last.TodoText + " — " + body
+		}
+		c.notify(c.phase.Label()+" Undone", body)
+	}
+	c.running = false
+	c.store.ClearTimers()
+	c.rewind(now)
+	c.store.SetPhase(c.phase.Name())
 	c.store.Save()
 }
 

@@ -28,7 +28,7 @@ func (f *fixture) open() {
 	cfg := config.Default()
 	cfg.Timer.LongBreakInterval = 2
 
-	f.Clock = newClock(cfg.Timer, nil, filepath.Join(f.dir, "store.json"), filepath.Join(f.dir, "sessions"))
+	f.Clock = newClock(cfg.Timer, nil, filepath.Join(f.dir, "store.json"), filepath.Join(f.dir, "sessions"), filepath.Join(f.dir, "todoist.txt"))
 	f.Clock.now = func() time.Time { return f.time }
 	f.Clock.notify = func(summary, _ string) { f.notified = append(f.notified, summary) }
 	logSync = func(string, ...any) {}
@@ -362,5 +362,52 @@ func TestNextWakesAsTheShownSecondChanges(t *testing.T) {
 	f.showMillis = true
 	if got := f.Next(); got != time.Second/60 {
 		t.Fatalf("next = %v, want a frame while showing milliseconds", got)
+	}
+}
+
+func TestUndoTakesBackTheLastSession(t *testing.T) {
+	f := newFixture(t)
+	var sent []string
+	f.progress = func(todoID, line string) { sent = append(sent, todoID+" "+line) }
+
+	f.SetTodo("a", "Write report")
+	f.start()
+	f.wait(25 * time.Minute) // work ends, the break starts
+	f.wait(time.Minute)
+
+	f.undo(f.time)
+	if want := []string{"Work Session Complete", "Work Session Undone"}; !slices.Equal(f.notified, want) {
+		t.Fatalf("notified = %q, want %q", f.notified, want)
+	}
+	if f.phase != phase.Work || f.running || f.Remaining() != 25*time.Minute {
+		t.Fatalf("after undo: phase=%v running=%v remaining=%v, want paused work at 25m", f.phase, f.running, f.Remaining())
+	}
+	if f.SessionsToday() != 0 || f.Stat("a").Sessions != 0 {
+		t.Fatalf("sessions = %d, stat = %+v, want none left", f.SessionsToday(), f.Stat("a"))
+	}
+	if want := []string{"a (1, 25 min)", "a "}; !slices.Equal(sent, want) {
+		t.Fatalf("sent = %q, want %q", sent, want)
+	}
+
+	f.undo(f.time)
+	if f.phase != phase.Work || f.SessionsToday() != 0 {
+		t.Fatalf("undo with nothing left changed the clock: phase=%v sessions=%d", f.phase, f.SessionsToday())
+	}
+}
+
+func TestUndoStepsBackThroughBreaks(t *testing.T) {
+	f := newFixture(t)
+
+	f.start()
+	f.wait(25 * time.Minute) // work ends
+	f.wait(5 * time.Minute)  // the break ends
+
+	f.undo(f.time)
+	if f.phase != phase.Break || f.SessionsToday() != 1 {
+		t.Fatalf("phase=%v sessions=%d, want the break back with the work kept", f.phase, f.SessionsToday())
+	}
+	f.undo(f.time)
+	if f.phase != phase.Work || f.SessionsToday() != 0 {
+		t.Fatalf("phase=%v sessions=%d, want the work back", f.phase, f.SessionsToday())
 	}
 }

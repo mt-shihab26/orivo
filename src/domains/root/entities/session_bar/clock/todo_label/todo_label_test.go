@@ -3,11 +3,14 @@ package todo_label
 import (
 	"errors"
 	"image/color"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"orivo/src/domains/root/core"
 	"orivo/src/domains/root/entities/session_bar/clock/sessions"
 	"orivo/src/systems/todoist"
+	"orivo/src/systems/todos"
 )
 
 type fakeTimer struct{}
@@ -20,7 +23,7 @@ func (fakeTimer) SetTodo(id, text string)   {}
 
 func finishSync(t *testing.T, count int, err error) *TodoLabel {
 	t.Helper()
-	label := New(core.NewFonts("unused"), fakeTimer{})
+	label := New(core.NewFonts("unused"), fakeTimer{}, "")
 
 	label.syncing = true
 	label.status = "Syncing Todoist…"
@@ -59,5 +62,58 @@ func TestSyncFailuresSayWhatToDo(t *testing.T) {
 		if got := finishSync(t, 0, err).status; got != want {
 			t.Errorf("status = %q, want %q", got, want)
 		}
+	}
+}
+
+type pickedTimer struct {
+	fakeTimer
+	id string
+}
+
+func (p *pickedTimer) TodoID() string          { return p.id }
+func (p *pickedTimer) SetTodo(id, text string) { p.id = id }
+
+func TestSelectedTodoIsDroppedOnceSyncLeavesItOut(t *testing.T) {
+	cache := todos.Cache{Path: filepath.Join(t.TempDir(), "todoist.txt")}
+	timer := &pickedTimer{id: "2"}
+	label := New(core.NewFonts("unused"), timer, cache.Path)
+
+	label.Update(0)
+	if timer.id != "2" {
+		t.Fatalf("todo = %q, want it kept while there is no cache", timer.id)
+	}
+
+	due := time.Now()
+	if err := cache.Write([]todos.Todo{{ID: "1", Text: "one", Due: due}, {ID: "2", Text: "two", Due: due}}); err != nil {
+		t.Fatal(err)
+	}
+	label.Update(0)
+	if timer.id != "2" {
+		t.Fatalf("todo = %q, want it kept while it is still listed", timer.id)
+	}
+
+	if err := cache.Write([]todos.Todo{{ID: "1", Text: "one", Due: due}}); err != nil {
+		t.Fatal(err)
+	}
+	label.Update(0)
+	if timer.id != "" {
+		t.Fatalf("todo = %q, want none after the sync left it out", timer.id)
+	}
+}
+
+func TestTodoPickedFromAStaleListIsDropped(t *testing.T) {
+	cache := todos.Cache{Path: filepath.Join(t.TempDir(), "todoist.txt")}
+	if err := cache.Write([]todos.Todo{{ID: "1", Text: "one", Due: time.Now()}}); err != nil {
+		t.Fatal(err)
+	}
+	timer := &pickedTimer{id: "1"}
+	label := New(core.NewFonts("unused"), timer, cache.Path)
+	label.Update(0)
+
+	// The cache has not changed since, but the pick has.
+	timer.id = "2"
+	label.Update(0)
+	if timer.id != "" {
+		t.Fatalf("todo = %q, want none for one the cache does not list", timer.id)
 	}
 }

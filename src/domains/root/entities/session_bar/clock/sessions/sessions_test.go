@@ -76,3 +76,37 @@ not json
 		t.Errorf("reopened Oct 2 = %+v, want 1 session", got)
 	}
 }
+
+func TestUndoRemovesOnlyTheLastSession(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "sessions")
+	h, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, err := h.Undo(at(2, 12)); ok || err != nil {
+		t.Fatalf("undo on an empty day: ok=%v err=%v", ok, err)
+	}
+
+	for _, s := range []Session{work("a", at(2, 9)), work("b", at(2, 10))} {
+		if err := h.Record(s); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// A line cut short by a crash is skipped, and lends nothing to the one before.
+	file := filepath.Join(dir, "2026-10-02.jsonl")
+	raw, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, append(raw, []byte(`{"phase":"break","todo_id":"zzz","duration_secs":"x"}`+"\n")...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	last, ok, err := h.Undo(at(2, 12))
+	if !ok || err != nil || last.TodoID != "b" || last.Phase != "work" {
+		t.Fatalf("undo = %+v ok=%v err=%v, want the session on b", last, ok, err)
+	}
+	if h.CountOn(at(2, 12)) != 1 || h.StatOn(at(2, 12), "a").Sessions != 1 || h.StatOn(at(2, 12), "b").Sessions != 0 {
+		t.Fatalf("count = %d, want only the session on a left", h.CountOn(at(2, 12)))
+	}
+}

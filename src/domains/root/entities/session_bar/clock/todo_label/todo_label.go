@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"image/color"
+	"os"
+	"slices"
 	"time"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -42,15 +44,20 @@ type TodoLabel struct {
 	status     string
 	statusLeft float32
 	drawn      string
+
+	cache     string
+	cachedAt  time.Time
+	checkedID string
 }
 
-func New(fonts *core.Fonts, timer Timer) *TodoLabel {
+func New(fonts *core.Fonts, timer Timer, cache string) *TodoLabel {
 	return &TodoLabel{
 		fonts:   fonts,
 		timer:   timer,
 		picker:  todo_picker.New(fonts, timer),
 		sync:    syncTodoist,
 		results: make(chan syncResult, 1),
+		cache:   cache,
 	}
 }
 
@@ -103,6 +110,8 @@ func (l *TodoLabel) Update(dt float32) {
 		}
 	}
 
+	l.dropMissing()
+
 	l.picker.Update(dt)
 	if l.picker.IsOpen() {
 		return
@@ -151,4 +160,29 @@ func (l *TodoLabel) Draw() {
 // Draw.
 func (l *TodoLabel) Changed() bool {
 	return l.status != l.drawn
+}
+
+// dropMissing clears the selected todo once a sync, from here or from
+// `orivo sync-todoist`, has left it out of the cache: it was completed,
+// deleted or moved to a later day. It reads the cache only when the file
+// changed or another todo was picked, as an open picker can still show one a
+// sync has dropped, and keeps the todo when there is no cache to tell.
+func (l *TodoLabel) dropMissing() {
+	id := l.timer.TodoID()
+	if id == "" {
+		return
+	}
+	info, err := os.Stat(l.cache)
+	if err != nil || (info.ModTime().Equal(l.cachedAt) && id == l.checkedID) {
+		return
+	}
+	l.cachedAt, l.checkedID = info.ModTime(), id
+
+	all, err := todos.Cache{Path: l.cache}.Read()
+	if err != nil {
+		return
+	}
+	if !slices.ContainsFunc(all, func(todo todos.Todo) bool { return todo.ID == id }) {
+		l.timer.SetTodo("", "")
+	}
 }
