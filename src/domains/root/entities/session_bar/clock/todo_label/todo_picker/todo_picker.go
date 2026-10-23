@@ -216,7 +216,7 @@ func (p *TodoPicker) drawTodo(rect rl.Rectangle, index int) {
 
 	note := ""
 	if stat := p.timer.Stat(todo.ID); stat.Sessions > 0 {
-		note = fmt.Sprintf("%d× %dm", stat.Sessions, stat.Secs/60)
+		note = fmt.Sprintf("%s× %dm", sessions.Format(stat.Sessions), stat.Secs/60)
 	}
 	if index >= 1 && index <= p.overdue {
 		if note != "" {

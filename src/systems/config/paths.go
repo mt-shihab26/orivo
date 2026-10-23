@@ -23,6 +23,7 @@ func Sessions() string      { return state("sessions") }
 func TodoistCache() string  { return state("todoist.txt") }
 func TodoistAuth() string   { return state("todoist-auth.json") }
 func TodoistOutbox() string { return state("todoist-outbox.txt") }
+func TodoistDone() string   { return state("todoist-done.txt") }
 func Socket() string        { return state("orivo.sock") }
 
 func state(name string) string {

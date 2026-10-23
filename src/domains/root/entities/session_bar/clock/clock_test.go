@@ -71,7 +71,7 @@ func TestWorkRollsIntoBreakThenWaitsForWork(t *testing.T) {
 		t.Fatalf("after work: phase=%v running=%v remaining=%v", f.phase, f.running, f.Remaining())
 	}
 	if f.SessionsToday() != 1 {
-		t.Fatalf("sessions today = %d, want 1", f.SessionsToday())
+		t.Fatalf("sessions today = %v, want 1", f.SessionsToday())
 	}
 	if f.Accent() != phase.Break.Color() {
 		t.Fatalf("accent did not follow the phase")
@@ -83,7 +83,7 @@ func TestWorkRollsIntoBreakThenWaitsForWork(t *testing.T) {
 		t.Fatalf("after break: phase=%v running=%v remaining=%v", f.phase, f.running, f.Remaining())
 	}
 	if f.SessionsToday() != 1 {
-		t.Fatalf("a break counted as a session: %d", f.SessionsToday())
+		t.Fatalf("a break counted as a session: %v", f.SessionsToday())
 	}
 
 	want := []string{"Work Session Complete", "Break Complete"}
@@ -196,7 +196,7 @@ func TestEachDayStartsTheTodosProgressFromZero(t *testing.T) {
 	f.time = f.time.Add(24 * time.Hour)
 	f.open()
 	if f.SessionsToday() != 0 || f.Stat("a").Sessions != 0 {
-		t.Fatalf("next day: today=%d stat=%+v, want both zero", f.SessionsToday(), f.Stat("a"))
+		t.Fatalf("next day: today=%v stat=%+v, want both zero", f.SessionsToday(), f.Stat("a"))
 	}
 
 	f.progress = func(_, line string) { sent = append(sent, line) }
@@ -297,7 +297,7 @@ func TestStateSurvivesRestart(t *testing.T) {
 		t.Fatalf("restored todo: %q %q", f.TodoID(), f.TodoText())
 	}
 	if f.SessionsToday() != 1 || f.Stat("a").Sessions != 1 {
-		t.Fatalf("restored history: today=%d stat=%+v", f.SessionsToday(), f.Stat("a"))
+		t.Fatalf("restored history: today=%v stat=%+v", f.SessionsToday(), f.Stat("a"))
 	}
 }
 
@@ -383,7 +383,7 @@ func TestUndoTakesBackTheLastSession(t *testing.T) {
 		t.Fatalf("after undo: phase=%v running=%v remaining=%v, want paused work at 25m", f.phase, f.running, f.Remaining())
 	}
 	if f.SessionsToday() != 0 || f.Stat("a").Sessions != 0 {
-		t.Fatalf("sessions = %d, stat = %+v, want none left", f.SessionsToday(), f.Stat("a"))
+		t.Fatalf("sessions = %v, stat = %+v, want none left", f.SessionsToday(), f.Stat("a"))
 	}
 	if want := []string{"a (1, 25 min)", "a "}; !slices.Equal(sent, want) {
 		t.Fatalf("sent = %q, want %q", sent, want)
@@ -391,7 +391,7 @@ func TestUndoTakesBackTheLastSession(t *testing.T) {
 
 	f.undo(f.time)
 	if f.phase != phase.Work || f.SessionsToday() != 0 {
-		t.Fatalf("undo with nothing left changed the clock: phase=%v sessions=%d", f.phase, f.SessionsToday())
+		t.Fatalf("undo with nothing left changed the clock: phase=%v sessions=%v", f.phase, f.SessionsToday())
 	}
 }
 
@@ -404,10 +404,94 @@ func TestUndoStepsBackThroughBreaks(t *testing.T) {
 
 	f.undo(f.time)
 	if f.phase != phase.Break || f.SessionsToday() != 1 {
-		t.Fatalf("phase=%v sessions=%d, want the break back with the work kept", f.phase, f.SessionsToday())
+		t.Fatalf("phase=%v sessions=%v, want the break back with the work kept", f.phase, f.SessionsToday())
 	}
 	f.undo(f.time)
 	if f.phase != phase.Work || f.SessionsToday() != 0 {
-		t.Fatalf("phase=%v sessions=%d, want the work back", f.phase, f.SessionsToday())
+		t.Fatalf("phase=%v sessions=%v, want the work back", f.phase, f.SessionsToday())
+	}
+}
+
+func TestDoneEndsWorkWithTheShareThatRan(t *testing.T) {
+	f := newFixture(t)
+	var sent, completed []string
+	f.progress = func(todoID, line string) { sent = append(sent, todoID+" "+line) }
+	f.complete = func(todoID string) { completed = append(completed, todoID) }
+
+	f.SetTodo("a", "Write report")
+	f.start()
+	f.wait(25 * time.Minute) // a whole session
+	f.wait(5 * time.Minute)  // the break
+	f.start()
+	f.wait(10 * time.Minute)
+	f.done(f.time)
+
+	if got := f.SessionsToday(); got != 1.4 {
+		t.Fatalf("sessions today = %v, want 1.4", got)
+	}
+	if stat := f.Stat("a"); stat.Sessions != 1.4 || stat.Secs != 35*60 {
+		t.Fatalf("stat = %+v, want 1.4 sessions of 35 min", stat)
+	}
+	if want := []string{"a (1, 25 min)", "a (1.4, 35 min)"}; !slices.Equal(sent, want) {
+		t.Fatalf("sent = %q, want %q", sent, want)
+	}
+	if !slices.Equal(completed, []string{"a"}) || f.TodoID() != "" {
+		t.Fatalf("completed = %q, todo = %q, want a completed and cleared", completed, f.TodoID())
+	}
+	// The cut-short session still counts towards the long break.
+	if f.phase != phase.LongBreak || !f.running {
+		t.Fatalf("phase=%v running=%v, want a running long break", f.phase, f.running)
+	}
+	if f.notified[len(f.notified)-1] != "Todo Done" {
+		t.Fatalf("notified = %q", f.notified)
+	}
+}
+
+func TestDoneBeforeWorkStartsRecordsNothing(t *testing.T) {
+	f := newFixture(t)
+	var completed []string
+	f.complete = func(todoID string) { completed = append(completed, todoID) }
+
+	f.SetTodo("a", "Write report")
+	f.done(f.time)
+
+	if f.SessionsToday() != 0 || f.phase != phase.Work || f.Remaining() != 25*time.Minute {
+		t.Fatalf("sessions=%v phase=%v remaining=%v, want work untouched", f.SessionsToday(), f.phase, f.Remaining())
+	}
+	if !slices.Equal(completed, []string{"a"}) || f.TodoID() != "" {
+		t.Fatalf("completed = %q, todo = %q", completed, f.TodoID())
+	}
+}
+
+func TestDoneInABreakOnlyCompletesTheTodo(t *testing.T) {
+	f := newFixture(t)
+	var completed []string
+	f.complete = func(todoID string) { completed = append(completed, todoID) }
+
+	f.SetTodo("a", "Write report")
+	f.start()
+	f.wait(25 * time.Minute)
+	f.wait(time.Minute)
+	f.done(f.time)
+
+	if f.SessionsToday() != 1 || f.phase != phase.Break {
+		t.Fatalf("sessions=%v phase=%v, want the break kept", f.SessionsToday(), f.phase)
+	}
+	if !slices.Equal(completed, []string{"a"}) {
+		t.Fatalf("completed = %q", completed)
+	}
+}
+
+func TestDoneWithoutATodoStillEndsWorkEarly(t *testing.T) {
+	f := newFixture(t)
+	completed := 0
+	f.complete = func(string) { completed++ }
+
+	f.start()
+	f.wait(5 * time.Minute)
+	f.done(f.time)
+
+	if f.SessionsToday() != 0.2 || f.phase != phase.Break || completed != 0 {
+		t.Fatalf("sessions=%v phase=%v completed=%d", f.SessionsToday(), f.phase, completed)
 	}
 }

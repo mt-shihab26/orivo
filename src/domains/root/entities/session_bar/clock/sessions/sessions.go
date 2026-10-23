@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"time"
 
 	"orivo/src/systems/files"
@@ -22,10 +24,13 @@ type Session struct {
 	EndedAt      time.Time `json:"ended_at"`
 	TodoID       string    `json:"todo_id,omitempty"`
 	TodoText     string    `json:"todo_text,omitempty"`
+	// Share is the part of a full session that ran when it was ended early
+	// with done; zero means a whole one, as every session before it did.
+	Share float64 `json:"share,omitempty"`
 }
 
 type Stat struct {
-	Sessions int
+	Sessions float64
 	Secs     int
 }
 
@@ -35,7 +40,8 @@ type Stat struct {
 type History struct {
 	dir      string
 	day      string
-	sessions int
+	sessions float64
+	ended    int
 	stats    map[string]Stat
 }
 
@@ -67,9 +73,31 @@ func (h *History) Record(s Session) error {
 	return err
 }
 
-func (h *History) CountOn(day time.Time) int {
+// Count is how many sessions s counts for: its share when it was ended
+// early, or one.
+func (s Session) Count() float64 {
+	if s.Share > 0 {
+		return s.Share
+	}
+	return 1
+}
+
+// Format writes a session count with at most one decimal: 2.4, or 3 for a
+// whole one.
+func Format(count float64) string {
+	return strconv.FormatFloat(math.Round(count*10)/10, 'f', -1, 64)
+}
+
+// CountOn adds up the work sessions that ended on day, each by its share.
+func (h *History) CountOn(day time.Time) float64 {
 	h.load(dayOf(day))
 	return h.sessions
+}
+
+// EndedOn counts the work sessions that ended on day, a short one as one.
+func (h *History) EndedOn(day time.Time) int {
+	h.load(dayOf(day))
+	return h.ended
 }
 
 func (h *History) StatOn(day time.Time, todoID string) Stat {
@@ -92,7 +120,7 @@ func (h *History) load(day string) {
 	if day == h.day {
 		return
 	}
-	h.day, h.sessions, h.stats = day, 0, map[string]Stat{}
+	h.day, h.sessions, h.ended, h.stats = day, 0, 0, map[string]Stat{}
 
 	file, err := os.Open(h.file(day))
 	if errors.Is(err, fs.ErrNotExist) {
@@ -121,10 +149,11 @@ func (h *History) add(s Session) {
 	if s.Phase != "work" {
 		return
 	}
-	h.sessions++
+	h.sessions += s.Count()
+	h.ended++
 	if s.TodoID != "" {
 		stat := h.stats[s.TodoID]
-		stat.Sessions++
+		stat.Sessions += s.Count()
 		stat.Secs += s.DurationSecs
 		h.stats[s.TodoID] = stat
 	}

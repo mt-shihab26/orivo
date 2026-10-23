@@ -20,6 +20,7 @@ import (
 	"orivo/src/systems/config"
 	"orivo/src/systems/logx"
 	"orivo/src/systems/todoist"
+	"orivo/src/systems/todos"
 )
 
 const (
@@ -36,6 +37,7 @@ type Clock struct {
 	now      func() time.Time
 	notify   func(summary, body string)
 	progress func(todoID, line string)
+	complete func(todoID string)
 	flush    func() bool
 
 	todo   *todo_label.TodoLabel
@@ -61,6 +63,7 @@ func New(cfg config.Timer, fonts *core.Fonts) *Clock {
 	c.server = ipc.Serve(config.Socket())
 	c.notify = notify.Send
 	c.progress = queueProgress
+	c.complete = queueDone
 	c.flush = flushProgress
 	c.publish()
 	return c
@@ -141,6 +144,10 @@ func (c *Clock) Update(dt float32) {
 		ended = true
 	}
 
+	if listening && rl.IsKeyPressed(rl.KeyC) {
+		c.done(now)
+	}
+
 	if listening && rl.IsKeyPressed(rl.KeyM) {
 		c.showMillis = !c.showMillis
 	}
@@ -150,52 +157,7 @@ func (c *Clock) Update(dt float32) {
 	}
 
 	if ended {
-		if c.notify != nil {
-			summary, body := c.phase.EndMessage()
-			if c.todoText != "" {
-				body = c.todoText + " — " + body
-			}
-			c.notify(summary, body)
-		}
-
-		started := c.phaseStartedAt
-		if started.IsZero() {
-			started = now
-		}
-		err := c.history.Record(sessions.Session{
-			Phase:        c.phase.Key(),
-			DurationSecs: int(c.total().Seconds()),
-			StartedAt:    started,
-			EndedAt:      now,
-			TodoID:       c.todoID,
-			TodoText:     c.todoText,
-		})
-		if err != nil {
-			logx.Error("failed to record session: %v", err)
-		}
-		if c.progress != nil && c.phase == phase.Work && c.todoID != "" {
-			stat := c.history.StatOn(now, c.todoID)
-			c.progress(c.todoID, todoist.ProgressTag(stat.Sessions, stat.Secs))
-			c.flushWanted = true
-		}
-
-		switch {
-		case c.phase != phase.Work:
-			c.phase = phase.Work
-			c.running = false
-		case c.SessionsToday()%c.cfg.Interval() == 0:
-			c.phase = phase.LongBreak
-			c.running = true
-		default:
-			c.phase = phase.Break
-			c.running = true
-		}
-
-		// Every todo's saved time belonged to the phase that just ended.
-		c.store.ClearTimers()
-		c.rewind(now)
-		c.store.SetPhase(c.phase.Name())
-		c.store.Save()
+		c.end(now, c.total(), false)
 	}
 
 	c.sinceSave += dt
@@ -274,7 +236,7 @@ func (c *Clock) Remaining() time.Duration {
 	return max(c.remaining-c.now().Sub(c.startedAt), 0)
 }
 
-func (c *Clock) SessionsToday() int {
+func (c *Clock) SessionsToday() float64 {
 	return c.history.CountOn(c.now())
 }
 
@@ -321,6 +283,78 @@ func (c *Clock) Reduce(d time.Duration) {
 	c.store.Save()
 }
 
+// done completes the selected todo, and ends a work session that has run at
+// all, counting only the share of it that ran.
+func (c *Clock) done(now time.Time) {
+	finished := c.todoID != ""
+	if ran := c.total() - c.Remaining(); c.phase == phase.Work && ran > 0 {
+		c.end(now, ran, finished)
+	} else if finished && c.notify != nil {
+		c.notify("Todo Done", c.todoText)
+	}
+	if finished {
+		c.finish()
+	}
+}
+
+// end records the phase as a session that ran for ran, and moves on to the
+// next phase. finished tells the notification the todo is done too.
+func (c *Clock) end(now time.Time, ran time.Duration, finished bool) {
+	if c.notify != nil {
+		summary, body := c.phase.EndMessage()
+		if finished {
+			summary = "Todo Done"
+		}
+		if c.todoText != "" {
+			body = c.todoText + " — " + body
+		}
+		c.notify(summary, body)
+	}
+
+	started := c.phaseStartedAt
+	if started.IsZero() {
+		started = now
+	}
+	session := sessions.Session{
+		Phase:        c.phase.Key(),
+		DurationSecs: int(ran.Seconds()),
+		StartedAt:    started,
+		EndedAt:      now,
+		TodoID:       c.todoID,
+		TodoText:     c.todoText,
+	}
+	if ran < c.total() {
+		session.Share = ran.Seconds() / c.total().Seconds()
+	}
+	if err := c.history.Record(session); err != nil {
+		logx.Error("failed to record session: %v", err)
+	}
+	if c.progress != nil && c.phase == phase.Work && c.todoID != "" {
+		stat := c.history.StatOn(now, c.todoID)
+		c.progress(c.todoID, todoist.ProgressTag(stat.Sessions, stat.Secs))
+		c.flushWanted = true
+	}
+
+	switch {
+	case c.phase != phase.Work:
+		c.phase = phase.Work
+		c.running = false
+	// A session ended early still counts as one towards the long break.
+	case c.history.EndedOn(now)%c.cfg.Interval() == 0:
+		c.phase = phase.LongBreak
+		c.running = true
+	default:
+		c.phase = phase.Break
+		c.running = true
+	}
+
+	// Every todo's saved time belonged to the phase that just ended.
+	c.store.ClearTimers()
+	c.rewind(now)
+	c.store.SetPhase(c.phase.Name())
+	c.store.Save()
+}
+
 // undo takes back the last session recorded today and returns to its phase,
 // paused at full time, as if it had never ended.
 func (c *Clock) undo(now time.Time) {
@@ -356,6 +390,16 @@ func (c *Clock) undo(now time.Time) {
 	c.rewind(now)
 	c.store.SetPhase(c.phase.Name())
 	c.store.Save()
+}
+
+// finish marks the selected todo done, to be completed in Todoist with the
+// next send, and clears it.
+func (c *Clock) finish() {
+	if c.complete != nil {
+		c.complete(c.todoID)
+		c.flushWanted = true
+	}
+	c.SetTodo("", "")
 }
 
 func (c *Clock) total() time.Duration {
@@ -419,6 +463,18 @@ func queueProgress(todoID, line string) {
 	}
 }
 
+// queueDone writes the todo to the completions flushProgress sends, and takes
+// it out of the cache at once, so the picker no longer offers it.
+func queueDone(todoID string) {
+	if err := (todoist.Completions{Path: config.TodoistDone()}).Add(todoID); err != nil {
+		logx.Error("failed to queue the Todoist completion: %v", err)
+		return
+	}
+	if err := (todos.Cache{Path: config.TodoistCache()}).Remove(todoID); err != nil {
+		logx.Error("failed to drop the done todo from the cache: %v", err)
+	}
+}
+
 var flushing atomic.Bool
 
 // logSync is swapped out in tests so they do not write to the real log.
@@ -433,7 +489,7 @@ func flushProgress() bool {
 	}
 	go func() {
 		defer flushing.Store(false)
-		err := todoist.PushProgress(config.TodoistAuth(), config.TodoistOutbox())
+		err := todoist.PushProgress(config.TodoistAuth(), config.TodoistOutbox(), config.TodoistDone())
 		if err != nil && !errors.Is(err, todoist.ErrNotConnected) {
 			logx.Warn("failed to update Todoist progress: %v", err)
 		}

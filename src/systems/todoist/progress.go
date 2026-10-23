@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"io/fs"
 	"maps"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -26,7 +28,7 @@ var (
 
 	// Matches the tags ProgressTag writes at the end of a title, and the
 	// wordier ones it wrote before, so the old ones are replaced.
-	progressTag = regexp.MustCompile(`(\s*\(\d+( sessions?)?, \d+ min\))+$`)
+	progressTag = regexp.MustCompile(`(\s*\(\d+(\.\d+)?( sessions?)?, \d+ min\))+$`)
 
 	// Matches the sentence older versions kept in the description, so it is
 	// cleared out.
@@ -35,8 +37,10 @@ var (
 
 // ProgressTag is what orivo keeps at the end of a task's title. Recurring
 // tasks lose their description when completed, but keep their title.
-func ProgressTag(sessions, secs int) string {
-	return fmt.Sprintf("(%d, %d min)", sessions, secs/60)
+// Sessions ended early count by their share, with one decimal: (2.4, 60 min).
+func ProgressTag(sessions float64, secs int) string {
+	count := strconv.FormatFloat(math.Round(sessions*10)/10, 'f', -1, 64)
+	return fmt.Sprintf("(%s, %d min)", count, secs/60)
 }
 
 // StripTitle drops orivo's tag from title, so the counts Todoist holds are
@@ -356,11 +360,12 @@ func (o Outbox) write(pending map[string]string) error {
 	return files.WriteAtomic(o.Path, []byte(text.String()))
 }
 
-// PushProgress flushes the outbox at outboxPath with the saved sign-in.
-func PushProgress(authPath, outboxPath string) error {
-	outbox := Outbox{Path: outboxPath}
+// PushProgress flushes the outbox at outboxPath, then the completions at
+// donePath, with the saved sign-in. The tags go first, so a task completed
+// in orivo carries the time its last session added.
+func PushProgress(authPath, outboxPath, donePath string) error {
 	// Nothing queued means no request at all, not even a token refresh.
-	if _, err := os.Stat(outboxPath); errors.Is(err, fs.ErrNotExist) {
+	if !exists(outboxPath) && !exists(donePath) {
 		return nil
 	}
 
@@ -368,5 +373,14 @@ func PushProgress(authPath, outboxPath string) error {
 	if err != nil {
 		return err
 	}
-	return outbox.Flush(NewClient(token))
+	client := NewClient(token)
+	if err := (Outbox{Path: outboxPath}).Flush(client); err != nil {
+		return err
+	}
+	return Completions{Path: donePath}.Flush(client)
+}
+
+func exists(path string) bool {
+	_, err := os.Stat(path)
+	return !errors.Is(err, fs.ErrNotExist)
 }

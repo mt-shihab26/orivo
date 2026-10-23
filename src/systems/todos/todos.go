@@ -61,6 +61,22 @@ func (c Cache) Write(all []Todo) error {
 	return files.WriteAtomic(c.Path, []byte(text.String()))
 }
 
+// Remove drops the todo with id from the cache, if there is one.
+func (c Cache) Remove(id string) error {
+	all, err := c.Read()
+	if errors.Is(err, ErrNoCache) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	kept := slices.DeleteFunc(all, func(todo Todo) bool { return todo.ID == id })
+	if len(kept) == len(all) {
+		return nil
+	}
+	return c.Write(kept)
+}
+
 func oneLine(text string) string {
 	return strings.Join(strings.Fields(text), " ")
 }

@@ -12,15 +12,19 @@ import (
 
 func TestProgressTagCountsSessionsAndMinutes(t *testing.T) {
 	for _, tc := range []struct {
-		sessions, secs int
-		want           string
+		sessions float64
+		secs     int
+		want     string
 	}{
 		{1, 25 * 60, "(1, 25 min)"},
 		{4, 100 * 60, "(4, 100 min)"},
 		{1, 30, "(1, 0 min)"},
+		{2.4, 60 * 60, "(2.4, 60 min)"},
+		{0.36, 9 * 60, "(0.4, 9 min)"},
+		{2.96, 74 * 60, "(3, 74 min)"},
 	} {
 		if got := ProgressTag(tc.sessions, tc.secs); got != tc.want {
-			t.Errorf("ProgressTag(%d, %d) = %q, want %q", tc.sessions, tc.secs, got, tc.want)
+			t.Errorf("ProgressTag(%v, %d) = %q, want %q", tc.sessions, tc.secs, got, tc.want)
 		}
 	}
 }
@@ -35,6 +39,7 @@ func TestMergeTitleReplacesTheOldTag(t *testing.T) {
 		{"replaces", "Write report (1, 25 min)", "Write report " + tag},
 		{"drops duplicates", "Write report (1, 25 min) (9, 240 min)", "Write report " + tag},
 		{"replaces the wordier tag", "Write report (1 session, 25 min)", "Write report " + tag},
+		{"replaces a fractional tag", "Write report (1.4, 35 min)", "Write report " + tag},
 		{"keeps the user's own brackets", "Call (Ayşe)", "Call (Ayşe) " + tag},
 		{"only orivo", "(1, 25 min)", tag},
 	} {
@@ -60,10 +65,12 @@ func TestCleanDescriptionDropsTheOldSentence(t *testing.T) {
 	}
 }
 
-// fakeTodoist answers the requests SetProgress makes. active and completed
-// map task ids to their text; a write to an id in neither fails with 404.
+// fakeTodoist answers the requests SetProgress and Complete make. active and completed
+// map task ids to their text; a write to an id in neither fails with 404, and
+// closed lists the active tasks closed.
 type fakeTodoist struct {
 	active, completed map[string]taskText
+	closed            []string
 	down              bool
 	readOnly          bool
 	requests          int
@@ -107,6 +114,15 @@ func (f *fakeTodoist) client(t *testing.T) *Client {
 			}
 			status := map[string]any{}
 			for _, cmd := range commands {
+				if cmd.Type == "item_close" {
+					if _, ok := f.active[cmd.Args["id"]]; !ok {
+						status[cmd.UUID] = map[string]any{"error": "Item not found", "http_code": 404}
+						continue
+					}
+					f.closed = append(f.closed, cmd.Args["id"])
+					status[cmd.UUID] = "ok"
+					continue
+				}
 				if cmd.Type != "item_update" {
 					t.Errorf("command type = %q", cmd.Type)
 				}

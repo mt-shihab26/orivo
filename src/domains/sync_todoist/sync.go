@@ -12,7 +12,7 @@ import (
 )
 
 func Run() error {
-	all, err := todoist.Sync(config.TodoistAuth(), config.TodoistCache(), config.TodoistOutbox(), sessions.WorkedToday(config.Sessions()))
+	all, err := todoist.Sync(config.TodoistAuth(), config.TodoistCache(), config.TodoistOutbox(), config.TodoistDone(), sessions.WorkedToday(config.Sessions()))
 	// Not an error: the sync timer runs for every user, connected or not.
 	if errors.Is(err, todoist.ErrNotConnected) {
 		fmt.Println("Not connected to Todoist; run `orivo connect-todoist` first")
@@ -31,7 +31,7 @@ func Run() error {
 
 	fmt.Printf("Cached %d todos in %s\n", len(overdue)+len(today), config.TodoistCache())
 
-	err = todoist.PushProgress(config.TodoistAuth(), config.TodoistOutbox())
+	err = todoist.PushProgress(config.TodoistAuth(), config.TodoistOutbox(), config.TodoistDone())
 	if errors.Is(err, todoist.ErrReadOnly) {
 		return errors.New("the Todoist sign-in can't update task titles; run `orivo connect-todoist` again")
 	}

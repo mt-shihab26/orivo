@@ -18,7 +18,7 @@ type Status struct {
 	RemainingMillis  int64   `json:"remaining_millis"`
 	TodoID           *string `json:"todo_id"`
 	TodoText         *string `json:"todo_text"`
-	SessionsToday    int     `json:"sessions_today"`
+	SessionsToday    float64 `json:"sessions_today"`
 	DailySessionGoal int     `json:"daily_session_goal"`
 }
 

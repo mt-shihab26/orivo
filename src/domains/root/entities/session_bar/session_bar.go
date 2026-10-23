@@ -8,6 +8,7 @@ import (
 
 	"orivo/src/domains/root/core"
 	"orivo/src/domains/root/entities/session_bar/clock"
+	"orivo/src/domains/root/entities/session_bar/clock/sessions"
 	"orivo/src/systems/config"
 )
 
@@ -35,7 +36,7 @@ func (b *SessionBar) Draw() {
 	accent := b.clock.Accent()
 	done, goal := b.clock.SessionsToday(), b.clock.DailyGoal()
 
-	label := fmt.Sprintf("Session %d / %d", done, goal)
+	label := fmt.Sprintf("Session %s / %d", sessions.Format(done), goal)
 	b.fonts.Body.DrawCentered(label, screen.Width/2, y, accent)
 
 	bar := rl.Rectangle{X: screen.Width * 0.25, Y: y + 32*s, Width: screen.Width * 0.5, Height: 6 * s}

@@ -35,7 +35,7 @@ func TestEachDayHasItsOwnFileAndCount(t *testing.T) {
 		t.Errorf("Oct 3 = %+v, want 1 session", got)
 	}
 	if got := h.CountOn(at(4, 12)); got != 0 {
-		t.Errorf("Oct 4 count = %d, want 0", got)
+		t.Errorf("Oct 4 count = %v, want 0", got)
 	}
 	for _, name := range []string{"2026-10-02.jsonl", "2026-10-03.jsonl"} {
 		if _, err := os.Stat(filepath.Join(dir, name)); err != nil {
@@ -107,6 +107,40 @@ func TestUndoRemovesOnlyTheLastSession(t *testing.T) {
 		t.Fatalf("undo = %+v ok=%v err=%v, want the session on b", last, ok, err)
 	}
 	if h.CountOn(at(2, 12)) != 1 || h.StatOn(at(2, 12), "a").Sessions != 1 || h.StatOn(at(2, 12), "b").Sessions != 0 {
-		t.Fatalf("count = %d, want only the session on a left", h.CountOn(at(2, 12)))
+		t.Fatalf("count = %v, want only the session on a left", h.CountOn(at(2, 12)))
+	}
+}
+
+func TestSharesAddUpButEachEndedSessionCountsOnce(t *testing.T) {
+	h, err := Open(filepath.Join(t.TempDir(), "sessions"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	short := work("a", at(2, 10))
+	short.DurationSecs, short.Share = 10*60, 0.4
+	for _, s := range []Session{work("a", at(2, 9)), short} {
+		if err := h.Record(s); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Read back from the file, not from what Record counted.
+	h = &History{dir: h.dir}
+	if got := h.CountOn(at(2, 12)); got != 1.4 {
+		t.Errorf("count = %v, want 1.4", got)
+	}
+	if got := h.EndedOn(at(2, 12)); got != 2 {
+		t.Errorf("ended = %v, want 2", got)
+	}
+	if got := h.StatOn(at(2, 12), "a"); got.Sessions != 1.4 || got.Secs != 35*60 {
+		t.Errorf("stat = %+v, want 1.4 sessions of 35 min", got)
+	}
+}
+
+func TestFormatShowsOneDecimalAtMost(t *testing.T) {
+	for count, want := range map[float64]string{0: "0", 3: "3", 2.4: "2.4", 0.36: "0.4", 2.96: "3"} {
+		if got := Format(count); got != want {
+			t.Errorf("Format(%v) = %q, want %q", count, got, want)
+		}
 	}
 }
