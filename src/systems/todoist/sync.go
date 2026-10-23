@@ -1,11 +1,16 @@
 package todoist
 
-import "orivo/src/systems/todos"
+import (
+	"slices"
+
+	"orivo/src/systems/todos"
+)
 
 // Sync caches the due todos and queues the removal of the tag from those not
 // worked on today, so a tag left from an earlier day, or kept by a recurring
-// task that was completed, does not show yesterday's count.
-func Sync(authPath, cachePath, outboxPath string, workedToday func(id string) bool) ([]todos.Todo, error) {
+// task that was completed, does not show yesterday's count. A todo done in
+// orivo but not yet completed in Todoist stays out of the cache.
+func Sync(authPath, cachePath, outboxPath, donePath string, workedToday func(id string) bool) ([]todos.Todo, error) {
 	token, err := NewOAuth().Token(authPath)
 	if err != nil {
 		return nil, err
@@ -15,6 +20,12 @@ func Sync(authPath, cachePath, outboxPath string, workedToday func(id string) bo
 	if err != nil {
 		return nil, err
 	}
+
+	done, err := Completions{Path: donePath}.Pending()
+	if err != nil {
+		return nil, err
+	}
+	all = slices.DeleteFunc(all, func(todo todos.Todo) bool { return slices.Contains(done, todo.ID) })
 
 	if err := (todos.Cache{Path: cachePath}).Write(all); err != nil {
 		return nil, err

@@ -65,6 +65,7 @@ $ ./orivo
 | `Space`   | Start / pause                                      |
 | `r`       | Reset the current phase                            |
 | `n`       | Skip to the next phase                             |
+| `c`       | Done: complete the todo, ending work early         |
 | `u`       | Undo the last session ended today                  |
 | `t`       | Pick a todo (overdue and due today)                |
 | `T`       | Clear the selected todo                            |
@@ -166,7 +167,13 @@ When a work session on a todo ends, orivo puts today's session count and minutes
 Write the quarterly report (4, 100 min)
 ```
 
-The update is queued in `~/.local/state/orivo/todoist-outbox.txt` and sent in the background right away, together with anything else queued. To go easy on Todoist, sends are at least a minute apart: a session that ends sooner after the last send waits out the rest of that minute. If a send fails (offline, or the sign-in expired), the updates stay queued for the next session or sync. Every request orivo makes to Todoist is written to the log (see Files) with its answer and how long it took, and each background sync with the time since the last one. Writing titles needs read and write access to Todoist. If you connected before orivo asked for it, run `orivo connect-todoist` again; until then, syncs fail with an error that says so.
+Pressing `c` marks the selected todo done without waiting for the work session to finish. The session ends where it is and counts only for the share of it that ran, so 10 minutes of a 25-minute session adds 0.4 to the todo and to the day's count. Counts show one decimal at most, in the window and in Todoist; the long break still comes after every `long_break_interval` sessions, a short one counting as one. The task is then completed in Todoist, as checking it off there would (a recurring task moves on to its next date), drops out of the picker and is cleared from the timer. Pressed during a break, or before work has started, `c` only completes the todo, and with no todo selected it only ends the work session early. The completion is sent after the todo's new count, so the task keeps it.
+
+```
+Write the quarterly report (1.4, 35 min)
+```
+
+The update is queued in `~/.local/state/orivo/todoist-outbox.txt` (a completion in `~/.local/state/orivo/todoist-done.txt`) and sent in the background right away, together with anything else queued. To go easy on Todoist, sends are at least a minute apart: a session that ends sooner after the last send waits out the rest of that minute. If a send fails (offline, or the sign-in expired), the updates stay queued for the next session or sync. Every request orivo makes to Todoist is written to the log (see Files) with its answer and how long it took, and each background sync with the time since the last one. Writing titles needs read and write access to Todoist. If you connected before orivo asked for it, run `orivo connect-todoist` again; until then, syncs fail with an error that says so.
 
 ## Files
 
@@ -177,6 +184,7 @@ Runtime state lives under `~/.local/state/orivo/`:
 - `todoist.txt` → the cached Todoist todos (see above)
 - `todoist-auth.json` → the Todoist sign-in
 - `todoist-outbox.txt` → session counts waiting to be written to Todoist (see above)
+- `todoist-done.txt` → todos marked done in orivo, waiting to be completed in Todoist (see above)
 - `orivo.sock` → Unix socket that answers each connection with one JSON line describing the live timer (phase, running, remaining time, todo, sessions today), for bar widgets such as [omarchy-orivo-plugin](https://github.com/mt-shihab26/omarchy-orivo-plugin)
 - `logs/orivo-YYYY-MM-DD.log` → warnings, errors and every request sent to Todoist, one file per week named after the Saturday it starts on; only the current week is kept
 
@@ -209,7 +217,7 @@ src/domains/root/
          └─ reduce_dialog/       embeds dialog
 ```
 
-`Clock` is the timer: it handles Space, `r`, `n` and `m`, counts down, rolls from one phase to the next, records sessions and saves. `Dialog` is the base both dialogs embed; it owns open and closed, Esc to dismiss, and the backdrop, panel, title and hint. Keys follow the tree: a parent reads its own keys only while none of its dialogs is open, and stops updating the other branch meanwhile, so nothing behind an open dialog reacts. `app.go` only opens the window, loads the theme, creates the top-level entities and runs the loop.
+`Clock` is the timer: it handles Space, `r`, `n`, `c` and `m`, counts down, rolls from one phase to the next, records sessions and saves. `Dialog` is the base both dialogs embed; it owns open and closed, Esc to dismiss, and the backdrop, panel, title and hint. Keys follow the tree: a parent reads its own keys only while none of its dialogs is open, and stops updating the other branch meanwhile, so nothing behind an open dialog reacts. `app.go` only opens the window, loads the theme, creates the top-level entities and runs the loop.
 
 The packages under `src/systems` are helpers the entities call: the phase names, durations and colors, the session history, the store, the todo cache, the Todoist client, the Omarchy theme loader and watcher, the status socket, notifications and signal handling.
 

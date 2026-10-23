@@ -62,11 +62,11 @@ func New(fonts *core.Fonts, timer Timer, cache string) *TodoLabel {
 }
 
 func syncTodoist() (int, error) {
-	all, err := todoist.Sync(config.TodoistAuth(), config.TodoistCache(), config.TodoistOutbox(), sessions.WorkedToday(config.Sessions()))
+	all, err := todoist.Sync(config.TodoistAuth(), config.TodoistCache(), config.TodoistOutbox(), config.TodoistDone(), sessions.WorkedToday(config.Sessions()))
 	if err != nil {
 		return 0, err
 	}
-	if err := todoist.PushProgress(config.TodoistAuth(), config.TodoistOutbox()); err != nil {
+	if err := todoist.PushProgress(config.TodoistAuth(), config.TodoistOutbox(), config.TodoistDone()); err != nil {
 		return 0, err
 	}
 	overdue, today := todos.Split(all, time.Now())
@@ -142,7 +142,7 @@ func (l *TodoLabel) Draw() {
 	if timer.TodoID() != "" {
 		text = timer.TodoText()
 		if stat := timer.Stat(timer.TodoID()); stat.Sessions > 0 {
-			text += fmt.Sprintf("  ·  %d sessions  ·  %d min", stat.Sessions, stat.Secs/60)
+			text += fmt.Sprintf("  ·  %s sessions  ·  %d min", sessions.Format(stat.Sessions), stat.Secs/60)
 		}
 	}
 	l.drawn = l.status
