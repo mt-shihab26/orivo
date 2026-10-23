@@ -11,8 +11,8 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	"orivo/src/domains/root/core"
-	"orivo/src/domains/root/entities/session_bar/clock/sessions"
-	"orivo/src/domains/root/entities/session_bar/clock/todo_label/todo_picker"
+	"orivo/src/domains/root/widgets/session_bar/clock/sessions"
+	"orivo/src/domains/root/widgets/session_bar/clock/todo_label/todo_picker"
 	"orivo/src/systems/config"
 	"orivo/src/systems/todoist"
 	"orivo/src/systems/todos"
@@ -73,8 +73,32 @@ func syncTodoist() (int, error) {
 	return len(overdue) + len(today), nil
 }
 
-func (l *TodoLabel) Close() {
-	l.picker.Close()
+func (l *TodoLabel) Attach() {
+	l.picker.Attach()
+}
+
+func (l *TodoLabel) Detach() {
+	l.picker.Detach()
+}
+
+// Pick opens the todo picker.
+func (l *TodoLabel) Pick() {
+	l.picker.Open()
+}
+
+// Sync fetches the todos from Todoist in the background, unless a sync is
+// already out.
+func (l *TodoLabel) Sync() {
+	if l.syncing {
+		return
+	}
+	l.syncing = true
+	l.status = "Syncing Todoist…"
+	go func() {
+		count, err := l.sync()
+		l.results <- syncResult{count: count, err: err}
+		core.Wake()
+	}()
 }
 
 func (l *TodoLabel) DialogOpen() bool {
@@ -122,14 +146,8 @@ func (l *TodoLabel) Update(dt float32) {
 		l.timer.SetTodo("", "")
 	}
 
-	if !l.syncing && rl.IsKeyPressed(rl.KeyS) {
-		l.syncing = true
-		l.status = "Syncing Todoist…"
-		go func() {
-			count, err := l.sync()
-			l.results <- syncResult{count: count, err: err}
-			core.Wake()
-		}()
+	if rl.IsKeyPressed(rl.KeyS) {
+		l.Sync()
 	}
 }
 
@@ -150,8 +168,14 @@ func (l *TodoLabel) Draw() {
 		text = l.status
 	}
 
+	// Clicking the line opens the picker, as t does.
 	body := l.fonts.Body
-	body.DrawCentered(body.Fit(text, screen.Width-40*s), screen.Width/2, screen.Height-80*s, timer.Accent())
+	text = body.Fit(text, screen.Width-40*s)
+	width, y := body.Width(text), screen.Height-96*s
+	if core.Hotspot(rl.Rectangle{X: (screen.Width - width) / 2, Y: y, Width: width, Height: body.Size}) {
+		l.Pick()
+	}
+	body.DrawCentered(text, screen.Width/2, y, timer.Accent())
 
 	l.picker.Draw()
 }

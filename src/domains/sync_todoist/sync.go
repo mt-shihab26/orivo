@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"orivo/src/domains/root/entities/session_bar/clock/sessions"
+	"orivo/src/domains/root/widgets/session_bar/clock/sessions"
 	"orivo/src/systems/config"
 	"orivo/src/systems/todoist"
 	"orivo/src/systems/todos"

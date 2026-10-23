@@ -7,8 +7,8 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	"orivo/src/domains/root/core"
-	"orivo/src/domains/root/entities/session_bar/clock"
-	"orivo/src/domains/root/entities/session_bar/clock/sessions"
+	"orivo/src/domains/root/widgets/session_bar/clock"
+	"orivo/src/domains/root/widgets/session_bar/clock/sessions"
 	"orivo/src/systems/config"
 )
 
@@ -21,8 +21,12 @@ func New(cfg config.Timer, fonts *core.Fonts) *SessionBar {
 	return &SessionBar{fonts: fonts, clock: clock.New(cfg, fonts)}
 }
 
-func (b *SessionBar) Close() {
-	b.clock.Close()
+func (b *SessionBar) Attach() {
+	b.clock.Attach()
+}
+
+func (b *SessionBar) Detach() {
+	b.clock.Detach()
 }
 
 func (b *SessionBar) Update(dt float32) {

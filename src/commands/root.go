@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"orivo/src/domains/root"
-	"orivo/src/domains/root/entities/session_bar/clock/ipc"
-	"orivo/src/domains/root/entities/session_bar/clock/notify"
+	"orivo/src/domains/root/widgets/session_bar/clock/ipc"
+	"orivo/src/domains/root/widgets/session_bar/clock/notify"
 	"orivo/src/systems/config"
 	"orivo/src/systems/logx"
 )

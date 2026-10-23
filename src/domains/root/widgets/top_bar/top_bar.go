@@ -20,7 +20,9 @@ func New(fonts *core.Fonts, showFPS bool, fps func() int, quit func()) *TopBar {
 	return &TopBar{fonts: fonts, quit: quit, showFPS: showFPS, fps: fps}
 }
 
-func (t *TopBar) Close() {}
+func (t *TopBar) Attach() {}
+
+func (t *TopBar) Detach() {}
 
 func (t *TopBar) Update(dt float32) {
 	if !rl.IsKeyDown(rl.KeyLeftControl) && !rl.IsKeyDown(rl.KeyRightControl) {
@@ -39,7 +41,23 @@ func (t *TopBar) Draw() {
 	s := screen.Scale
 	small := t.fonts.Small
 
-	small.Draw("^q quit   ^f fps", 14*s, 12*s, core.ColorDim)
+	// Each key hint also takes a click.
+	x, y := 14*s, 12*s
+	for _, hint := range []struct {
+		text   string
+		action func()
+	}{
+		{"^q quit", t.quit},
+		{"^f fps", func() { t.showFPS = !t.showFPS }},
+	} {
+		width := small.Width(hint.text)
+		if core.Hotspot(rl.Rectangle{X: x, Y: y, Width: width, Height: small.Size}) {
+			hint.action()
+		}
+		small.Draw(hint.text, x, y, core.ColorDim)
+		x += width + small.Width("   ")
+	}
+
 	if t.showFPS {
 		t.drawn = t.fps()
 		fps := fmt.Sprintf("%d fps", t.drawn)

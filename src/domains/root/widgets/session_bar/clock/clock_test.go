@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"orivo/src/domains/root/entities/session_bar/clock/phase"
+	"orivo/src/domains/root/widgets/session_bar/clock/phase"
 	"orivo/src/systems/config"
 )
 

@@ -9,8 +9,8 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	"orivo/src/domains/root/core"
-	"orivo/src/domains/root/entities/dialog"
-	"orivo/src/domains/root/entities/session_bar/clock/sessions"
+	"orivo/src/domains/root/widgets/dialog"
+	"orivo/src/domains/root/widgets/session_bar/clock/sessions"
 	"orivo/src/systems/config"
 	"orivo/src/systems/todos"
 )
@@ -31,12 +31,6 @@ type TodoPicker struct {
 	err        error
 	cursor     int
 	selectedID string
-	hits       []pickerHit
-}
-
-type pickerHit struct {
-	rect  rl.Rectangle
-	index int
 }
 
 type pickerRow struct {
@@ -46,40 +40,43 @@ type pickerRow struct {
 
 func New(fonts *core.Fonts, timer Timer) *TodoPicker {
 	return &TodoPicker{
-		Dialog: dialog.New(fonts, "Select Todo", "[j/k] Move   [Enter] Select   [Esc] Cancel"),
+		Dialog: dialog.New(fonts, "Select Todo", "[j/k] Move"),
 		timer:  timer,
 	}
+}
+
+// Open reads the cached todos and shows them, with the cursor on the one
+// selected.
+func (p *TodoPicker) Open() {
+	all, err := todos.Cache{Path: config.TodoistCache()}.Read()
+	overdue, today := todos.Split(all, time.Now())
+
+	// The first row picks no todo at all.
+	p.todos = append(append([]todos.Todo{{Text: "None"}}, overdue...), today...)
+	p.overdue = len(overdue)
+	p.err = err
+	p.selectedID = p.timer.TodoID()
+	p.cursor = min(1, len(p.todos)-1)
+
+	for i, todo := range p.todos {
+		p.Fonts.Need(todo.Text)
+		if todo.ID == p.selectedID {
+			p.cursor = i
+		}
+	}
+	if err != nil {
+		p.Fonts.Need(err.Error())
+	}
+	p.Show()
 }
 
 func (p *TodoPicker) Update(dt float32) {
 	shift := rl.IsKeyDown(rl.KeyLeftShift) || rl.IsKeyDown(rl.KeyRightShift)
 
 	if !p.IsOpen() {
-		if shift || !rl.IsKeyPressed(rl.KeyT) {
-			return
+		if !shift && rl.IsKeyPressed(rl.KeyT) {
+			p.Open()
 		}
-
-		all, err := todos.Cache{Path: config.TodoistCache()}.Read()
-		overdue, today := todos.Split(all, time.Now())
-
-		// The first row picks no todo at all.
-		p.todos = append(append([]todos.Todo{{Text: "None"}}, overdue...), today...)
-		p.overdue = len(overdue)
-		p.err = err
-		p.selectedID = p.timer.TodoID()
-		p.cursor = min(1, len(p.todos)-1)
-		p.hits = nil
-
-		for i, todo := range p.todos {
-			p.Fonts.Need(todo.Text)
-			if todo.ID == p.selectedID {
-				p.cursor = i
-			}
-		}
-		if err != nil {
-			p.Fonts.Need(err.Error())
-		}
-		p.Show()
 		return
 	}
 
@@ -106,22 +103,16 @@ func (p *TodoPicker) Update(dt float32) {
 	}
 	p.cursor = min(max(p.cursor+move, 0), len(p.todos)-1)
 
-	picked := rl.IsKeyPressed(rl.KeyEnter) || rl.IsKeyPressed(rl.KeyKpEnter)
-	if rl.IsMouseButtonPressed(rl.MouseButtonLeft) {
-		pos := rl.GetMousePosition()
-		for _, hit := range p.hits {
-			if rl.CheckCollisionPointRec(pos, hit.rect) {
-				p.cursor = hit.index
-				picked = true
-			}
-		}
+	if rl.IsKeyPressed(rl.KeyEnter) || rl.IsKeyPressed(rl.KeyKpEnter) {
+		p.pick(p.cursor)
 	}
+}
 
-	if picked {
-		todo := p.todos[p.cursor]
-		p.timer.SetTodo(todo.ID, todo.Text)
-		p.Hide()
-	}
+// pick selects the todo at index and closes.
+func (p *TodoPicker) pick(index int) {
+	todo := p.todos[index]
+	p.timer.SetTodo(todo.ID, todo.Text)
+	p.Hide()
 }
 
 func (p *TodoPicker) rows() []pickerRow {
@@ -159,7 +150,6 @@ func (p *TodoPicker) Draw() {
 		Height: p.Panel.Height - 54*s - 44*s,
 	}
 
-	p.hits = p.hits[:0]
 	// Only the None row; it stays above the reason there is nothing else.
 	if len(p.todos) == 1 {
 		title, detail := p.emptyMessage()
@@ -178,6 +168,7 @@ func (p *TodoPicker) Draw() {
 		}
 	}
 	start := min(max(cursorRow-visible/2, 0), max(len(rows)-visible, 0))
+	picked := -1
 	end := min(start+visible, len(rows))
 
 	for i, row := range rows[start:end] {
@@ -191,8 +182,20 @@ func (p *TodoPicker) Draw() {
 			fonts.Small.Draw(row.header, rect.X+8*s, rect.Y+(rect.Height-fonts.Small.Size)/2, core.ColorDim)
 			continue
 		}
-		p.hits = append(p.hits, pickerHit{rect: rect, index: row.index})
+		if core.Hotspot(rect) {
+			picked = row.index
+		}
 		p.drawTodo(rect, row.index)
+	}
+
+	switch p.Buttons("[Enter] Select", "[Esc] Cancel") {
+	case 0:
+		picked = p.cursor
+	case 1:
+		p.Hide()
+	}
+	if picked >= 0 {
+		p.pick(picked)
 	}
 }
 

@@ -8,12 +8,12 @@ import (
 	"syscall"
 	"time"
 
+	gui "github.com/gen2brain/raylib-go/raygui"
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	"orivo/src/domains/root/core"
-	"orivo/src/domains/root/entities/hints"
-	"orivo/src/domains/root/entities/session_bar"
-	"orivo/src/domains/root/entities/top_bar"
+	"orivo/src/domains/root/widgets/session_bar"
+	"orivo/src/domains/root/widgets/top_bar"
 	"orivo/src/systems/config"
 	"orivo/src/systems/logx"
 	"orivo/src/systems/theme"
@@ -22,11 +22,11 @@ import (
 const heartbeat = time.Second
 
 type App struct {
-	fonts    *core.Fonts
-	entities []core.Entity
-	quit     atomic.Bool
-	themes   *theme.Watcher
-	dirty    bool
+	fonts   *core.Fonts
+	widgets []core.Widget
+	quit    atomic.Bool
+	themes  *theme.Watcher
+	dirty   bool
 
 	// Frames drawn in the last full second, and so far in this one.
 	fps, draws int
@@ -48,16 +48,22 @@ func New(cfg config.Config) *App {
 	rl.EnableEventWaiting()
 	setWindowOpen(true)
 	core.Wake = wake
+	// raygui fills its style the first time it is read; BeginGUI then
+	// overrides it from the theme every frame.
+	gui.LoadStyleDefault()
 
 	a := &App{
 		fonts: core.NewFonts(cfg.Font),
 	}
 	a.loadTheme()
+	core.Redraw = a.redraw
 
-	a.entities = []core.Entity{
+	a.widgets = []core.Widget{
 		top_bar.New(a.fonts, cfg.ShowFPS, a.FPS, a.Quit),
-		hints.New(a.fonts),
 		session_bar.New(cfg.Timer, a.fonts),
+	}
+	for _, widget := range a.widgets {
+		widget.Attach()
 	}
 
 	onInterrupt(a.Quit)
@@ -89,12 +95,18 @@ func (a *App) Close() {
 	if a.themes != nil {
 		a.themes.Close()
 	}
-	for _, entity := range slices.Backward(a.entities) {
-		entity.Close()
+	for _, widget := range slices.Backward(a.widgets) {
+		widget.Detach()
 	}
 	a.fonts.Close()
 	setWindowOpen(false)
 	rl.CloseWindow()
+}
+
+// redraw runs on the render loop's goroutine, from a click while drawing.
+func (a *App) redraw() {
+	a.dirty = true
+	wake()
 }
 
 func (a *App) Quit() {
@@ -102,9 +114,9 @@ func (a *App) Quit() {
 	wake()
 }
 
-// Run sleeps until there is input, until an entity is due to change on its
+// Run sleeps until there is input, until a widget is due to change on its
 // own, or for a second at most, and draws only when something on screen may
-// have changed: on input, when an entity says it changed, and at least once
+// have changed: on input, when a widget says it changed, and at least once
 // a second for anything else. A paused timer then costs almost no CPU.
 func (a *App) Run() {
 	last := time.Now()
@@ -120,8 +132,9 @@ func (a *App) Run() {
 		alarm := time.AfterFunc(a.next(), wake)
 		if a.dirty || input() || a.changed() || now.Sub(drawn) >= heartbeat {
 			// EndDrawing waits out the rest of the frame, then for input.
-			a.Draw()
+			// Cleared first, as a click while drawing asks for one more frame.
 			a.dirty = false
+			a.Draw()
 			drawn = now
 			a.draws++
 		} else {
@@ -132,11 +145,11 @@ func (a *App) Run() {
 }
 
 // next returns how long the window may wait for input: until the soonest
-// entity is due to change, and never longer than a second.
+// widget is due to change, and never longer than a second.
 func (a *App) next() time.Duration {
 	wait := heartbeat
-	for _, entity := range a.entities {
-		if t, ok := entity.(core.Ticker); ok {
+	for _, widget := range a.widgets {
+		if t, ok := widget.(core.Ticker); ok {
 			if next := t.Next(); next > 0 {
 				wait = min(wait, next)
 			}
@@ -146,8 +159,8 @@ func (a *App) next() time.Duration {
 }
 
 func (a *App) changed() bool {
-	for _, entity := range a.entities {
-		if c, ok := entity.(core.Changer); ok && c.Changed() {
+	for _, widget := range a.widgets {
+		if c, ok := widget.(core.Changer); ok && c.Changed() {
 			return true
 		}
 	}
@@ -188,8 +201,8 @@ func (a *App) Update(dt float32) {
 		}
 	}
 
-	for _, entity := range a.entities {
-		entity.Update(dt)
+	for _, widget := range a.widgets {
+		widget.Update(dt)
 	}
 }
 
@@ -199,9 +212,10 @@ func (a *App) Draw() {
 	rl.BeginDrawing()
 	defer rl.EndDrawing()
 	rl.ClearBackground(core.ColorBackground)
+	core.BeginGUI(a.fonts)
 
-	for _, entity := range a.entities {
-		entity.Draw()
+	for _, widget := range a.widgets {
+		widget.Draw()
 	}
 }
 

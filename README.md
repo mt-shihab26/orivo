@@ -75,7 +75,9 @@ $ ./orivo
 | `Ctrl+F`  | Toggle the FPS counter                             |
 | `Ctrl+Q`  | Quit                                               |
 
-In the todo picker, `j`/`k` or the arrow keys (or the mouse wheel) move, `Enter` or a click selects, and `Esc` cancels.
+Every key above also has a button at the foot of the window (`^q quit` and `^f fps` at the top take a click too). Clicking the clock starts or pauses it, and clicking the todo line opens the picker.
+
+In the todo picker, `j`/`k` or the arrow keys (or the mouse wheel) move, `Enter` or a click selects, and `Esc` cancels. Both dialogs also have buttons for `Enter` and `Esc`.
 
 ## Configuration
 
@@ -190,36 +192,39 @@ Runtime state lives under `~/.local/state/orivo/`:
 
 ## Structure
 
-The window is built like a game. All of it lives in `src/domains/root`: `app.go` runs the loop, and everything in it is an entity under `entities/` (the clock, the session bar, the todo picker, …). Every entity is created by its package's `New` function and implements the same three methods, defined in `src/domains/root/core`:
+The window is built like a game. All of it lives in `src/domains/root`: `app.go` runs the loop, and everything in it is a widget under `widgets/` (the clock, the session bar, the todo picker, …). Every widget is created by its package's `New` function and implements the same four methods, defined in `src/domains/root/core`:
 
 ```go
-type Entity interface {
-	Close()
+type Widget interface {
+	Attach()
+	Detach()
 	Update(dt float32)
 	Draw()
 }
 ```
 
-An entity is something that is drawn, and each one keeps its own logic and key handling in its `Update`, reading the keyboard straight from raylib. Entities form a tree: a parent creates, updates, draws and closes its children, and the folders mirror it. Each entity is its own package, nested under its parent.
+`New` only builds the widget. `Attach` takes what it holds while it is in the window (the clock opens the status socket there), and `Detach` gives that back and saves. Widgets form a tree: a parent attaches, updates, draws and detaches its children, and the folders mirror it. Each widget is its own package, nested under its parent.
+
+The UI is immediate mode, with [raygui](https://github.com/gen2brain/raylib-go/tree/master/raygui) for the controls. `Draw` lays the widget out from its state every frame and asks raygui about clicks as it draws (`core.Button` for a button, `core.Hotspot` for something drawn by hand that also takes a click, such as the clock ring), so no positions are kept between frames. `Update` reads the keyboard straight from raylib and moves time along. A key and its button call the same method, such as `Clock.Skip` for `n` and the Skip button.
 
 ```
 src/domains/root/
 ├─ app.go
-├─ core/                      the entity contract, fonts and screen helpers
-└─ entities/
+├─ core/                      the widget contract, raygui helpers, fonts and screen
+└─ widgets/
    ├─ top_bar/
-   ├─ hints/
    ├─ dialog/                    the base both dialogs embed
    └─ session_bar/
       └─ clock/
+         ├─ hints/               the key hint buttons
          ├─ todo_label/
          │  └─ todo_picker/      embeds dialog
          └─ reduce_dialog/       embeds dialog
 ```
 
-`Clock` is the timer: it handles Space, `r`, `n`, `c` and `m`, counts down, rolls from one phase to the next, records sessions and saves. `Dialog` is the base both dialogs embed; it owns open and closed, Esc to dismiss, and the backdrop, panel, title and hint. Keys follow the tree: a parent reads its own keys only while none of its dialogs is open, and stops updating the other branch meanwhile, so nothing behind an open dialog reacts. `app.go` only opens the window, loads the theme, creates the top-level entities and runs the loop.
+`Clock` is the timer: it handles Space, `r`, `n`, `c`, `u` and `m`, counts down, rolls from one phase to the next, records sessions and saves. `Dialog` is the base both dialogs embed; it owns open and closed, Esc to dismiss, the backdrop, panel and title, and the row of buttons at its foot. Keys follow the tree: a parent reads its own keys only while none of its dialogs is open, and stops updating the other branch meanwhile. Clicks are kept from what is behind an open dialog the raygui way: every control is locked while one is open, and the dialog, drawn last, unlocks only its own. `app.go` only opens the window, loads the theme, creates and attaches the top-level widgets and runs the loop.
 
-The packages under `src/systems` are helpers the entities call: the phase names, durations and colors, the session history, the store, the todo cache, the Todoist client, the Omarchy theme loader and watcher, the status socket, notifications and signal handling.
+The packages under `src/systems` are helpers the widgets call: the phase names, durations and colors, the session history, the store, the todo cache, the Todoist client, the Omarchy theme loader and watcher, the status socket, notifications and signal handling.
 
 Each command is one file in `src/commands` implementing the `Command` interface, and only routes: its logic lives in a folder of its own under `src/domains` (`root`, `connect_todoist`, `sync_todoist`). `commands.go` routes the first argument to the command with that name:
 
