@@ -44,8 +44,8 @@ func New(cfg config.Config) *App {
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagMsaa4xHint)
 	rl.InitWindow(core.BaseWidth, core.BaseHeight, "Orivo")
 	logx.Info("window: %s natively on %s, as %s", platformName(), osName(), why)
+	watchClicks()
 	rl.SetWindowMinSize(420, 360)
-	rl.SetTargetFPS(60)
 	rl.SetExitKey(0)
 	// PollInputEvents and EndDrawing wait for input; wake ends the wait early.
 	rl.EnableEventWaiting()
@@ -125,6 +125,9 @@ func (a *App) Run() {
 	last := time.Now()
 	var drawn time.Time
 	for !rl.WindowShouldClose() && !a.quit.Load() {
+		afterPoll()
+		scaleMouse()
+		logClicks()
 		now := time.Now()
 		a.Update(float32(now.Sub(last).Seconds()))
 		last = now
@@ -134,7 +137,7 @@ func (a *App) Run() {
 
 		alarm := time.AfterFunc(a.next(), wake)
 		if a.dirty || input() || a.changed() || now.Sub(drawn) >= heartbeat {
-			// EndDrawing waits out the rest of the frame, then for input.
+			// EndDrawing waits for input; there is no frame rate to wait out.
 			// Cleared first, as a click while drawing asks for one more frame.
 			a.dirty = false
 			a.Draw()

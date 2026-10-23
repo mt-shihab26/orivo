@@ -561,20 +561,21 @@ func clockText(remaining time.Duration, showMillis bool) string {
 }
 
 // Changed reports whether the clock looks different from its last Draw: a
-// running timer once a second, or every frame while it shows milliseconds.
+// running timer once a second, or every hundredth while it shows milliseconds.
 func (c *Clock) Changed() bool {
 	return clockText(c.Remaining(), c.showMillis) != c.drawnText || c.todo.Changed()
 }
 
 // Next returns how long until the clock looks different on its own: the next
-// second of a running timer, the next frame while it shows milliseconds, or
+// second of a running timer, the next hundredth while it shows milliseconds
+// (the clock shows hundredths, cut down rather than rounded), or
 // 0 while it is paused.
 func (c *Clock) Next() time.Duration {
 	switch {
 	case !c.running:
 		return 0
 	case c.showMillis:
-		return time.Second / 60
+		return c.Remaining()%(10*time.Millisecond) + time.Millisecond
 	}
 	// The shown seconds round up, so they change as a whole second passes.
 	return c.Remaining()%time.Second + time.Millisecond
