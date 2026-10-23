@@ -39,8 +39,11 @@ func New(cfg config.Config) *App {
 	if os.Getenv("HYPRLAND_INSTANCE_SIGNATURE") != "" {
 		disableLibdecor()
 	}
+	logx.Echo()
+	why := pinPlatform()
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagMsaa4xHint)
 	rl.InitWindow(core.BaseWidth, core.BaseHeight, "Orivo")
+	logx.Info("window: %s natively on %s, as %s", platformName(), osName(), why)
 	rl.SetWindowMinSize(420, 360)
 	rl.SetTargetFPS(60)
 	rl.SetExitKey(0)

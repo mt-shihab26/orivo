@@ -188,7 +188,7 @@ Runtime state lives under `~/.local/state/orivo/`:
 - `todoist-outbox.txt` → session counts waiting to be written to Todoist (see above)
 - `todoist-done.txt` → todos marked done in orivo, waiting to be completed in Todoist (see above)
 - `orivo.sock` → Unix socket that answers each connection with one JSON line describing the live timer (phase, running, remaining time, todo, sessions today), for bar widgets such as [omarchy-orivo-plugin](https://github.com/mt-shihab26/omarchy-orivo-plugin)
-- `logs/orivo-YYYY-MM-DD.log` → warnings, errors and every request sent to Todoist, one file per week named after the Saturday it starts on; only the current week is kept
+- `logs/orivo-YYYY-MM-DD.log` → warnings, errors, every request sent to Todoist and the display server each window used (Wayland or X11, always natively) and why, which a window started from a terminal also prints there, one file per week named after the Saturday it starts on; only the current week is kept
 
 ## Structure
 

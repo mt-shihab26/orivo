@@ -17,7 +17,21 @@ const weekStartsOn = time.Saturday
 var (
 	mu      sync.Mutex
 	current string
+	// Set by Echo: lines also go to stderr.
+	echo bool
 )
+
+// Echo also writes every line to stderr from now on, when stderr is a
+// terminal, so a window started from one shows its log there.
+func Echo() {
+	info, err := os.Stderr.Stat()
+	if err != nil || info.Mode()&os.ModeCharDevice == 0 {
+		return
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	echo = true
+}
 
 func Error(format string, args ...any) { write("ERROR", format, args...) }
 func Warn(format string, args ...any)  { write("WARN", format, args...) }
@@ -37,14 +51,18 @@ func write(level, format string, args ...any) {
 		prune(dir, filepath.Base(path))
 	}
 
+	ts := now.UTC().Format("2006-01-02T15:04:05Z")
+	line := fmt.Sprintf("[%s] %s: %s\n", ts, level, fmt.Sprintf(format, args...))
+	if echo {
+		fmt.Fprint(os.Stderr, line)
+	}
+
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		return
 	}
 	defer file.Close()
-
-	ts := now.UTC().Format("2006-01-02T15:04:05Z")
-	fmt.Fprintf(file, "[%s] %s: %s\n", ts, level, fmt.Sprintf(format, args...))
+	fmt.Fprint(file, line)
 }
 
 // fileFor names the log for the week that t falls in.
