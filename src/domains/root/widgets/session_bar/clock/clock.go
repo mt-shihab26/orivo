@@ -10,13 +10,14 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	"orivo/src/domains/root/core"
-	"orivo/src/domains/root/entities/session_bar/clock/ipc"
-	"orivo/src/domains/root/entities/session_bar/clock/notify"
-	"orivo/src/domains/root/entities/session_bar/clock/phase"
-	"orivo/src/domains/root/entities/session_bar/clock/reduce_dialog"
-	"orivo/src/domains/root/entities/session_bar/clock/sessions"
-	"orivo/src/domains/root/entities/session_bar/clock/store"
-	"orivo/src/domains/root/entities/session_bar/clock/todo_label"
+	"orivo/src/domains/root/widgets/session_bar/clock/hints"
+	"orivo/src/domains/root/widgets/session_bar/clock/ipc"
+	"orivo/src/domains/root/widgets/session_bar/clock/notify"
+	"orivo/src/domains/root/widgets/session_bar/clock/phase"
+	"orivo/src/domains/root/widgets/session_bar/clock/reduce_dialog"
+	"orivo/src/domains/root/widgets/session_bar/clock/sessions"
+	"orivo/src/domains/root/widgets/session_bar/clock/store"
+	"orivo/src/domains/root/widgets/session_bar/clock/todo_label"
 	"orivo/src/systems/config"
 	"orivo/src/systems/logx"
 	"orivo/src/systems/todoist"
@@ -42,6 +43,7 @@ type Clock struct {
 
 	todo   *todo_label.TodoLabel
 	reduce *reduce_dialog.ReduceDialog
+	hints  *hints.Hints
 
 	phase          phase.Phase
 	running        bool
@@ -59,13 +61,10 @@ type Clock struct {
 
 func New(cfg config.Timer, fonts *core.Fonts) *Clock {
 	c := newClock(cfg, fonts, config.Store(), config.Sessions(), config.TodoistCache())
-	fonts.Need(c.todoText)
-	c.server = ipc.Serve(config.Socket())
 	c.notify = notify.Send
 	c.progress = queueProgress
 	c.complete = queueDone
 	c.flush = flushProgress
-	c.publish()
 	return c
 }
 
@@ -89,18 +88,29 @@ func newClock(cfg config.Timer, fonts *core.Fonts, storePath, sessionsPath, cach
 
 	c.todo = todo_label.New(fonts, c, cachePath)
 	c.reduce = reduce_dialog.New(fonts, c)
+	c.hints = hints.New(fonts, c)
 	return c
 }
 
-func (c *Clock) Close() {
-	c.reduce.Close()
-	c.todo.Close()
+func (c *Clock) Attach() {
+	c.fonts.Need(c.todoText)
+	c.server = ipc.Serve(config.Socket())
+	c.todo.Attach()
+	c.reduce.Attach()
+	c.hints.Attach()
+	c.publish()
+}
+
+func (c *Clock) Detach() {
+	c.hints.Detach()
+	c.reduce.Detach()
+	c.todo.Detach()
+	c.server.Close()
 	c.save()
 }
 
 func (c *Clock) Update(dt float32) {
 	now := c.now()
-	ended := false
 
 	if !c.todo.DialogOpen() {
 		c.reduce.Update(dt)
@@ -108,55 +118,30 @@ func (c *Clock) Update(dt float32) {
 	if !c.reduce.IsOpen() {
 		c.todo.Update(dt)
 	}
+	c.hints.Update(dt)
 
 	ctrl := rl.IsKeyDown(rl.KeyLeftControl) || rl.IsKeyDown(rl.KeyRightControl)
 	listening := !c.reduce.IsOpen() && !c.todo.DialogOpen() && !ctrl
 
-	if listening && rl.IsKeyPressed(rl.KeySpace) {
-		if c.running {
-			c.remaining = c.Remaining()
-			c.startedAt = time.Time{}
-			c.running = false
-			c.store.SetRemaining(c.todoID, c.remaining)
-			c.store.Save()
-		} else {
-			if c.phaseStartedAt.IsZero() {
-				c.phaseStartedAt = now
-				c.store.SetPhaseStartedAt(c.todoID, now)
-				c.store.Save()
+	if listening {
+		for _, k := range []struct {
+			key    int32
+			action func()
+		}{
+			{rl.KeySpace, c.Toggle},
+			{rl.KeyR, c.Reset},
+			{rl.KeyU, c.Undo},
+			{rl.KeyN, c.Skip},
+			{rl.KeyC, c.Done},
+			{rl.KeyM, c.ToggleMillis},
+		} {
+			if rl.IsKeyPressed(k.key) {
+				k.action()
 			}
-			c.startedAt = now
-			c.running = true
 		}
 	}
 
-	if listening && rl.IsKeyPressed(rl.KeyR) {
-		c.running = false
-		c.rewind(now)
-		c.store.Save()
-	}
-
-	if listening && rl.IsKeyPressed(rl.KeyU) {
-		c.undo(now)
-	}
-
-	if listening && rl.IsKeyPressed(rl.KeyN) {
-		ended = true
-	}
-
-	if listening && rl.IsKeyPressed(rl.KeyC) {
-		c.done(now)
-	}
-
-	if listening && rl.IsKeyPressed(rl.KeyM) {
-		c.showMillis = !c.showMillis
-	}
-
 	if c.running && c.Remaining() == 0 {
-		ended = true
-	}
-
-	if ended {
 		c.end(now, c.total(), false)
 	}
 
@@ -190,10 +175,17 @@ func (c *Clock) Draw() {
 	accent := c.Accent()
 	remaining := c.Remaining()
 
-	top, bottom := 92*s, screen.Height-96*s
+	// Above the todo line and the hint buttons.
+	top, bottom := 92*s, screen.Height-(hints.Height+34)*s
 	radius := max(min((bottom-top)/2-6*s, screen.Width*0.38), 40*s)
 	cx, cy := screen.Width/2, (top+bottom)/2
 	center := rl.Vector2{X: cx, Y: cy}
+
+	// Clicking the clock starts or pauses it, as Space does.
+	if core.Hotspot(rl.Rectangle{X: cx - radius, Y: cy - radius, Width: 2 * radius, Height: 2 * radius}) {
+		c.Toggle()
+		remaining = c.Remaining()
+	}
 
 	thickness := max(7*s, 3)
 	rl.DrawRing(center, radius-thickness, radius, 0, 360, 96, core.ColorTrack)
@@ -221,6 +213,8 @@ func (c *Clock) Draw() {
 	}
 	fonts.Body.DrawCentered(status, cx, cy+digits.Size/2+10*s, statusColor)
 
+	c.hints.Draw()
+	// The todo line draws the picker after it, and the dialogs come last.
 	c.todo.Draw()
 	c.reduce.Draw()
 }
@@ -281,6 +275,66 @@ func (c *Clock) Reduce(d time.Duration) {
 	}
 	c.store.SetRemaining(c.todoID, c.remaining)
 	c.store.Save()
+}
+
+// Toggle starts or pauses the timer.
+func (c *Clock) Toggle() {
+	now := c.now()
+	if c.running {
+		c.remaining = c.Remaining()
+		c.startedAt = time.Time{}
+		c.running = false
+		c.store.SetRemaining(c.todoID, c.remaining)
+		c.store.Save()
+		return
+	}
+	if c.phaseStartedAt.IsZero() {
+		c.phaseStartedAt = now
+		c.store.SetPhaseStartedAt(c.todoID, now)
+		c.store.Save()
+	}
+	c.startedAt = now
+	c.running = true
+}
+
+// Reset puts the current phase back to its full time, paused.
+func (c *Clock) Reset() {
+	c.running = false
+	c.rewind(c.now())
+	c.store.Save()
+}
+
+// Skip ends the current phase as if its time had run out.
+func (c *Clock) Skip() {
+	c.end(c.now(), c.total(), false)
+}
+
+func (c *Clock) Done() {
+	c.done(c.now())
+}
+
+func (c *Clock) Undo() {
+	c.undo(c.now())
+}
+
+func (c *Clock) PickTodo() {
+	c.todo.Pick()
+}
+
+func (c *Clock) ClearTodo() {
+	c.SetTodo("", "")
+}
+
+func (c *Clock) OpenReduce() {
+	c.reduce.Open()
+}
+
+func (c *Clock) Sync() {
+	c.todo.Sync()
+}
+
+func (c *Clock) ToggleMillis() {
+	c.showMillis = !c.showMillis
 }
 
 // done completes the selected todo, and ends a work session that has run at
@@ -507,20 +561,21 @@ func clockText(remaining time.Duration, showMillis bool) string {
 }
 
 // Changed reports whether the clock looks different from its last Draw: a
-// running timer once a second, or every frame while it shows milliseconds.
+// running timer once a second, or every hundredth while it shows milliseconds.
 func (c *Clock) Changed() bool {
 	return clockText(c.Remaining(), c.showMillis) != c.drawnText || c.todo.Changed()
 }
 
 // Next returns how long until the clock looks different on its own: the next
-// second of a running timer, the next frame while it shows milliseconds, or
+// second of a running timer, the next hundredth while it shows milliseconds
+// (the clock shows hundredths, cut down rather than rounded), or
 // 0 while it is paused.
 func (c *Clock) Next() time.Duration {
 	switch {
 	case !c.running:
 		return 0
 	case c.showMillis:
-		return time.Second / 60
+		return c.Remaining()%(10*time.Millisecond) + time.Millisecond
 	}
 	// The shown seconds round up, so they change as a whole second passes.
 	return c.Remaining()%time.Second + time.Millisecond

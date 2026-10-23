@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"orivo/src/domains/root/entities/session_bar/clock/phase"
+	"orivo/src/domains/root/widgets/session_bar/clock/phase"
 	"orivo/src/systems/config"
 )
 
@@ -360,8 +360,8 @@ func TestNextWakesAsTheShownSecondChanges(t *testing.T) {
 	}
 
 	f.showMillis = true
-	if got := f.Next(); got != time.Second/60 {
-		t.Fatalf("next = %v, want a frame while showing milliseconds", got)
+	if got := f.Next(); got != time.Millisecond {
+		t.Fatalf("next = %v, want just past the next hundredth while showing milliseconds", got)
 	}
 }
 

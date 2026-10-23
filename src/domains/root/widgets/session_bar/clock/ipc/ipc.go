@@ -2,6 +2,7 @@ package ipc
 
 import (
 	"encoding/json"
+	"errors"
 	"net"
 	"os"
 	"path/filepath"
@@ -26,6 +27,8 @@ type Server struct {
 	mu          sync.Mutex
 	status      Status
 	publishedAt time.Time
+	listener    net.Listener
+	path        string
 }
 
 func Serve(path string) *Server {
@@ -57,11 +60,14 @@ func Serve(path string) *Server {
 		logx.Warn("ipc: failed to restrict permissions on %s: %v", path, err)
 	}
 
+	server.listener, server.path = listener, path
 	go func() {
 		for {
 			conn, err := listener.Accept()
 			if err != nil {
-				logx.Warn("ipc: accept failed: %v", err)
+				if !errors.Is(err, net.ErrClosed) {
+					logx.Warn("ipc: accept failed: %v", err)
+				}
 				return
 			}
 			server.respond(conn)
@@ -109,4 +115,16 @@ func (s Status) at(published, now time.Time) Status {
 		s.RemainingMillis = max(s.RemainingMillis-now.Sub(published).Milliseconds(), 0)
 	}
 	return s
+}
+
+// Close stops answering and removes the socket, unless another instance
+// serves it.
+func (s *Server) Close() {
+	if s == nil || s.listener == nil {
+		return
+	}
+	s.listener.Close()
+	if err := os.Remove(s.path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		logx.Warn("ipc: failed to remove %s: %v", s.path, err)
+	}
 }

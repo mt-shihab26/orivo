@@ -7,7 +7,7 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	"orivo/src/domains/root/core"
-	"orivo/src/domains/root/entities/dialog"
+	"orivo/src/domains/root/widgets/dialog"
 )
 
 type Timer interface {
@@ -23,16 +23,21 @@ type ReduceDialog struct {
 
 func New(fonts *core.Fonts, timer Timer) *ReduceDialog {
 	return &ReduceDialog{
-		Dialog: dialog.New(fonts, "Reduce Remaining", "[Enter] Apply   [Esc] Cancel"),
+		Dialog: dialog.New(fonts, "Reduce Remaining", ""),
 		timer:  timer,
 	}
+}
+
+// Open shows the dialog with nothing entered.
+func (d *ReduceDialog) Open() {
+	d.Show()
+	d.digits = nil
 }
 
 func (d *ReduceDialog) Update(dt float32) {
 	if !d.IsOpen() {
 		if rl.IsKeyPressed(rl.KeyD) {
-			d.Show()
-			d.digits = nil
+			d.Open()
 		}
 		return
 	}
@@ -58,17 +63,22 @@ func (d *ReduceDialog) Update(dt float32) {
 	}
 
 	if rl.IsKeyPressed(rl.KeyEnter) || rl.IsKeyPressed(rl.KeyKpEnter) {
-		if len(d.digits) > 0 {
-			padded := [4]time.Duration{}
-			for i, digit := range d.digits {
-				padded[i] = time.Duration(digit)
-			}
-			minutes := padded[0]*10 + padded[1]
-			seconds := padded[2]*10 + padded[3]
-			d.timer.Reduce(minutes*time.Minute + seconds*time.Second)
-		}
-		d.Hide()
+		d.apply()
 	}
+}
+
+// apply takes the entered time off the timer, if any, and closes.
+func (d *ReduceDialog) apply() {
+	if len(d.digits) > 0 {
+		padded := [4]time.Duration{}
+		for i, digit := range d.digits {
+			padded[i] = time.Duration(digit)
+		}
+		minutes := padded[0]*10 + padded[1]
+		seconds := padded[2]*10 + padded[3]
+		d.timer.Reduce(minutes*time.Minute + seconds*time.Second)
+	}
+	d.Hide()
 }
 
 func (d *ReduceDialog) Draw() {
@@ -79,7 +89,7 @@ func (d *ReduceDialog) Draw() {
 	s := screen.Scale
 
 	d.Accent = d.timer.Accent()
-	d.Panel = rl.Rectangle{Width: 340 * s, Height: 190 * s}
+	d.Panel = rl.Rectangle{Width: 340 * s, Height: 200 * s}
 	d.Panel.X, d.Panel.Y = (screen.Width-d.Panel.Width)/2, (screen.Height-d.Panel.Height)/2
 	d.Dialog.Draw()
 
@@ -92,6 +102,13 @@ func (d *ReduceDialog) Draw() {
 	display := string([]byte{char(0), char(1), ':', char(2), char(3)})
 
 	cx := screen.Width / 2
-	d.Fonts.Body.DrawCentered(display, cx, d.Panel.Y+72*s, d.Accent)
-	d.Fonts.Small.DrawCentered("minutes : seconds", cx, d.Panel.Y+104*s, core.ColorDim)
+	d.Fonts.Body.DrawCentered(display, cx, d.Panel.Y+68*s, d.Accent)
+	d.Fonts.Small.DrawCentered("minutes : seconds", cx, d.Panel.Y+100*s, core.ColorDim)
+
+	switch d.Buttons("[Enter] Apply", "[Esc] Cancel") {
+	case 0:
+		d.apply()
+	case 1:
+		d.Hide()
+	}
 }
