@@ -729,3 +729,30 @@ func TestDoneFromAnotherDayIsNotUndone(t *testing.T) {
 		t.Fatalf("todo=%q reopened=%q, want yesterday's done left alone", f.TodoID(), *reopened)
 	}
 }
+
+func TestAddGivesTimeBackUpToTheFullPhase(t *testing.T) {
+	f := newFixture(t)
+
+	f.start()
+	f.wait(10 * time.Minute)
+	f.Add(3*time.Minute + 30*time.Second)
+	if got := f.Remaining(); got != 18*time.Minute+30*time.Second || !f.running {
+		t.Fatalf("remaining = %v running = %v, want 18m30s, running", got, f.running)
+	}
+	f.wait(time.Minute)
+	if got := f.Remaining(); got != 17*time.Minute+30*time.Second {
+		t.Fatalf("remaining = %v, want the countdown to go on from 18m30s", got)
+	}
+
+	f.Add(time.Hour)
+	if got := f.Remaining(); got != 25*time.Minute {
+		t.Fatalf("remaining = %v, want no more than the full 25m", got)
+	}
+
+	// It is saved with the todo's time.
+	f.Toggle()
+	f.open()
+	if got := f.Remaining(); got != 25*time.Minute {
+		t.Fatalf("remaining after restart = %v, want 25m", got)
+	}
+}

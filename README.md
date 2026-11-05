@@ -72,6 +72,7 @@ $ ./orivo
 | `s`       | Sync todos from Todoist                            |
 | `m`       | Toggle centiseconds on the clock                   |
 | `d`       | Reduce the remaining time (enter `mm:ss`)          |
+| `a`       | Add time back, up to the full phase (`mm:ss`)      |
 | `Ctrl+F`  | Toggle the FPS counter                             |
 | `Ctrl+Q`  | Quit                                               |
 
@@ -213,16 +214,16 @@ src/domains/root/
 ├─ core/                      the widget contract, raygui helpers, fonts and screen
 └─ widgets/
    ├─ top_bar/
-   ├─ dialog/                    the base both dialogs embed
+   ├─ dialog/                    the base every dialog embeds
    └─ session_bar/
       └─ clock/
          ├─ hints/               the key hint buttons
          ├─ todo_label/
          │  └─ todo_picker/      embeds dialog
-         └─ reduce_dialog/       embeds dialog
+         └─ time_dialog/         embeds dialog; Reduce (d) and Add (a)
 ```
 
-`Clock` is the timer: it handles Space, `r`, `n`, `c`, `u` and `m`, counts down, rolls from one phase to the next, records sessions and saves. `Dialog` is the base both dialogs embed; it owns open and closed, Esc to dismiss, the backdrop, panel and title, and the row of buttons at its foot. Keys follow the tree: a parent reads its own keys only while none of its dialogs is open, and stops updating the other branch meanwhile. Clicks are kept from what is behind an open dialog the raygui way: every control is locked while one is open, and the dialog, drawn last, unlocks only its own. `app.go` only opens the window, loads the theme, creates and attaches the top-level widgets and runs the loop.
+`Clock` is the timer: it handles Space, `r`, `n`, `c`, `u` and `m`, counts down, rolls from one phase to the next, records sessions and saves. `Dialog` is the base every dialog embeds; it owns open and closed, Esc to dismiss, the backdrop, panel and title, and the row of buttons at its foot. Keys follow the tree: a parent reads its own keys only while none of its dialogs is open, and stops updating the other branch meanwhile. Clicks are kept from what is behind an open dialog the raygui way: every control is locked while one is open, and the dialog, drawn last, unlocks only its own. `app.go` only opens the window, loads the theme, creates and attaches the top-level widgets and runs the loop.
 
 The packages under `src/systems` are helpers the widgets call: the phase names, durations and colors, the session history, the store, the todo cache, the Todoist client, the Omarchy theme loader and watcher, the status socket, notifications and signal handling.
 

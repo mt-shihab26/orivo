@@ -1,4 +1,4 @@
-package reduce_dialog
+package time_dialog
 
 import (
 	"image/color"
@@ -12,31 +12,38 @@ import (
 
 type Timer interface {
 	Accent() color.RGBA
-	Reduce(d time.Duration)
 }
 
-type ReduceDialog struct {
+// TimeDialog asks for a time as mm:ss and hands it to apply, to take off the
+// timer or to give back to it.
+type TimeDialog struct {
 	dialog.Dialog
 	timer  Timer
+	key    int32
+	apply  func(time.Duration)
 	digits []int
 }
 
-func New(fonts *core.Fonts, timer Timer) *ReduceDialog {
-	return &ReduceDialog{
-		Dialog: dialog.New(fonts, "Reduce Remaining", ""),
+// New makes a dialog titled title that key opens and that hands the time
+// entered to apply.
+func New(fonts *core.Fonts, timer Timer, title string, key int32, apply func(time.Duration)) *TimeDialog {
+	return &TimeDialog{
+		Dialog: dialog.New(fonts, title, ""),
 		timer:  timer,
+		key:    key,
+		apply:  apply,
 	}
 }
 
 // Open shows the dialog with nothing entered.
-func (d *ReduceDialog) Open() {
+func (d *TimeDialog) Open() {
 	d.Show()
 	d.digits = nil
 }
 
-func (d *ReduceDialog) Update(dt float32) {
+func (d *TimeDialog) Update(dt float32) {
 	if !d.IsOpen() {
-		if rl.IsKeyPressed(rl.KeyD) {
+		if rl.IsKeyPressed(d.key) {
 			d.Open()
 		}
 		return
@@ -63,25 +70,30 @@ func (d *ReduceDialog) Update(dt float32) {
 	}
 
 	if rl.IsKeyPressed(rl.KeyEnter) || rl.IsKeyPressed(rl.KeyKpEnter) {
-		d.apply()
+		d.submit()
 	}
 }
 
-// apply takes the entered time off the timer, if any, and closes.
-func (d *ReduceDialog) apply() {
+// submit hands the entered time to apply, if any, and closes.
+func (d *TimeDialog) submit() {
 	if len(d.digits) > 0 {
-		padded := [4]time.Duration{}
-		for i, digit := range d.digits {
-			padded[i] = time.Duration(digit)
-		}
-		minutes := padded[0]*10 + padded[1]
-		seconds := padded[2]*10 + padded[3]
-		d.timer.Reduce(minutes*time.Minute + seconds*time.Second)
+		d.apply(entered(d.digits))
 	}
 	d.Hide()
 }
 
-func (d *ReduceDialog) Draw() {
+// entered reads the digits typed so far as mm:ss, the missing ones as 0.
+func entered(digits []int) time.Duration {
+	padded := [4]time.Duration{}
+	for i, digit := range digits {
+		padded[i] = time.Duration(digit)
+	}
+	minutes := padded[0]*10 + padded[1]
+	seconds := padded[2]*10 + padded[3]
+	return minutes*time.Minute + seconds*time.Second
+}
+
+func (d *TimeDialog) Draw() {
 	if !d.IsOpen() {
 		return
 	}
@@ -107,7 +119,7 @@ func (d *ReduceDialog) Draw() {
 
 	switch d.Buttons("[Enter] Apply", "[Esc] Cancel") {
 	case 0:
-		d.apply()
+		d.submit()
 	case 1:
 		d.Hide()
 	}

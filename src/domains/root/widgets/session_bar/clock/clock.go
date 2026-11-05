@@ -14,9 +14,9 @@ import (
 	"orivo/src/domains/root/widgets/session_bar/clock/ipc"
 	"orivo/src/domains/root/widgets/session_bar/clock/notify"
 	"orivo/src/domains/root/widgets/session_bar/clock/phase"
-	"orivo/src/domains/root/widgets/session_bar/clock/reduce_dialog"
 	"orivo/src/domains/root/widgets/session_bar/clock/sessions"
 	"orivo/src/domains/root/widgets/session_bar/clock/store"
+	"orivo/src/domains/root/widgets/session_bar/clock/time_dialog"
 	"orivo/src/domains/root/widgets/session_bar/clock/todo_label"
 	"orivo/src/systems/config"
 	"orivo/src/systems/logx"
@@ -43,7 +43,8 @@ type Clock struct {
 	flush    func() bool
 
 	todo   *todo_label.TodoLabel
-	reduce *reduce_dialog.ReduceDialog
+	reduce *time_dialog.TimeDialog
+	add    *time_dialog.TimeDialog
 	hints  *hints.Hints
 
 	phase          phase.Phase
@@ -89,7 +90,8 @@ func newClock(cfg config.Timer, fonts *core.Fonts, storePath, sessionsPath, cach
 	c.restore()
 
 	c.todo = todo_label.New(fonts, c, cachePath)
-	c.reduce = reduce_dialog.New(fonts, c)
+	c.reduce = time_dialog.New(fonts, c, "Reduce Remaining", rl.KeyD, c.Reduce)
+	c.add = time_dialog.New(fonts, c, "Add Time", rl.KeyA, c.Add)
 	c.hints = hints.New(fonts, c)
 	return c
 }
@@ -99,12 +101,14 @@ func (c *Clock) Attach() {
 	c.server = ipc.Serve(config.Socket())
 	c.todo.Attach()
 	c.reduce.Attach()
+	c.add.Attach()
 	c.hints.Attach()
 	c.publish()
 }
 
 func (c *Clock) Detach() {
 	c.hints.Detach()
+	c.add.Detach()
 	c.reduce.Detach()
 	c.todo.Detach()
 	c.server.Close()
@@ -114,16 +118,20 @@ func (c *Clock) Detach() {
 func (c *Clock) Update(dt float32) {
 	now := c.now()
 
-	if !c.todo.DialogOpen() {
+	// Each dialog reads keys only while no other one is open.
+	if !c.todo.DialogOpen() && !c.add.IsOpen() {
 		c.reduce.Update(dt)
 	}
-	if !c.reduce.IsOpen() {
+	if !c.todo.DialogOpen() && !c.reduce.IsOpen() {
+		c.add.Update(dt)
+	}
+	if !c.reduce.IsOpen() && !c.add.IsOpen() {
 		c.todo.Update(dt)
 	}
 	c.hints.Update(dt)
 
 	ctrl := rl.IsKeyDown(rl.KeyLeftControl) || rl.IsKeyDown(rl.KeyRightControl)
-	listening := !c.reduce.IsOpen() && !c.todo.DialogOpen() && !ctrl
+	listening := !c.reduce.IsOpen() && !c.add.IsOpen() && !c.todo.DialogOpen() && !ctrl
 
 	if listening {
 		for _, k := range []struct {
@@ -219,6 +227,7 @@ func (c *Clock) Draw() {
 	// The todo line draws the picker after it, and the dialogs come last.
 	c.todo.Draw()
 	c.reduce.Draw()
+	c.add.Draw()
 }
 
 func (c *Clock) Accent() color.RGBA {
@@ -285,7 +294,17 @@ func (c *Clock) DropTodo() {
 }
 
 func (c *Clock) Reduce(d time.Duration) {
-	c.remaining = max(c.Remaining()-d, 0)
+	c.setRemaining(max(c.Remaining()-d, 0))
+}
+
+// Add gives time back to the phase, for a stretch the timer ran with no work
+// done, up to its full time, so a session never counts for more than one.
+func (c *Clock) Add(d time.Duration) {
+	c.setRemaining(min(c.Remaining()+d, c.total()))
+}
+
+func (c *Clock) setRemaining(remaining time.Duration) {
+	c.remaining = remaining
 	if c.running {
 		c.startedAt = c.now()
 	}
@@ -339,6 +358,10 @@ func (c *Clock) PickTodo() {
 
 func (c *Clock) ClearTodo() {
 	c.SetTodo("", "")
+}
+
+func (c *Clock) OpenAdd() {
+	c.add.Open()
 }
 
 func (c *Clock) OpenReduce() {
