@@ -320,6 +320,37 @@ func TestOtherTodosStartTheNextPhaseFresh(t *testing.T) {
 	}
 }
 
+func TestPausedTodoKeepsItsWorkTimeWhileAnotherFinishes(t *testing.T) {
+	f := newFixture(t)
+
+	f.SetTodo("a", "Write report")
+	f.start()
+	f.wait(5 * time.Minute)
+	f.Toggle() // pause a at 20m
+
+	f.SetTodo("b", "Review PR")
+	f.Toggle()
+	f.wait(25 * time.Minute) // b's work ends
+	f.wait(5 * time.Minute)  // the break ends
+	if f.phase != phase.Work {
+		t.Fatalf("phase = %v, want work again", f.phase)
+	}
+	if got := f.Remaining(); got != 25*time.Minute {
+		t.Fatalf("todo b remaining = %v, want a fresh 25m", got)
+	}
+
+	f.SetTodo("a", "Write report")
+	if got := f.Remaining(); got != 20*time.Minute {
+		t.Fatalf("todo a remaining = %v, want the 20m it was paused at", got)
+	}
+
+	// It survives a restart too.
+	f.open()
+	if got := f.Remaining(); got != 20*time.Minute {
+		t.Fatalf("todo a remaining after restart = %v, want 20m", got)
+	}
+}
+
 func TestChangedOnlyWhenTheShownTimeMoves(t *testing.T) {
 	f := newFixture(t)
 	drawn := func() { f.drawnText = clockText(f.Remaining(), f.showMillis) }

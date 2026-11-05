@@ -260,7 +260,7 @@ func (c *Clock) SetTodo(id, text string) {
 		c.startedAt = c.now()
 		if c.phaseStartedAt.IsZero() {
 			c.phaseStartedAt = c.now()
-			c.store.SetPhaseStartedAt(c.todoID, c.phaseStartedAt)
+			c.store.SetPhaseStartedAt(c.phase.Name(), c.todoID, c.phaseStartedAt)
 		}
 	}
 
@@ -273,7 +273,7 @@ func (c *Clock) Reduce(d time.Duration) {
 	if c.running {
 		c.startedAt = c.now()
 	}
-	c.store.SetRemaining(c.todoID, c.remaining)
+	c.store.SetRemaining(c.phase.Name(), c.todoID, c.remaining)
 	c.store.Save()
 }
 
@@ -284,13 +284,13 @@ func (c *Clock) Toggle() {
 		c.remaining = c.Remaining()
 		c.startedAt = time.Time{}
 		c.running = false
-		c.store.SetRemaining(c.todoID, c.remaining)
+		c.store.SetRemaining(c.phase.Name(), c.todoID, c.remaining)
 		c.store.Save()
 		return
 	}
 	if c.phaseStartedAt.IsZero() {
 		c.phaseStartedAt = now
-		c.store.SetPhaseStartedAt(c.todoID, now)
+		c.store.SetPhaseStartedAt(c.phase.Name(), c.todoID, now)
 		c.store.Save()
 	}
 	c.startedAt = now
@@ -389,6 +389,11 @@ func (c *Clock) end(now time.Time, ran time.Duration, finished bool) {
 		c.flushWanted = true
 	}
 
+	// This todo's time in the phase is spent. Other todos paused in work
+	// keep theirs, for when work comes round again.
+	c.store.ClearRemaining(c.phase.Name(), c.todoID)
+	c.store.ClearPhaseStartedAt(c.phase.Name(), c.todoID)
+
 	switch {
 	case c.phase != phase.Work:
 		c.phase = phase.Work
@@ -402,8 +407,7 @@ func (c *Clock) end(now time.Time, ran time.Duration, finished bool) {
 		c.running = true
 	}
 
-	// Every todo's saved time belonged to the phase that just ended.
-	c.store.ClearTimers()
+	c.clearBreaks()
 	c.rewind(now)
 	c.store.SetPhase(c.phase.Name())
 	c.store.Save()
@@ -440,7 +444,7 @@ func (c *Clock) undo(now time.Time) {
 		c.notify(c.phase.Label()+" Undone", body)
 	}
 	c.running = false
-	c.store.ClearTimers()
+	c.clearBreaks()
 	c.rewind(now)
 	c.store.SetPhase(c.phase.Name())
 	c.store.Save()
@@ -463,28 +467,35 @@ func (c *Clock) total() time.Duration {
 func (c *Clock) rewind(now time.Time) {
 	c.remaining = c.total()
 	c.startedAt, c.phaseStartedAt = time.Time{}, time.Time{}
-	c.store.ClearRemaining(c.todoID)
-	c.store.ClearPhaseStartedAt(c.todoID)
+	c.store.ClearRemaining(c.phase.Name(), c.todoID)
+	c.store.ClearPhaseStartedAt(c.phase.Name(), c.todoID)
 	if c.running {
 		c.startedAt, c.phaseStartedAt = now, now
-		c.store.SetPhaseStartedAt(c.todoID, now)
+		c.store.SetPhaseStartedAt(c.phase.Name(), c.todoID, now)
 	}
 }
 
+// clearBreaks starts every todo's breaks fresh: a break belongs to the
+// work just done, not to the todo picked during it.
+func (c *Clock) clearBreaks() {
+	c.store.ClearPhase(phase.Break.Name())
+	c.store.ClearPhase(phase.LongBreak.Name())
+}
+
 func (c *Clock) stash() {
-	c.store.SetRemaining(c.todoID, c.Remaining())
+	c.store.SetRemaining(c.phase.Name(), c.todoID, c.Remaining())
 	if !c.phaseStartedAt.IsZero() {
-		c.store.SetPhaseStartedAt(c.todoID, c.phaseStartedAt)
+		c.store.SetPhaseStartedAt(c.phase.Name(), c.todoID, c.phaseStartedAt)
 	}
 }
 
 func (c *Clock) restore() {
-	remaining, ok := c.store.Remaining(c.todoID)
+	remaining, ok := c.store.Remaining(c.phase.Name(), c.todoID)
 	if !ok {
 		remaining = c.total()
 	}
 	c.remaining = remaining
-	c.phaseStartedAt, _ = c.store.PhaseStartedAt(c.todoID)
+	c.phaseStartedAt, _ = c.store.PhaseStartedAt(c.phase.Name(), c.todoID)
 }
 
 func (c *Clock) save() {

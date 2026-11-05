@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"strings"
 	"time"
 
 	"orivo/src/systems/files"
 	"orivo/src/systems/logx"
 )
 
-const version = 2
+const version = 3
 
 const noTodo = "none"
 
@@ -44,6 +45,10 @@ func Load(path string) *Store {
 	if json.Unmarshal(raw, &probe) != nil {
 		return s
 	}
+	if probe.Version == 2 {
+		s.data = unphased(raw)
+		return s
+	}
 	if probe.Version != version {
 		s.data = legacy(raw)
 		return s
@@ -72,6 +77,24 @@ func empty() data {
 	}
 }
 
+// unphased reads a version 2 store, whose timers were keyed by todo alone and
+// all belonged to the phase it saved.
+func unphased(raw []byte) data {
+	d := empty()
+	var old data
+	if json.Unmarshal(raw, &old) != nil {
+		return d
+	}
+	d.TodoID, d.TodoText, d.Phase = old.TodoID, old.TodoText, old.Phase
+	for todoID, millis := range old.Remaining {
+		d.Remaining[old.Phase+"/"+todoID] = millis
+	}
+	for todoID, t := range old.PhaseStartedAt {
+		d.PhaseStartedAt[old.Phase+"/"+todoID] = t
+	}
+	return d
+}
+
 func legacy(raw []byte) data {
 	d := empty()
 
@@ -84,7 +107,7 @@ func legacy(raw []byte) data {
 	}
 	d.Phase = old.Phase
 	if millis, ok := old.Remaining[noTodo]; ok {
-		d.Remaining[noTodo] = millis
+		d.Remaining[key(d.Phase, "")] = millis
 	}
 	return d
 }
@@ -130,40 +153,52 @@ func (s *Store) SetPhase(name string) {
 	s.data.Phase = name
 }
 
-func (s *Store) Remaining(todoID string) (time.Duration, bool) {
-	millis, ok := s.data.Remaining[key(todoID)]
+func (s *Store) Remaining(phase, todoID string) (time.Duration, bool) {
+	millis, ok := s.data.Remaining[key(phase, todoID)]
 	return time.Duration(millis) * time.Millisecond, ok
 }
 
-func (s *Store) SetRemaining(todoID string, d time.Duration) {
-	s.data.Remaining[key(todoID)] = d.Milliseconds()
+func (s *Store) SetRemaining(phase, todoID string, d time.Duration) {
+	s.data.Remaining[key(phase, todoID)] = d.Milliseconds()
 }
 
-func (s *Store) ClearRemaining(todoID string) {
-	delete(s.data.Remaining, key(todoID))
+func (s *Store) ClearRemaining(phase, todoID string) {
+	delete(s.data.Remaining, key(phase, todoID))
 }
 
-func (s *Store) ClearTimers() {
-	clear(s.data.Remaining)
-	clear(s.data.PhaseStartedAt)
+// ClearPhase drops every todo's timer in the phase.
+func (s *Store) ClearPhase(phase string) {
+	prefix := phase + "/"
+	for k := range s.data.Remaining {
+		if strings.HasPrefix(k, prefix) {
+			delete(s.data.Remaining, k)
+		}
+	}
+	for k := range s.data.PhaseStartedAt {
+		if strings.HasPrefix(k, prefix) {
+			delete(s.data.PhaseStartedAt, k)
+		}
+	}
 }
 
-func (s *Store) PhaseStartedAt(todoID string) (time.Time, bool) {
-	t, ok := s.data.PhaseStartedAt[key(todoID)]
+func (s *Store) PhaseStartedAt(phase, todoID string) (time.Time, bool) {
+	t, ok := s.data.PhaseStartedAt[key(phase, todoID)]
 	return t, ok
 }
 
-func (s *Store) SetPhaseStartedAt(todoID string, t time.Time) {
-	s.data.PhaseStartedAt[key(todoID)] = t.Round(0)
+func (s *Store) SetPhaseStartedAt(phase, todoID string, t time.Time) {
+	s.data.PhaseStartedAt[key(phase, todoID)] = t.Round(0)
 }
 
-func (s *Store) ClearPhaseStartedAt(todoID string) {
-	delete(s.data.PhaseStartedAt, key(todoID))
+func (s *Store) ClearPhaseStartedAt(phase, todoID string) {
+	delete(s.data.PhaseStartedAt, key(phase, todoID))
 }
 
-func key(todoID string) string {
+// key names a todo's timer in one phase, so a todo paused in work keeps its
+// time through the breaks other todos take in between.
+func key(phase, todoID string) string {
 	if todoID == "" {
-		return noTodo
+		todoID = noTodo
 	}
-	return todoID
+	return phase + "/" + todoID
 }
