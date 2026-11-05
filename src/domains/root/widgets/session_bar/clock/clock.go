@@ -251,10 +251,18 @@ func (c *Clock) Stat(todoID string) sessions.Stat {
 }
 
 func (c *Clock) SetTodo(id, text string) {
-	c.stash()
-
-	c.todoID, c.todoText = id, text
-	c.enter(c.now())
+	if c.phase == phase.Work {
+		c.stash()
+		c.todoID, c.todoText = id, text
+		c.enter(c.now())
+	} else {
+		// A break belongs to the work just done, not to a todo, so it runs
+		// on as it is whichever todo is picked.
+		c.store.ClearRemaining(c.phase.Name(), c.todoID)
+		c.store.ClearPhaseStartedAt(c.phase.Name(), c.todoID)
+		c.todoID, c.todoText = id, text
+		c.stash()
+	}
 
 	c.store.SetTodo(c.todoID, c.todoText)
 	c.store.Save()

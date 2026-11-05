@@ -87,11 +87,12 @@ func unphased(raw []byte) data {
 		return d
 	}
 	d.TodoID, d.TodoText, d.Phase = old.TodoID, old.TodoText, old.Phase
+	phase := timedPhase(old.Phase)
 	for todoID, millis := range old.Remaining {
-		d.Remaining[old.Phase+"/"+todoID] = millis
+		d.Remaining[phase+"/"+todoID] = millis
 	}
 	for todoID, t := range old.PhaseStartedAt {
-		d.PhaseStartedAt[old.Phase+"/"+todoID] = t
+		d.PhaseStartedAt[phase+"/"+todoID] = t
 	}
 	return d
 }
@@ -108,7 +109,7 @@ func legacy(raw []byte) data {
 	}
 	d.Phase = old.Phase
 	if millis, ok := old.Remaining[noTodo]; ok {
-		d.Remaining[key(d.Phase, "")] = millis
+		d.Remaining[key(timedPhase(d.Phase), "")] = millis
 	}
 	return d
 }
@@ -204,4 +205,13 @@ func key(phase, todoID string) string {
 		todoID = noTodo
 	}
 	return phase + "/" + todoID
+}
+
+// timedPhase is the phase an older store's timers belong to. One that never
+// saw a phase end saved none, and the clock reads that as Work.
+func timedPhase(name string) string {
+	if name == "" {
+		return "Work"
+	}
+	return name
 }

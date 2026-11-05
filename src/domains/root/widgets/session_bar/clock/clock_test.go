@@ -590,3 +590,29 @@ func TestDroppedTodoLeavesTheSessionRunning(t *testing.T) {
 		t.Fatal("the dropped todo's time was kept")
 	}
 }
+
+func TestPickingATodoInABreakKeepsTheBreakGoing(t *testing.T) {
+	f := newFixture(t)
+
+	f.SetTodo("a", "Write report")
+	f.start()
+	f.wait(25 * time.Minute) // work ends, the break runs
+	f.wait(2 * time.Minute)
+
+	f.SetTodo("b", "Review PR")
+	if f.phase != phase.Break || !f.running || f.Remaining() != 3*time.Minute {
+		t.Fatalf("phase=%v running=%v remaining=%v, want the break running at 3m", f.phase, f.running, f.Remaining())
+	}
+	f.wait(time.Minute)
+	f.ClearTodo()
+	if got := f.Remaining(); got != 2*time.Minute {
+		t.Fatalf("remaining = %v, want the break at 2m", got)
+	}
+
+	// It survives a restart too.
+	f.save()
+	f.open()
+	if got := f.Remaining(); got != 2*time.Minute {
+		t.Fatalf("remaining after restart = %v, want 2m", got)
+	}
+}

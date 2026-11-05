@@ -3,6 +3,7 @@ package todoist
 import (
 	"slices"
 
+	"orivo/src/systems/files"
 	"orivo/src/systems/todos"
 )
 
@@ -21,13 +22,8 @@ func Sync(authPath, cachePath, outboxPath, donePath string, workedToday func(id 
 		return nil, err
 	}
 
-	done, err := Completions{Path: donePath}.Pending()
+	all, err = cacheDue(cachePath, donePath, all)
 	if err != nil {
-		return nil, err
-	}
-	all = slices.DeleteFunc(all, func(todo todos.Todo) bool { return slices.Contains(done, todo.ID) })
-
-	if err := (todos.Cache{Path: cachePath}).Write(all); err != nil {
 		return nil, err
 	}
 
@@ -41,4 +37,23 @@ func Sync(authPath, cachePath, outboxPath, donePath string, workedToday func(id 
 		return nil, err
 	}
 	return all, nil
+}
+
+// cacheDue writes the todos to the cache, less those done in orivo and not
+// yet completed in Todoist. The cache stays locked from reading the done ones
+// to the write, so a todo marked done meanwhile is either left out here or
+// taken out by its own removal after this write, never put back.
+func cacheDue(cachePath, donePath string, all []todos.Todo) ([]todos.Todo, error) {
+	unlock, err := files.Lock(cachePath)
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+
+	done, err := Completions{Path: donePath}.Pending()
+	if err != nil {
+		return nil, err
+	}
+	all = slices.DeleteFunc(all, func(todo todos.Todo) bool { return slices.Contains(done, todo.ID) })
+	return all, todos.Cache{Path: cachePath}.Write(all)
 }

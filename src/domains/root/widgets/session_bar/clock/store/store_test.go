@@ -118,3 +118,16 @@ func TestClearPhaseKeepsOtherPhases(t *testing.T) {
 		t.Error("break time for b was kept")
 	}
 }
+
+func TestVersion2StoreThatNeverEndedAPhaseKeepsItsWorkTime(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "store.json")
+	old := `{"version":2,"timer_todo_id":"abc","timer_cycle_phase":"",
+		"timer_remaining_millis":{"abc":600000},"timer_phase_started_at":{}}`
+	if err := os.WriteFile(path, []byte(old), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if d, ok := Load(path).Remaining("Work", "abc"); !ok || d != 10*time.Minute {
+		t.Errorf("work remaining = %v %v, want 10m", d, ok)
+	}
+}

@@ -17,8 +17,11 @@ type Completions struct {
 }
 
 func (c Completions) Add(taskID string) error {
-	outboxMu.Lock()
-	defer outboxMu.Unlock()
+	unlock, err := files.Lock(c.Path)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 
 	pending, err := c.read()
 	if err != nil {
@@ -30,27 +33,28 @@ func (c Completions) Add(taskID string) error {
 	return c.write(append(pending, taskID))
 }
 
-// Pending lists the tasks waiting to be completed in Todoist.
+// Pending lists the tasks waiting to be completed in Todoist. Writes replace
+// the file whole, so a read needs no lock.
 func (c Completions) Pending() ([]string, error) {
-	outboxMu.Lock()
-	defer outboxMu.Unlock()
 	return c.read()
 }
 
 // Flush completes every pending task in Todoist in one batch and keeps those
 // that failed.
 func (c Completions) Flush(client *Client) error {
-	outboxMu.Lock()
+	// Writes replace the file whole, so a read needs no lock.
 	pending, err := c.read()
-	outboxMu.Unlock()
 	if err != nil || len(pending) == 0 {
 		return err
 	}
 
 	done, failed := client.Complete(pending)
 
-	outboxMu.Lock()
-	defer outboxMu.Unlock()
+	unlock, err := files.Lock(c.Path)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 
 	// Tasks added while the batch was out stay.
 	now, err := c.read()

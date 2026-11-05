@@ -63,6 +63,12 @@ func (c Cache) Write(all []Todo) error {
 
 // Remove drops the todo with id from the cache, if there is one.
 func (c Cache) Remove(id string) error {
+	unlock, err := files.Lock(c.Path)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
 	all, err := c.Read()
 	if errors.Is(err, ErrNoCache) {
 		return nil
