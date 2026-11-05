@@ -14,9 +14,9 @@ import (
 	"orivo/src/domains/root/widgets/session_bar/clock/ipc"
 	"orivo/src/domains/root/widgets/session_bar/clock/notify"
 	"orivo/src/domains/root/widgets/session_bar/clock/phase"
-	"orivo/src/domains/root/widgets/session_bar/clock/reduce_dialog"
 	"orivo/src/domains/root/widgets/session_bar/clock/sessions"
 	"orivo/src/domains/root/widgets/session_bar/clock/store"
+	"orivo/src/domains/root/widgets/session_bar/clock/time_dialog"
 	"orivo/src/domains/root/widgets/session_bar/clock/todo_label"
 	"orivo/src/systems/config"
 	"orivo/src/systems/logx"
@@ -38,11 +38,13 @@ type Clock struct {
 	now      func() time.Time
 	notify   func(summary, body string)
 	progress func(todoID, line string)
-	complete func(todoID string)
+	complete func(todoID string) (due time.Time)
+	reopen   func(todoID, text string, due time.Time)
 	flush    func() bool
 
 	todo   *todo_label.TodoLabel
-	reduce *reduce_dialog.ReduceDialog
+	reduce *time_dialog.TimeDialog
+	add    *time_dialog.TimeDialog
 	hints  *hints.Hints
 
 	phase          phase.Phase
@@ -64,6 +66,7 @@ func New(cfg config.Timer, fonts *core.Fonts) *Clock {
 	c.notify = notify.Send
 	c.progress = queueProgress
 	c.complete = queueDone
+	c.reopen = queueReopen
 	c.flush = flushProgress
 	return c
 }
@@ -87,7 +90,8 @@ func newClock(cfg config.Timer, fonts *core.Fonts, storePath, sessionsPath, cach
 	c.restore()
 
 	c.todo = todo_label.New(fonts, c, cachePath)
-	c.reduce = reduce_dialog.New(fonts, c)
+	c.reduce = time_dialog.New(fonts, c, "Reduce Remaining", rl.KeyD, c.Reduce)
+	c.add = time_dialog.New(fonts, c, "Add Time", rl.KeyA, c.Add)
 	c.hints = hints.New(fonts, c)
 	return c
 }
@@ -97,12 +101,14 @@ func (c *Clock) Attach() {
 	c.server = ipc.Serve(config.Socket())
 	c.todo.Attach()
 	c.reduce.Attach()
+	c.add.Attach()
 	c.hints.Attach()
 	c.publish()
 }
 
 func (c *Clock) Detach() {
 	c.hints.Detach()
+	c.add.Detach()
 	c.reduce.Detach()
 	c.todo.Detach()
 	c.server.Close()
@@ -112,16 +118,20 @@ func (c *Clock) Detach() {
 func (c *Clock) Update(dt float32) {
 	now := c.now()
 
-	if !c.todo.DialogOpen() {
+	// Each dialog reads keys only while no other one is open.
+	if !c.todo.DialogOpen() && !c.add.IsOpen() {
 		c.reduce.Update(dt)
 	}
-	if !c.reduce.IsOpen() {
+	if !c.todo.DialogOpen() && !c.reduce.IsOpen() {
+		c.add.Update(dt)
+	}
+	if !c.reduce.IsOpen() && !c.add.IsOpen() {
 		c.todo.Update(dt)
 	}
 	c.hints.Update(dt)
 
 	ctrl := rl.IsKeyDown(rl.KeyLeftControl) || rl.IsKeyDown(rl.KeyRightControl)
-	listening := !c.reduce.IsOpen() && !c.todo.DialogOpen() && !ctrl
+	listening := !c.reduce.IsOpen() && !c.add.IsOpen() && !c.todo.DialogOpen() && !ctrl
 
 	if listening {
 		for _, k := range []struct {
@@ -217,6 +227,7 @@ func (c *Clock) Draw() {
 	// The todo line draws the picker after it, and the dialogs come last.
 	c.todo.Draw()
 	c.reduce.Draw()
+	c.add.Draw()
 }
 
 func (c *Clock) Accent() color.RGBA {
@@ -251,29 +262,53 @@ func (c *Clock) Stat(todoID string) sessions.Stat {
 }
 
 func (c *Clock) SetTodo(id, text string) {
-	c.stash()
-
-	c.todoID, c.todoText = id, text
-	c.restore()
-
-	if c.running {
-		c.startedAt = c.now()
-		if c.phaseStartedAt.IsZero() {
-			c.phaseStartedAt = c.now()
-			c.store.SetPhaseStartedAt(c.todoID, c.phaseStartedAt)
-		}
+	if c.phase == phase.Work {
+		c.stash()
+		c.todoID, c.todoText = id, text
+		c.enter(c.now())
+	} else {
+		// A break belongs to the work just done, not to a todo, so it runs
+		// on as it is whichever todo is picked.
+		c.store.ClearRemaining(c.phase.Name(), c.todoID)
+		c.store.ClearPhaseStartedAt(c.phase.Name(), c.todoID)
+		c.todoID, c.todoText = id, text
+		c.stash()
 	}
 
 	c.store.SetTodo(c.todoID, c.todoText)
 	c.store.Save()
 }
 
+// DropTodo lets go of the selected todo once Todoist no longer has it due,
+// and leaves the clock as it is, so a session under way keeps its time
+// rather than jumping to another todo's.
+func (c *Clock) DropTodo() {
+	if c.todoID == "" {
+		return
+	}
+	c.store.ForgetTodo(c.todoID)
+	c.todoID, c.todoText = "", ""
+	c.stash()
+	c.store.SetTodo("", "")
+	c.store.Save()
+}
+
 func (c *Clock) Reduce(d time.Duration) {
-	c.remaining = max(c.Remaining()-d, 0)
+	c.setRemaining(max(c.Remaining()-d, 0))
+}
+
+// Add gives time back to the phase, for a stretch the timer ran with no work
+// done, up to its full time, so a session never counts for more than one.
+func (c *Clock) Add(d time.Duration) {
+	c.setRemaining(min(c.Remaining()+d, c.total()))
+}
+
+func (c *Clock) setRemaining(remaining time.Duration) {
+	c.remaining = remaining
 	if c.running {
 		c.startedAt = c.now()
 	}
-	c.store.SetRemaining(c.todoID, c.remaining)
+	c.store.SetRemaining(c.phase.Name(), c.todoID, c.remaining)
 	c.store.Save()
 }
 
@@ -284,13 +319,13 @@ func (c *Clock) Toggle() {
 		c.remaining = c.Remaining()
 		c.startedAt = time.Time{}
 		c.running = false
-		c.store.SetRemaining(c.todoID, c.remaining)
+		c.store.SetRemaining(c.phase.Name(), c.todoID, c.remaining)
 		c.store.Save()
 		return
 	}
 	if c.phaseStartedAt.IsZero() {
 		c.phaseStartedAt = now
-		c.store.SetPhaseStartedAt(c.todoID, now)
+		c.store.SetPhaseStartedAt(c.phase.Name(), c.todoID, now)
 		c.store.Save()
 	}
 	c.startedAt = now
@@ -300,7 +335,7 @@ func (c *Clock) Toggle() {
 // Reset puts the current phase back to its full time, paused.
 func (c *Clock) Reset() {
 	c.running = false
-	c.rewind(c.now())
+	c.rewind()
 	c.store.Save()
 }
 
@@ -325,6 +360,10 @@ func (c *Clock) ClearTodo() {
 	c.SetTodo("", "")
 }
 
+func (c *Clock) OpenAdd() {
+	c.add.Open()
+}
+
 func (c *Clock) OpenReduce() {
 	c.reduce.Open()
 }
@@ -341,19 +380,24 @@ func (c *Clock) ToggleMillis() {
 // all, counting only the share of it that ran.
 func (c *Clock) done(now time.Time) {
 	finished := c.todoID != ""
+	session := false
 	if ran := c.total() - c.Remaining(); c.phase == phase.Work && ran > 0 {
 		c.end(now, ran, finished)
+		session = true
 	} else if finished && c.notify != nil {
 		c.notify("Todo Done", c.todoText)
 	}
 	if finished {
-		c.finish()
+		c.finish(now, session)
 	}
 }
 
 // end records the phase as a session that ran for ran, and moves on to the
 // next phase. finished tells the notification the todo is done too.
 func (c *Clock) end(now time.Time, ran time.Duration, finished bool) {
+	// Undo now takes back this session, not a todo done before it.
+	c.store.ClearLastDone()
+
 	if c.notify != nil {
 		summary, body := c.phase.EndMessage()
 		if finished {
@@ -389,6 +433,11 @@ func (c *Clock) end(now time.Time, ran time.Duration, finished bool) {
 		c.flushWanted = true
 	}
 
+	// This todo's time in the phase is spent. Other todos paused in work
+	// keep theirs, for when work comes round again.
+	c.store.ClearRemaining(c.phase.Name(), c.todoID)
+	c.store.ClearPhaseStartedAt(c.phase.Name(), c.todoID)
+
 	switch {
 	case c.phase != phase.Work:
 		c.phase = phase.Work
@@ -402,16 +451,37 @@ func (c *Clock) end(now time.Time, ran time.Duration, finished bool) {
 		c.running = true
 	}
 
-	// Every todo's saved time belonged to the phase that just ended.
-	c.store.ClearTimers()
-	c.rewind(now)
+	c.clearBreaks()
+	c.enter(now)
 	c.store.SetPhase(c.phase.Name())
 	c.store.Save()
 }
 
-// undo takes back the last session recorded today and returns to its phase,
-// paused at full time, as if it had never ended.
+// undo takes back what was done last today: a todo marked done, with the
+// session that ended with it if any, or else the last session.
 func (c *Clock) undo(now time.Time) {
+	last, ok := c.store.LastDone()
+	c.store.ClearLastDone()
+	if !ok || !sameDay(last.At, now) {
+		c.undoSession(now)
+		return
+	}
+
+	if last.Session {
+		c.undoSession(now)
+	} else if c.notify != nil {
+		c.notify("Todo Undone", last.TodoText)
+	}
+	if c.reopen != nil {
+		c.reopen(last.TodoID, last.TodoText, last.Due)
+		c.flushWanted = true
+	}
+	c.SetTodo(last.TodoID, last.TodoText)
+}
+
+// undoSession takes back the last session recorded today and returns to its
+// phase, paused at full time, as if it had never ended.
+func (c *Clock) undoSession(now time.Time) {
 	last, ok, err := c.history.Undo(now)
 	if err != nil {
 		logx.Error("failed to undo the last session: %v", err)
@@ -440,51 +510,76 @@ func (c *Clock) undo(now time.Time) {
 		c.notify(c.phase.Label()+" Undone", body)
 	}
 	c.running = false
-	c.store.ClearTimers()
-	c.rewind(now)
+	c.clearBreaks()
+	c.enter(now)
 	c.store.SetPhase(c.phase.Name())
 	c.store.Save()
 }
 
 // finish marks the selected todo done, to be completed in Todoist with the
-// next send, and clears it.
-func (c *Clock) finish() {
+// next send, and clears it. It is kept for undo, with whether a session
+// ended with it.
+func (c *Clock) finish(now time.Time, session bool) {
+	var due time.Time
 	if c.complete != nil {
-		c.complete(c.todoID)
+		due = c.complete(c.todoID)
 		c.flushWanted = true
 	}
+	c.store.SetLastDone(store.Done{TodoID: c.todoID, TodoText: c.todoText, Due: due, Session: session, At: now})
+	id := c.todoID
 	c.SetTodo("", "")
+	c.store.ForgetTodo(id)
+	c.store.Save()
 }
 
 func (c *Clock) total() time.Duration {
 	return c.phase.Duration(c.cfg)
 }
 
-func (c *Clock) rewind(now time.Time) {
+// rewind puts the current todo back to the phase's full time, paused.
+func (c *Clock) rewind() {
 	c.remaining = c.total()
 	c.startedAt, c.phaseStartedAt = time.Time{}, time.Time{}
-	c.store.ClearRemaining(c.todoID)
-	c.store.ClearPhaseStartedAt(c.todoID)
+	c.store.ClearRemaining(c.phase.Name(), c.todoID)
+	c.store.ClearPhaseStartedAt(c.phase.Name(), c.todoID)
+}
+
+// enter takes up the current todo's saved time in the phase, or the full
+// time when it has none, so a todo paused in work comes back where it was.
+// A running clock counts from now.
+func (c *Clock) enter(now time.Time) {
+	c.startedAt = time.Time{}
+	c.restore()
 	if c.running {
-		c.startedAt, c.phaseStartedAt = now, now
-		c.store.SetPhaseStartedAt(c.todoID, now)
+		c.startedAt = now
+		if c.phaseStartedAt.IsZero() {
+			c.phaseStartedAt = now
+			c.store.SetPhaseStartedAt(c.phase.Name(), c.todoID, now)
+		}
 	}
 }
 
+// clearBreaks starts every todo's breaks fresh: a break belongs to the
+// work just done, not to the todo picked during it.
+func (c *Clock) clearBreaks() {
+	c.store.ClearPhase(phase.Break.Name())
+	c.store.ClearPhase(phase.LongBreak.Name())
+}
+
 func (c *Clock) stash() {
-	c.store.SetRemaining(c.todoID, c.Remaining())
+	c.store.SetRemaining(c.phase.Name(), c.todoID, c.Remaining())
 	if !c.phaseStartedAt.IsZero() {
-		c.store.SetPhaseStartedAt(c.todoID, c.phaseStartedAt)
+		c.store.SetPhaseStartedAt(c.phase.Name(), c.todoID, c.phaseStartedAt)
 	}
 }
 
 func (c *Clock) restore() {
-	remaining, ok := c.store.Remaining(c.todoID)
+	remaining, ok := c.store.Remaining(c.phase.Name(), c.todoID)
 	if !ok {
 		remaining = c.total()
 	}
 	c.remaining = remaining
-	c.phaseStartedAt, _ = c.store.PhaseStartedAt(c.todoID)
+	c.phaseStartedAt, _ = c.store.PhaseStartedAt(c.phase.Name(), c.todoID)
 }
 
 func (c *Clock) save() {
@@ -518,15 +613,41 @@ func queueProgress(todoID, line string) {
 }
 
 // queueDone writes the todo to the completions flushProgress sends, and takes
-// it out of the cache at once, so the picker no longer offers it.
-func queueDone(todoID string) {
+// it out of the cache at once, so the picker no longer offers it. It returns
+// the date the todo was due, for undo to put it back with.
+func queueDone(todoID string) time.Time {
 	if err := (todoist.Completions{Path: config.TodoistDone()}).Add(todoID); err != nil {
 		logx.Error("failed to queue the Todoist completion: %v", err)
-		return
+		return time.Time{}
 	}
-	if err := (todos.Cache{Path: config.TodoistCache()}).Remove(todoID); err != nil {
+	removed, _, err := todos.Cache{Path: config.TodoistCache()}.Remove(todoID)
+	if err != nil {
 		logx.Error("failed to drop the done todo from the cache: %v", err)
 	}
+	return removed.Due
+}
+
+// queueReopen takes back the todo's completion, reopening it in Todoist with
+// the next send if it was already sent, and puts it back in the cache, so
+// the picker offers it and a sync before that send does not drop it.
+func queueReopen(todoID, text string, due time.Time) {
+	if err := (todoist.Completions{Path: config.TodoistDone()}).Reopen(todoID); err != nil {
+		logx.Error("failed to queue reopening the Todoist task: %v", err)
+	}
+	if due.IsZero() {
+		y, m, d := time.Now().Date()
+		due = time.Date(y, m, d, 0, 0, 0, 0, time.Local)
+	}
+	if err := (todos.Cache{Path: config.TodoistCache()}).Put(todos.Todo{ID: todoID, Text: text, Due: due}); err != nil {
+		logx.Error("failed to put the undone todo back in the cache: %v", err)
+	}
+}
+
+// sameDay reports whether a and b fall on the same local date.
+func sameDay(a, b time.Time) bool {
+	ay, am, ad := a.Local().Date()
+	by, bm, bd := b.Local().Date()
+	return ay == by && am == bm && ad == bd
 }
 
 var flushing atomic.Bool

@@ -70,10 +70,12 @@ func TestCleanDescriptionDropsTheOldSentence(t *testing.T) {
 // closed lists the active tasks closed.
 type fakeTodoist struct {
 	active, completed map[string]taskText
-	closed            []string
-	down              bool
-	readOnly          bool
-	requests          int
+	closed, reopened  []string
+	// duringSync runs while a sync request is out, if set.
+	duringSync func()
+	down       bool
+	readOnly   bool
+	requests   int
 }
 
 func (f *fakeTodoist) client(t *testing.T) *Client {
@@ -112,8 +114,16 @@ func (f *fakeTodoist) client(t *testing.T) *Client {
 			if err := json.Unmarshal([]byte(r.FormValue("commands")), &commands); err != nil {
 				t.Error(err)
 			}
+			if f.duringSync != nil {
+				f.duringSync()
+			}
 			status := map[string]any{}
 			for _, cmd := range commands {
+				if cmd.Type == "item_uncomplete" {
+					f.reopened = append(f.reopened, cmd.Args["id"])
+					status[cmd.UUID] = "ok"
+					continue
+				}
 				if cmd.Type == "item_close" {
 					if _, ok := f.active[cmd.Args["id"]]; !ok {
 						status[cmd.UUID] = map[string]any{"error": "Item not found", "http_code": 404}

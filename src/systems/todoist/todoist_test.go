@@ -4,9 +4,13 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 	"time"
+
+	"orivo/src/systems/todos"
 )
 
 func serve(t *testing.T, handler http.HandlerFunc) *Client {
@@ -90,5 +94,32 @@ func TestUserReturnsTheAccountName(t *testing.T) {
 	name, err := client.User()
 	if err != nil || name != "Shihab" {
 		t.Fatalf("name = %q, err = %v", name, err)
+	}
+}
+
+func TestCacheDueKeepsATodoWaitingToReopen(t *testing.T) {
+	dir := t.TempDir()
+	cache := todos.Cache{Path: filepath.Join(dir, "todoist.txt")}
+	done := Completions{Path: filepath.Join(dir, "todoist-done.txt")}
+	due := time.Date(2026, 11, 5, 0, 0, 0, 0, time.Local)
+
+	if err := cache.Write([]todos.Todo{{ID: "a", Text: "Draft", Due: due}, {ID: "b", Text: "Old", Due: due}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(done.Path, []byte("-a\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Todoist still has a closed, and b is gone for good.
+	all, err := cacheDue(cache.Path, done.Path, []todos.Todo{{ID: "c", Text: "New", Due: due}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	for _, todo := range all {
+		ids = append(ids, todo.ID)
+	}
+	if !slices.Equal(ids, []string{"c", "a"}) {
+		t.Fatalf("cached = %q, want c and the reopening a", ids)
 	}
 }

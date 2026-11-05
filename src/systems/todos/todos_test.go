@@ -87,12 +87,12 @@ func TestSplitsTodosIntoOverdueAndToday(t *testing.T) {
 
 func TestRemoveDropsOnlyThatTodo(t *testing.T) {
 	cache := Cache{Path: filepath.Join(t.TempDir(), "todoist.txt")}
-	if err := cache.Remove("a"); err != nil {
+	if _, _, err := cache.Remove("a"); err != nil {
 		t.Fatalf("remove without a cache: %v", err)
 	}
 
 	cache.Write([]Todo{{ID: "a", Text: "One", Due: day(2)}, {ID: "b", Text: "Two", Due: day(2)}})
-	if err := cache.Remove("a"); err != nil {
+	if _, _, err := cache.Remove("a"); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := cache.Read()

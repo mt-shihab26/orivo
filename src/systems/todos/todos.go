@@ -61,8 +61,39 @@ func (c Cache) Write(all []Todo) error {
 	return files.WriteAtomic(c.Path, []byte(text.String()))
 }
 
-// Remove drops the todo with id from the cache, if there is one.
-func (c Cache) Remove(id string) error {
+// Remove drops the todo with id from the cache, if there is one, and returns
+// it.
+func (c Cache) Remove(id string) (removed Todo, ok bool, err error) {
+	unlock, err := files.Lock(c.Path)
+	if err != nil {
+		return Todo{}, false, err
+	}
+	defer unlock()
+
+	all, err := c.Read()
+	if errors.Is(err, ErrNoCache) {
+		return Todo{}, false, nil
+	}
+	if err != nil {
+		return Todo{}, false, err
+	}
+	i := slices.IndexFunc(all, func(todo Todo) bool { return todo.ID == id })
+	if i < 0 {
+		return Todo{}, false, nil
+	}
+	removed = all[i]
+	return removed, true, c.Write(slices.Delete(all, i, i+1))
+}
+
+// Put adds todo to the cache, unless it is there already or nothing was
+// synced yet to add it to.
+func (c Cache) Put(todo Todo) error {
+	unlock, err := files.Lock(c.Path)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
 	all, err := c.Read()
 	if errors.Is(err, ErrNoCache) {
 		return nil
@@ -70,11 +101,10 @@ func (c Cache) Remove(id string) error {
 	if err != nil {
 		return err
 	}
-	kept := slices.DeleteFunc(all, func(todo Todo) bool { return todo.ID == id })
-	if len(kept) == len(all) {
+	if slices.ContainsFunc(all, func(t Todo) bool { return t.ID == todo.ID }) {
 		return nil
 	}
-	return c.Write(kept)
+	return c.Write(append(all, todo))
 }
 
 func oneLine(text string) string {

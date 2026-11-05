@@ -3,14 +3,16 @@ package store
 import (
 	"bytes"
 	"encoding/json"
+	"maps"
 	"os"
+	"strings"
 	"time"
 
 	"orivo/src/systems/files"
 	"orivo/src/systems/logx"
 )
 
-const version = 2
+const version = 3
 
 const noTodo = "none"
 
@@ -21,6 +23,17 @@ type data struct {
 	Phase          string               `json:"timer_cycle_phase"`
 	Remaining      map[string]int64     `json:"timer_remaining_millis"`
 	PhaseStartedAt map[string]time.Time `json:"timer_phase_started_at"`
+	Done           *Done                `json:"timer_done,omitempty"`
+}
+
+// Done is the todo last marked done, kept so undo can take it back.
+type Done struct {
+	TodoID   string    `json:"todo_id"`
+	TodoText string    `json:"todo_text"`
+	Due      time.Time `json:"due,omitzero"`
+	// Session is whether marking it done also ended a work session.
+	Session bool      `json:"session,omitempty"`
+	At      time.Time `json:"at"`
 }
 
 type Store struct {
@@ -42,6 +55,10 @@ func Load(path string) *Store {
 		Version int `json:"version"`
 	}
 	if json.Unmarshal(raw, &probe) != nil {
+		return s
+	}
+	if probe.Version == 2 {
+		s.data = unphased(raw)
 		return s
 	}
 	if probe.Version != version {
@@ -72,6 +89,25 @@ func empty() data {
 	}
 }
 
+// unphased reads a version 2 store, whose timers were keyed by todo alone and
+// all belonged to the phase it saved.
+func unphased(raw []byte) data {
+	d := empty()
+	var old data
+	if json.Unmarshal(raw, &old) != nil {
+		return d
+	}
+	d.TodoID, d.TodoText, d.Phase = old.TodoID, old.TodoText, old.Phase
+	phase := timedPhase(old.Phase)
+	for todoID, millis := range old.Remaining {
+		d.Remaining[phase+"/"+todoID] = millis
+	}
+	for todoID, t := range old.PhaseStartedAt {
+		d.PhaseStartedAt[phase+"/"+todoID] = t
+	}
+	return d
+}
+
 func legacy(raw []byte) data {
 	d := empty()
 
@@ -84,7 +120,7 @@ func legacy(raw []byte) data {
 	}
 	d.Phase = old.Phase
 	if millis, ok := old.Remaining[noTodo]; ok {
-		d.Remaining[noTodo] = millis
+		d.Remaining[key(timedPhase(d.Phase), "")] = millis
 	}
 	return d
 }
@@ -130,40 +166,79 @@ func (s *Store) SetPhase(name string) {
 	s.data.Phase = name
 }
 
-func (s *Store) Remaining(todoID string) (time.Duration, bool) {
-	millis, ok := s.data.Remaining[key(todoID)]
+func (s *Store) Remaining(phase, todoID string) (time.Duration, bool) {
+	millis, ok := s.data.Remaining[key(phase, todoID)]
 	return time.Duration(millis) * time.Millisecond, ok
 }
 
-func (s *Store) SetRemaining(todoID string, d time.Duration) {
-	s.data.Remaining[key(todoID)] = d.Milliseconds()
+func (s *Store) SetRemaining(phase, todoID string, d time.Duration) {
+	s.data.Remaining[key(phase, todoID)] = d.Milliseconds()
 }
 
-func (s *Store) ClearRemaining(todoID string) {
-	delete(s.data.Remaining, key(todoID))
+func (s *Store) ClearRemaining(phase, todoID string) {
+	delete(s.data.Remaining, key(phase, todoID))
 }
 
-func (s *Store) ClearTimers() {
-	clear(s.data.Remaining)
-	clear(s.data.PhaseStartedAt)
+// ForgetTodo drops the todo's timers in every phase.
+func (s *Store) ForgetTodo(todoID string) {
+	suffix := key("", todoID)
+	s.drop(func(k string) bool { return strings.HasSuffix(k, suffix) })
 }
 
-func (s *Store) PhaseStartedAt(todoID string) (time.Time, bool) {
-	t, ok := s.data.PhaseStartedAt[key(todoID)]
+// ClearPhase drops every todo's timer in the phase.
+func (s *Store) ClearPhase(phase string) {
+	prefix := phase + "/"
+	s.drop(func(k string) bool { return strings.HasPrefix(k, prefix) })
+}
+
+func (s *Store) drop(match func(key string) bool) {
+	maps.DeleteFunc(s.data.Remaining, func(k string, _ int64) bool { return match(k) })
+	maps.DeleteFunc(s.data.PhaseStartedAt, func(k string, _ time.Time) bool { return match(k) })
+}
+
+func (s *Store) PhaseStartedAt(phase, todoID string) (time.Time, bool) {
+	t, ok := s.data.PhaseStartedAt[key(phase, todoID)]
 	return t, ok
 }
 
-func (s *Store) SetPhaseStartedAt(todoID string, t time.Time) {
-	s.data.PhaseStartedAt[key(todoID)] = t.Round(0)
+func (s *Store) SetPhaseStartedAt(phase, todoID string, t time.Time) {
+	s.data.PhaseStartedAt[key(phase, todoID)] = t.Round(0)
 }
 
-func (s *Store) ClearPhaseStartedAt(todoID string) {
-	delete(s.data.PhaseStartedAt, key(todoID))
+func (s *Store) ClearPhaseStartedAt(phase, todoID string) {
+	delete(s.data.PhaseStartedAt, key(phase, todoID))
 }
 
-func key(todoID string) string {
+// key names a todo's timer in one phase, so a todo paused in work keeps its
+// time through the breaks other todos take in between.
+func key(phase, todoID string) string {
 	if todoID == "" {
-		return noTodo
+		todoID = noTodo
 	}
-	return todoID
+	return phase + "/" + todoID
+}
+
+// timedPhase is the phase an older store's timers belong to. One that never
+// saw a phase end saved none, and the clock reads that as Work.
+func timedPhase(name string) string {
+	if name == "" {
+		return "Work"
+	}
+	return name
+}
+
+func (s *Store) LastDone() (Done, bool) {
+	if s.data.Done == nil {
+		return Done{}, false
+	}
+	return *s.data.Done, true
+}
+
+func (s *Store) SetLastDone(d Done) {
+	d.At = d.At.Round(0)
+	s.data.Done = &d
+}
+
+func (s *Store) ClearLastDone() {
+	s.data.Done = nil
 }

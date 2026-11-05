@@ -1,8 +1,10 @@
 package todoist
 
 import (
+	"errors"
 	"slices"
 
+	"orivo/src/systems/files"
 	"orivo/src/systems/todos"
 )
 
@@ -21,13 +23,8 @@ func Sync(authPath, cachePath, outboxPath, donePath string, workedToday func(id 
 		return nil, err
 	}
 
-	done, err := Completions{Path: donePath}.Pending()
+	all, err = cacheDue(cachePath, donePath, all)
 	if err != nil {
-		return nil, err
-	}
-	all = slices.DeleteFunc(all, func(todo todos.Todo) bool { return slices.Contains(done, todo.ID) })
-
-	if err := (todos.Cache{Path: cachePath}).Write(all); err != nil {
 		return nil, err
 	}
 
@@ -41,4 +38,44 @@ func Sync(authPath, cachePath, outboxPath, donePath string, workedToday func(id 
 		return nil, err
 	}
 	return all, nil
+}
+
+// cacheDue writes the todos to the cache, less those done in orivo and not
+// yet completed in Todoist. The cache stays locked from reading the done ones
+// to the write, so a todo marked done meanwhile is either left out here or
+// taken out by its own removal after this write, never put back.
+func cacheDue(cachePath, donePath string, all []todos.Todo) ([]todos.Todo, error) {
+	unlock, err := files.Lock(cachePath)
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+
+	completions := Completions{Path: donePath}
+	done, err := completions.Pending()
+	if err != nil {
+		return nil, err
+	}
+	all = slices.DeleteFunc(all, func(todo todos.Todo) bool { return slices.Contains(done, todo.ID) })
+
+	// A todo whose completion was undone is still closed in Todoist until
+	// its reopening is sent, so it keeps the place the undo gave it.
+	reopening, err := completions.Reopening()
+	if err != nil {
+		return nil, err
+	}
+	cache := todos.Cache{Path: cachePath}
+	if len(reopening) > 0 {
+		cached, err := cache.Read()
+		if err != nil && !errors.Is(err, todos.ErrNoCache) {
+			return nil, err
+		}
+		for _, todo := range cached {
+			fetched := slices.ContainsFunc(all, func(t todos.Todo) bool { return t.ID == todo.ID })
+			if slices.Contains(reopening, todo.ID) && !fetched {
+				all = append(all, todo)
+			}
+		}
+	}
+	return all, cache.Write(all)
 }

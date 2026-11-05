@@ -16,6 +16,7 @@ type Controls interface {
 	PickTodo()
 	ClearTodo()
 	OpenReduce()
+	OpenAdd()
 	Sync()
 	ToggleMillis()
 }
@@ -38,6 +39,7 @@ var rows = [][]hint{
 		{"t", "Todo", Controls.PickTodo},
 		{"T", "Clear", Controls.ClearTodo},
 		{"d", "Reduce", Controls.OpenReduce},
+		{"a", "Add", Controls.OpenAdd},
 		{"s", "Sync", Controls.Sync},
 		{"m", "Millis", Controls.ToggleMillis},
 	},

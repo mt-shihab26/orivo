@@ -16,7 +16,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 
 	"orivo/src/systems/files"
 )
@@ -255,13 +254,12 @@ type Outbox struct {
 	Path string
 }
 
-// Guards the file only; it is never held over a request, so Add from the UI
-// thread does not wait on a flush in the background.
-var outboxMu sync.Mutex
-
 func (o Outbox) Add(taskID, tag string) error {
-	outboxMu.Lock()
-	defer outboxMu.Unlock()
+	unlock, err := files.Lock(o.Path)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 
 	pending, err := o.read()
 	if err != nil {
@@ -277,8 +275,11 @@ func (o Outbox) Clear(taskIDs []string) error {
 	if len(taskIDs) == 0 {
 		return nil
 	}
-	outboxMu.Lock()
-	defer outboxMu.Unlock()
+	unlock, err := files.Lock(o.Path)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 
 	pending, err := o.read()
 	if err != nil {
@@ -295,17 +296,19 @@ func (o Outbox) Clear(taskIDs []string) error {
 // Flush writes every pending tag to Todoist in one batch and keeps those
 // that failed.
 func (o Outbox) Flush(client *Client) error {
-	outboxMu.Lock()
+	// Writes replace the file whole, so a read needs no lock.
 	pending, err := o.read()
-	outboxMu.Unlock()
 	if err != nil || len(pending) == 0 {
 		return err
 	}
 
 	done, failed := client.SetProgress(pending)
 
-	outboxMu.Lock()
-	defer outboxMu.Unlock()
+	unlock, err := files.Lock(o.Path)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 
 	// Tags added while the batch was out are newer, so they stay.
 	now, err := o.read()
