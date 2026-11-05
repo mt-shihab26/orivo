@@ -447,7 +447,7 @@ func TestDoneEndsWorkWithTheShareThatRan(t *testing.T) {
 	f := newFixture(t)
 	var sent, completed []string
 	f.progress = func(todoID, line string) { sent = append(sent, todoID+" "+line) }
-	f.complete = func(todoID string) { completed = append(completed, todoID) }
+	f.complete = func(todoID string) time.Time { completed = append(completed, todoID); return time.Time{} }
 
 	f.SetTodo("a", "Write report")
 	f.start()
@@ -481,7 +481,7 @@ func TestDoneEndsWorkWithTheShareThatRan(t *testing.T) {
 func TestDoneBeforeWorkStartsRecordsNothing(t *testing.T) {
 	f := newFixture(t)
 	var completed []string
-	f.complete = func(todoID string) { completed = append(completed, todoID) }
+	f.complete = func(todoID string) time.Time { completed = append(completed, todoID); return time.Time{} }
 
 	f.SetTodo("a", "Write report")
 	f.done(f.time)
@@ -497,7 +497,7 @@ func TestDoneBeforeWorkStartsRecordsNothing(t *testing.T) {
 func TestDoneInABreakOnlyCompletesTheTodo(t *testing.T) {
 	f := newFixture(t)
 	var completed []string
-	f.complete = func(todoID string) { completed = append(completed, todoID) }
+	f.complete = func(todoID string) time.Time { completed = append(completed, todoID); return time.Time{} }
 
 	f.SetTodo("a", "Write report")
 	f.start()
@@ -516,7 +516,7 @@ func TestDoneInABreakOnlyCompletesTheTodo(t *testing.T) {
 func TestDoneWithoutATodoStillEndsWorkEarly(t *testing.T) {
 	f := newFixture(t)
 	completed := 0
-	f.complete = func(string) { completed++ }
+	f.complete = func(string) time.Time { completed++; return time.Time{} }
 
 	f.start()
 	f.wait(5 * time.Minute)
@@ -614,5 +614,118 @@ func TestPickingATodoInABreakKeepsTheBreakGoing(t *testing.T) {
 	f.open()
 	if got := f.Remaining(); got != 2*time.Minute {
 		t.Fatalf("remaining after restart = %v, want 2m", got)
+	}
+}
+
+// trackDone has done todos come from the cache due on Oct 1, and returns
+// what undo reopens, as "id text due".
+func (f *fixture) trackDone() *[]string {
+	var reopened []string
+	due := time.Date(2026, 10, 1, 0, 0, 0, 0, time.Local)
+	f.complete = func(string) time.Time { return due }
+	f.reopen = func(id, text string, d time.Time) {
+		reopened = append(reopened, id+" "+text+" "+d.Format(time.DateOnly))
+	}
+	return &reopened
+}
+
+func TestUndoAfterDoneBringsTheTodoAndItsSessionBack(t *testing.T) {
+	f := newFixture(t)
+	reopened := f.trackDone()
+
+	f.SetTodo("a", "Write report")
+	f.start()
+	f.wait(10 * time.Minute)
+	f.Done()
+	if f.TodoID() != "" || f.SessionsToday() == 0 {
+		t.Fatalf("after done: todo=%q sessions=%v", f.TodoID(), f.SessionsToday())
+	}
+
+	f.Undo()
+	if f.TodoID() != "a" || f.TodoText() != "Write report" {
+		t.Fatalf("todo = %q %q, want a back", f.TodoID(), f.TodoText())
+	}
+	if f.SessionsToday() != 0 || f.phase != phase.Work || f.running {
+		t.Fatalf("sessions=%v phase=%v running=%v, want the session undone, paused", f.SessionsToday(), f.phase, f.running)
+	}
+	if want := []string{"a Write report 2026-10-01"}; !slices.Equal(*reopened, want) {
+		t.Fatalf("reopened = %q, want %q", *reopened, want)
+	}
+
+	// A second undo has no done todo left to take back.
+	f.Undo()
+	if len(*reopened) != 1 {
+		t.Fatalf("reopened again: %q", *reopened)
+	}
+}
+
+func TestUndoAfterDoneInABreakKeepsTheEarlierSession(t *testing.T) {
+	f := newFixture(t)
+	reopened := f.trackDone()
+
+	f.SetTodo("a", "Write report")
+	f.start()
+	f.wait(25 * time.Minute) // work ends, the break runs
+	f.wait(time.Minute)
+	f.Done()
+	f.Undo()
+
+	if f.SessionsToday() != 1 {
+		t.Fatalf("sessions today = %v, want the work session kept", f.SessionsToday())
+	}
+	if f.phase != phase.Break || !f.running || f.Remaining() != 4*time.Minute {
+		t.Fatalf("phase=%v running=%v remaining=%v, want the break running at 4m", f.phase, f.running, f.Remaining())
+	}
+	if f.TodoID() != "a" || len(*reopened) != 1 {
+		t.Fatalf("todo=%q reopened=%q, want a back", f.TodoID(), *reopened)
+	}
+	if f.notified[len(f.notified)-1] != "Todo Undone" {
+		t.Fatalf("notified = %q", f.notified)
+	}
+}
+
+func TestUndoAfterAPhaseEndsTakesBackThatPhaseNotTheDone(t *testing.T) {
+	f := newFixture(t)
+	reopened := f.trackDone()
+
+	f.SetTodo("a", "Write report")
+	f.start()
+	f.wait(10 * time.Minute)
+	f.Done()                // ends work early, the break runs
+	f.wait(5 * time.Minute) // the break ends
+	f.Undo()
+
+	if f.phase != phase.Break || len(*reopened) != 0 || f.TodoID() != "" {
+		t.Fatalf("phase=%v reopened=%q todo=%q, want only the break undone", f.phase, *reopened, f.TodoID())
+	}
+}
+
+func TestDoneSurvivesARestartForUndo(t *testing.T) {
+	f := newFixture(t)
+	f.trackDone()
+
+	f.SetTodo("a", "Write report")
+	f.Done()
+	f.open()
+	reopened := f.trackDone()
+	f.Undo()
+
+	if f.TodoID() != "a" || len(*reopened) != 1 {
+		t.Fatalf("todo=%q reopened=%q, want a back after a restart", f.TodoID(), *reopened)
+	}
+}
+
+func TestDoneFromAnotherDayIsNotUndone(t *testing.T) {
+	f := newFixture(t)
+	f.trackDone()
+
+	f.SetTodo("a", "Write report")
+	f.Done()
+	f.time = f.time.Add(24 * time.Hour)
+	reopened := f.trackDone()
+	f.Undo()
+
+	if f.TodoID() != "" || len(*reopened) != 0 {
+		t.Fatalf("todo=%q reopened=%q, want yesterday's done left alone", f.TodoID(), *reopened)
 	}
 }

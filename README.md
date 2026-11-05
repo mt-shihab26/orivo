@@ -66,7 +66,7 @@ $ ./orivo
 | `r`       | Reset the current phase                            |
 | `n`       | Skip to the next phase                             |
 | `c`       | Done: complete the todo, ending work early         |
-| `u`       | Undo the last session ended today                  |
+| `u`       | Undo the last todo done or session ended today     |
 | `t`       | Pick a todo (overdue and due today)                |
 | `T`       | Clear the selected todo                            |
 | `s`       | Sync todos from Todoist                            |

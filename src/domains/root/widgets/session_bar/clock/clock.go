@@ -38,7 +38,8 @@ type Clock struct {
 	now      func() time.Time
 	notify   func(summary, body string)
 	progress func(todoID, line string)
-	complete func(todoID string)
+	complete func(todoID string) (due time.Time)
+	reopen   func(todoID, text string, due time.Time)
 	flush    func() bool
 
 	todo   *todo_label.TodoLabel
@@ -64,6 +65,7 @@ func New(cfg config.Timer, fonts *core.Fonts) *Clock {
 	c.notify = notify.Send
 	c.progress = queueProgress
 	c.complete = queueDone
+	c.reopen = queueReopen
 	c.flush = flushProgress
 	return c
 }
@@ -355,19 +357,24 @@ func (c *Clock) ToggleMillis() {
 // all, counting only the share of it that ran.
 func (c *Clock) done(now time.Time) {
 	finished := c.todoID != ""
+	session := false
 	if ran := c.total() - c.Remaining(); c.phase == phase.Work && ran > 0 {
 		c.end(now, ran, finished)
+		session = true
 	} else if finished && c.notify != nil {
 		c.notify("Todo Done", c.todoText)
 	}
 	if finished {
-		c.finish()
+		c.finish(now, session)
 	}
 }
 
 // end records the phase as a session that ran for ran, and moves on to the
 // next phase. finished tells the notification the todo is done too.
 func (c *Clock) end(now time.Time, ran time.Duration, finished bool) {
+	// Undo now takes back this session, not a todo done before it.
+	c.store.ClearLastDone()
+
 	if c.notify != nil {
 		summary, body := c.phase.EndMessage()
 		if finished {
@@ -427,9 +434,31 @@ func (c *Clock) end(now time.Time, ran time.Duration, finished bool) {
 	c.store.Save()
 }
 
-// undo takes back the last session recorded today and returns to its phase,
-// paused at full time, as if it had never ended.
+// undo takes back what was done last today: a todo marked done, with the
+// session that ended with it if any, or else the last session.
 func (c *Clock) undo(now time.Time) {
+	last, ok := c.store.LastDone()
+	c.store.ClearLastDone()
+	if !ok || !sameDay(last.At, now) {
+		c.undoSession(now)
+		return
+	}
+
+	if last.Session {
+		c.undoSession(now)
+	} else if c.notify != nil {
+		c.notify("Todo Undone", last.TodoText)
+	}
+	if c.reopen != nil {
+		c.reopen(last.TodoID, last.TodoText, last.Due)
+		c.flushWanted = true
+	}
+	c.SetTodo(last.TodoID, last.TodoText)
+}
+
+// undoSession takes back the last session recorded today and returns to its
+// phase, paused at full time, as if it had never ended.
+func (c *Clock) undoSession(now time.Time) {
 	last, ok, err := c.history.Undo(now)
 	if err != nil {
 		logx.Error("failed to undo the last session: %v", err)
@@ -465,12 +494,15 @@ func (c *Clock) undo(now time.Time) {
 }
 
 // finish marks the selected todo done, to be completed in Todoist with the
-// next send, and clears it.
-func (c *Clock) finish() {
+// next send, and clears it. It is kept for undo, with whether a session
+// ended with it.
+func (c *Clock) finish(now time.Time, session bool) {
+	var due time.Time
 	if c.complete != nil {
-		c.complete(c.todoID)
+		due = c.complete(c.todoID)
 		c.flushWanted = true
 	}
+	c.store.SetLastDone(store.Done{TodoID: c.todoID, TodoText: c.todoText, Due: due, Session: session, At: now})
 	id := c.todoID
 	c.SetTodo("", "")
 	c.store.ForgetTodo(id)
@@ -558,15 +590,41 @@ func queueProgress(todoID, line string) {
 }
 
 // queueDone writes the todo to the completions flushProgress sends, and takes
-// it out of the cache at once, so the picker no longer offers it.
-func queueDone(todoID string) {
+// it out of the cache at once, so the picker no longer offers it. It returns
+// the date the todo was due, for undo to put it back with.
+func queueDone(todoID string) time.Time {
 	if err := (todoist.Completions{Path: config.TodoistDone()}).Add(todoID); err != nil {
 		logx.Error("failed to queue the Todoist completion: %v", err)
-		return
+		return time.Time{}
 	}
-	if err := (todos.Cache{Path: config.TodoistCache()}).Remove(todoID); err != nil {
+	removed, _, err := todos.Cache{Path: config.TodoistCache()}.Remove(todoID)
+	if err != nil {
 		logx.Error("failed to drop the done todo from the cache: %v", err)
 	}
+	return removed.Due
+}
+
+// queueReopen takes back the todo's completion, reopening it in Todoist with
+// the next send if it was already sent, and puts it back in the cache, so
+// the picker offers it and a sync before that send does not drop it.
+func queueReopen(todoID, text string, due time.Time) {
+	if err := (todoist.Completions{Path: config.TodoistDone()}).Reopen(todoID); err != nil {
+		logx.Error("failed to queue reopening the Todoist task: %v", err)
+	}
+	if due.IsZero() {
+		y, m, d := time.Now().Date()
+		due = time.Date(y, m, d, 0, 0, 0, 0, time.Local)
+	}
+	if err := (todos.Cache{Path: config.TodoistCache()}).Put(todos.Todo{ID: todoID, Text: text, Due: due}); err != nil {
+		logx.Error("failed to put the undone todo back in the cache: %v", err)
+	}
+}
+
+// sameDay reports whether a and b fall on the same local date.
+func sameDay(a, b time.Time) bool {
+	ay, am, ad := a.Local().Date()
+	by, bm, bd := b.Local().Date()
+	return ay == by && am == bm && ad == bd
 }
 
 var flushing atomic.Bool

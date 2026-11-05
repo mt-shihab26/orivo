@@ -10,13 +10,29 @@ import (
 	"orivo/src/systems/files"
 )
 
+// reopenMark starts the line of a task to reopen, one done in orivo whose
+// completion was undone after it had reached Todoist.
+const reopenMark = "-"
+
 // Completions holds the tasks marked done in orivo and not yet completed in
-// Todoist, one id per line.
+// Todoist, one id per line, and those to reopen, each id after a "-".
 type Completions struct {
 	Path string
 }
 
 func (c Completions) Add(taskID string) error {
+	return c.queue(taskID, reopenMark+taskID)
+}
+
+// Reopen takes back the task's completion: it only drops it while it is
+// still waiting here, and reopens the task in Todoist once it was sent.
+func (c Completions) Reopen(taskID string) error {
+	return c.queue(reopenMark+taskID, taskID)
+}
+
+// queue adds line, unless its opposite is still waiting, in which case the
+// two cancel out and Todoist never hears of either.
+func (c Completions) queue(line, opposite string) error {
 	unlock, err := files.Lock(c.Path)
 	if err != nil {
 		return err
@@ -27,22 +43,41 @@ func (c Completions) Add(taskID string) error {
 	if err != nil {
 		return err
 	}
-	if slices.Contains(pending, taskID) {
+	if i := slices.Index(pending, opposite); i >= 0 {
+		return c.write(slices.Delete(pending, i, i+1))
+	}
+	if slices.Contains(pending, line) {
 		return nil
 	}
-	return c.write(append(pending, taskID))
+	return c.write(append(pending, line))
 }
 
 // Pending lists the tasks waiting to be completed in Todoist. Writes replace
 // the file whole, so a read needs no lock.
 func (c Completions) Pending() ([]string, error) {
-	return c.read()
+	lines, err := c.read()
+	return slices.DeleteFunc(lines, isReopen), err
 }
 
-// Flush completes every pending task in Todoist in one batch and keeps those
-// that failed.
+// Reopening lists the tasks waiting to be reopened in Todoist.
+func (c Completions) Reopening() ([]string, error) {
+	lines, err := c.read()
+	var ids []string
+	for _, line := range lines {
+		if isReopen(line) {
+			ids = append(ids, strings.TrimPrefix(line, reopenMark))
+		}
+	}
+	return ids, err
+}
+
+func isReopen(line string) bool {
+	return strings.HasPrefix(line, reopenMark)
+}
+
+// Flush completes and reopens every pending task in Todoist in one batch and
+// keeps those that failed.
 func (c Completions) Flush(client *Client) error {
-	// Writes replace the file whole, so a read needs no lock.
 	pending, err := c.read()
 	if err != nil || len(pending) == 0 {
 		return err
@@ -56,16 +91,30 @@ func (c Completions) Flush(client *Client) error {
 	}
 	defer unlock()
 
-	// Tasks added while the batch was out stay.
+	// Lines added while the batch was out stay. One sent but cancelled out
+	// meanwhile already reached Todoist, so its opposite is sent next time.
 	now, err := c.read()
 	if err != nil {
 		return err
 	}
-	now = slices.DeleteFunc(now, func(id string) bool { return slices.Contains(done, id) })
+	for _, line := range done {
+		if i := slices.Index(now, line); i >= 0 {
+			now = slices.Delete(now, i, i+1)
+		} else {
+			now = append(now, opposite(line))
+		}
+	}
 	if err := c.write(now); err != nil {
 		return err
 	}
 	return failed
+}
+
+func opposite(line string) string {
+	if isReopen(line) {
+		return strings.TrimPrefix(line, reopenMark)
+	}
+	return reopenMark + line
 }
 
 func (c Completions) read() ([]string, error) {
@@ -90,12 +139,17 @@ func (c Completions) write(pending []string) error {
 }
 
 // Complete closes each task in one request, as checking it off in Todoist
-// does: a recurring task moves on to its next date. It returns the tasks that
-// are settled: completed, or gone.
-func (c *Client) Complete(ids []string) ([]string, error) {
-	commands := make([]command, len(ids))
-	for i, id := range ids {
-		commands[i] = command{Type: "item_close", UUID: randomString(), Args: map[string]string{"id": id}}
+// does: a recurring task moves on to its next date. A line marked to reopen
+// uncompletes its task instead, which leaves a recurring one on the date it
+// moved on to. It returns the lines that are settled: done, or gone.
+func (c *Client) Complete(lines []string) ([]string, error) {
+	commands := make([]command, len(lines))
+	for i, line := range lines {
+		kind, id := "item_close", line
+		if isReopen(line) {
+			kind, id = "item_uncomplete", strings.TrimPrefix(line, reopenMark)
+		}
+		commands[i] = command{Type: kind, UUID: randomString(), Args: map[string]string{"id": id}}
 	}
 
 	statuses, err := c.sync(commands)
@@ -104,10 +158,10 @@ func (c *Client) Complete(ids []string) ([]string, error) {
 	}
 	var done []string
 	var failed error
-	for _, cmd := range commands {
+	for i, cmd := range commands {
 		switch err := statuses[cmd.UUID]; {
 		case err == nil, errors.Is(err, errTaskGone):
-			done = append(done, cmd.Args["id"])
+			done = append(done, lines[i])
 		default:
 			failed = err
 		}

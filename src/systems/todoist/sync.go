@@ -1,6 +1,7 @@
 package todoist
 
 import (
+	"errors"
 	"slices"
 
 	"orivo/src/systems/files"
@@ -50,10 +51,31 @@ func cacheDue(cachePath, donePath string, all []todos.Todo) ([]todos.Todo, error
 	}
 	defer unlock()
 
-	done, err := Completions{Path: donePath}.Pending()
+	completions := Completions{Path: donePath}
+	done, err := completions.Pending()
 	if err != nil {
 		return nil, err
 	}
 	all = slices.DeleteFunc(all, func(todo todos.Todo) bool { return slices.Contains(done, todo.ID) })
-	return all, todos.Cache{Path: cachePath}.Write(all)
+
+	// A todo whose completion was undone is still closed in Todoist until
+	// its reopening is sent, so it keeps the place the undo gave it.
+	reopening, err := completions.Reopening()
+	if err != nil {
+		return nil, err
+	}
+	cache := todos.Cache{Path: cachePath}
+	if len(reopening) > 0 {
+		cached, err := cache.Read()
+		if err != nil && !errors.Is(err, todos.ErrNoCache) {
+			return nil, err
+		}
+		for _, todo := range cached {
+			fetched := slices.ContainsFunc(all, func(t todos.Todo) bool { return t.ID == todo.ID })
+			if slices.Contains(reopening, todo.ID) && !fetched {
+				all = append(all, todo)
+			}
+		}
+	}
+	return all, cache.Write(all)
 }

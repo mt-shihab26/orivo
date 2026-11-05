@@ -23,6 +23,17 @@ type data struct {
 	Phase          string               `json:"timer_cycle_phase"`
 	Remaining      map[string]int64     `json:"timer_remaining_millis"`
 	PhaseStartedAt map[string]time.Time `json:"timer_phase_started_at"`
+	Done           *Done                `json:"timer_done,omitempty"`
+}
+
+// Done is the todo last marked done, kept so undo can take it back.
+type Done struct {
+	TodoID   string    `json:"todo_id"`
+	TodoText string    `json:"todo_text"`
+	Due      time.Time `json:"due,omitzero"`
+	// Session is whether marking it done also ended a work session.
+	Session bool      `json:"session,omitempty"`
+	At      time.Time `json:"at"`
 }
 
 type Store struct {
@@ -214,4 +225,20 @@ func timedPhase(name string) string {
 		return "Work"
 	}
 	return name
+}
+
+func (s *Store) LastDone() (Done, bool) {
+	if s.data.Done == nil {
+		return Done{}, false
+	}
+	return *s.data.Done, true
+}
+
+func (s *Store) SetLastDone(d Done) {
+	d.At = d.At.Round(0)
+	s.data.Done = &d
+}
+
+func (s *Store) ClearLastDone() {
+	s.data.Done = nil
 }
