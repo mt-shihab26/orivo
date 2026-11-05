@@ -254,17 +254,23 @@ func (c *Clock) SetTodo(id, text string) {
 	c.stash()
 
 	c.todoID, c.todoText = id, text
-	c.restore()
-
-	if c.running {
-		c.startedAt = c.now()
-		if c.phaseStartedAt.IsZero() {
-			c.phaseStartedAt = c.now()
-			c.store.SetPhaseStartedAt(c.phase.Name(), c.todoID, c.phaseStartedAt)
-		}
-	}
+	c.enter(c.now())
 
 	c.store.SetTodo(c.todoID, c.todoText)
+	c.store.Save()
+}
+
+// DropTodo lets go of the selected todo once Todoist no longer has it due,
+// and leaves the clock as it is, so a session under way keeps its time
+// rather than jumping to another todo's.
+func (c *Clock) DropTodo() {
+	if c.todoID == "" {
+		return
+	}
+	c.store.ForgetTodo(c.todoID)
+	c.todoID, c.todoText = "", ""
+	c.stash()
+	c.store.SetTodo("", "")
 	c.store.Save()
 }
 
@@ -300,7 +306,7 @@ func (c *Clock) Toggle() {
 // Reset puts the current phase back to its full time, paused.
 func (c *Clock) Reset() {
 	c.running = false
-	c.rewind(c.now())
+	c.rewind()
 	c.store.Save()
 }
 
@@ -408,7 +414,7 @@ func (c *Clock) end(now time.Time, ran time.Duration, finished bool) {
 	}
 
 	c.clearBreaks()
-	c.rewind(now)
+	c.enter(now)
 	c.store.SetPhase(c.phase.Name())
 	c.store.Save()
 }
@@ -445,7 +451,7 @@ func (c *Clock) undo(now time.Time) {
 	}
 	c.running = false
 	c.clearBreaks()
-	c.rewind(now)
+	c.enter(now)
 	c.store.SetPhase(c.phase.Name())
 	c.store.Save()
 }
@@ -457,21 +463,36 @@ func (c *Clock) finish() {
 		c.complete(c.todoID)
 		c.flushWanted = true
 	}
+	id := c.todoID
 	c.SetTodo("", "")
+	c.store.ForgetTodo(id)
+	c.store.Save()
 }
 
 func (c *Clock) total() time.Duration {
 	return c.phase.Duration(c.cfg)
 }
 
-func (c *Clock) rewind(now time.Time) {
+// rewind puts the current todo back to the phase's full time, paused.
+func (c *Clock) rewind() {
 	c.remaining = c.total()
 	c.startedAt, c.phaseStartedAt = time.Time{}, time.Time{}
 	c.store.ClearRemaining(c.phase.Name(), c.todoID)
 	c.store.ClearPhaseStartedAt(c.phase.Name(), c.todoID)
+}
+
+// enter takes up the current todo's saved time in the phase, or the full
+// time when it has none, so a todo paused in work comes back where it was.
+// A running clock counts from now.
+func (c *Clock) enter(now time.Time) {
+	c.startedAt = time.Time{}
+	c.restore()
 	if c.running {
-		c.startedAt, c.phaseStartedAt = now, now
-		c.store.SetPhaseStartedAt(c.phase.Name(), c.todoID, now)
+		c.startedAt = now
+		if c.phaseStartedAt.IsZero() {
+			c.phaseStartedAt = now
+			c.store.SetPhaseStartedAt(c.phase.Name(), c.todoID, now)
+		}
 	}
 }
 

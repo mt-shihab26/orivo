@@ -20,6 +20,7 @@ func (fakeTimer) TodoID() string            { return "" }
 func (fakeTimer) TodoText() string          { return "" }
 func (fakeTimer) Stat(string) sessions.Stat { return sessions.Stat{} }
 func (fakeTimer) SetTodo(id, text string)   {}
+func (fakeTimer) DropTodo()                 {}
 
 func finishSync(t *testing.T, count int, err error) *TodoLabel {
 	t.Helper()
@@ -72,6 +73,7 @@ type pickedTimer struct {
 
 func (p *pickedTimer) TodoID() string          { return p.id }
 func (p *pickedTimer) SetTodo(id, text string) { p.id = id }
+func (p *pickedTimer) DropTodo()               { p.id = "" }
 
 func TestSelectedTodoIsDroppedOnceSyncLeavesItOut(t *testing.T) {
 	cache := todos.Cache{Path: filepath.Join(t.TempDir(), "todoist.txt")}

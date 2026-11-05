@@ -526,3 +526,67 @@ func TestDoneWithoutATodoStillEndsWorkEarly(t *testing.T) {
 		t.Fatalf("sessions=%v phase=%v completed=%d", f.SessionsToday(), f.phase, completed)
 	}
 }
+
+func TestPausedTodoPickedInABreakKeepsItsWorkTime(t *testing.T) {
+	f := newFixture(t)
+
+	f.SetTodo("a", "Write report")
+	f.start()
+	f.wait(5 * time.Minute)
+	f.Toggle() // pause a at 20m
+
+	f.SetTodo("b", "Review PR")
+	f.Toggle()
+	f.wait(25 * time.Minute) // b's work ends
+	f.SetTodo("a", "Write report")
+	f.wait(5 * time.Minute) // the break ends with a picked
+
+	if f.phase != phase.Work || f.running {
+		t.Fatalf("phase=%v running=%v, want work, paused", f.phase, f.running)
+	}
+	if got := f.Remaining(); got != 20*time.Minute {
+		t.Fatalf("todo a remaining = %v, want the 20m it was paused at", got)
+	}
+}
+
+func TestUndoKeepsAnotherTodosPausedTime(t *testing.T) {
+	f := newFixture(t)
+
+	f.SetTodo("a", "Write report")
+	f.start()
+	f.wait(5 * time.Minute)
+	f.Toggle() // pause a at 20m
+
+	f.SetTodo("b", "Review PR")
+	f.Toggle()
+	f.wait(25 * time.Minute) // b's work ends
+	f.SetTodo("a", "Write report")
+	f.Undo()
+
+	if f.phase != phase.Work || f.running {
+		t.Fatalf("phase=%v running=%v, want work, paused", f.phase, f.running)
+	}
+	if got := f.Remaining(); got != 20*time.Minute {
+		t.Fatalf("todo a remaining = %v, want the 20m it was paused at", got)
+	}
+	f.SetTodo("b", "Review PR")
+	if got := f.Remaining(); got != 25*time.Minute {
+		t.Fatalf("todo b remaining = %v, want its undone session back at 25m", got)
+	}
+}
+
+func TestDroppedTodoLeavesTheSessionRunning(t *testing.T) {
+	f := newFixture(t)
+
+	f.SetTodo("a", "Write report")
+	f.start()
+	f.wait(10 * time.Minute)
+	f.DropTodo()
+
+	if f.TodoID() != "" || !f.running || f.Remaining() != 15*time.Minute {
+		t.Fatalf("todo=%q running=%v remaining=%v, want none, running at 15m", f.TodoID(), f.running, f.Remaining())
+	}
+	if _, ok := f.store.Remaining(phase.Work.Name(), "a"); ok {
+		t.Fatal("the dropped todo's time was kept")
+	}
+}

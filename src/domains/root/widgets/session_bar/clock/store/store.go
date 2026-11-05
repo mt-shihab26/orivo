@@ -3,6 +3,7 @@ package store
 import (
 	"bytes"
 	"encoding/json"
+	"maps"
 	"os"
 	"strings"
 	"time"
@@ -166,19 +167,21 @@ func (s *Store) ClearRemaining(phase, todoID string) {
 	delete(s.data.Remaining, key(phase, todoID))
 }
 
+// ForgetTodo drops the todo's timers in every phase.
+func (s *Store) ForgetTodo(todoID string) {
+	suffix := key("", todoID)
+	s.drop(func(k string) bool { return strings.HasSuffix(k, suffix) })
+}
+
 // ClearPhase drops every todo's timer in the phase.
 func (s *Store) ClearPhase(phase string) {
 	prefix := phase + "/"
-	for k := range s.data.Remaining {
-		if strings.HasPrefix(k, prefix) {
-			delete(s.data.Remaining, k)
-		}
-	}
-	for k := range s.data.PhaseStartedAt {
-		if strings.HasPrefix(k, prefix) {
-			delete(s.data.PhaseStartedAt, k)
-		}
-	}
+	s.drop(func(k string) bool { return strings.HasPrefix(k, prefix) })
+}
+
+func (s *Store) drop(match func(key string) bool) {
+	maps.DeleteFunc(s.data.Remaining, func(k string, _ int64) bool { return match(k) })
+	maps.DeleteFunc(s.data.PhaseStartedAt, func(k string, _ time.Time) bool { return match(k) })
 }
 
 func (s *Store) PhaseStartedAt(phase, todoID string) (time.Time, bool) {

@@ -26,6 +26,7 @@ type Timer interface {
 	TodoText() string
 	Stat(todoID string) sessions.Stat
 	SetTodo(id, text string)
+	DropTodo()
 }
 
 type syncResult struct {
@@ -207,6 +208,6 @@ func (l *TodoLabel) dropMissing() {
 		return
 	}
 	if !slices.ContainsFunc(all, func(todo todos.Todo) bool { return todo.ID == id }) {
-		l.timer.SetTodo("", "")
+		l.timer.DropTodo()
 	}
 }
